@@ -2693,7 +2693,7 @@ namespace System
 
         private static uint ExtractFractionAndBiasedExponent(float value, out int exponent)
         {
-            uint bits = (uint)(BitConverter.SingleToInt32Bits(value));
+            uint bits = BitConverter.SingleToUInt32Bits(value);
             uint fraction = (bits & 0x7FFFFF);
             exponent = ((int)(bits >> 23) & 0xFF);
 

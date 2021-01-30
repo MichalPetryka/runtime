@@ -198,7 +198,7 @@ namespace System
         {
             _objref = null;
             _flags = CV_R4;
-            _data = (uint)BitConverter.SingleToInt32Bits(val);
+            _data = BitConverter.SingleToUInt32Bits(val);
         }
 
         public Variant(double val)

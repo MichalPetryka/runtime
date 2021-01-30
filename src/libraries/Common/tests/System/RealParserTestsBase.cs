@@ -594,7 +594,7 @@ namespace System.Tests
             for (int i = start; i != end; ++i)
             {
                 float f = MathF.Pow(b, i);
-                uint bits = (uint)BitConverter.SingleToInt32Bits(f);
+                uint bits = BitConverter.SingleToUInt32Bits(f);
 
                 TestRoundTripSingle(bits - 1);
                 TestRoundTripSingle(bits);

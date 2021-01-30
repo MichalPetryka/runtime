@@ -491,7 +491,7 @@ namespace System
         {
             const int SingleMaxExponent = 0xFF;
 
-            uint floatInt = (uint)BitConverter.SingleToInt32Bits(value);
+            uint floatInt = BitConverter.SingleToUInt32Bits(value);
             bool sign = (floatInt & float.SignMask) >> float.SignShift != 0;
             int exp = (int)(floatInt & float.ExponentMask) >> float.ExponentShift;
             uint sig = floatInt & float.SignificandMask;

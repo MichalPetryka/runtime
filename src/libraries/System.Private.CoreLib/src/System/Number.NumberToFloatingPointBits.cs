@@ -394,7 +394,7 @@ namespace System
                 {
                     return BitConverter.HalfToUInt16Bits((Half)result);
                 }
-                return (uint)(BitConverter.SingleToInt32Bits(result));
+                return BitConverter.SingleToUInt32Bits(result);
             }
 
             if ((totalDigits <= 15) && (fastExponent <= 22))
@@ -417,7 +417,7 @@ namespace System
                 }
                 else if (info.DenormalMantissaBits == 23)
                 {
-                    return (uint)(BitConverter.SingleToInt32Bits((float)(result)));
+                    return BitConverter.SingleToUInt32Bits((float)(result));
                 }
                 else
                 {
