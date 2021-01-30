@@ -550,7 +550,7 @@ namespace System.Tests
                 (double.NaN, Half.NaN), // Quiet Negative NaN
                 (BitConverter.Int64BitsToDouble(0x7FF80000_00000000),
                     BitConverter.UInt16BitsToHalf(0b0_11111_1000000000)), // Quiet Positive NaN
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xFFFAAAAA_AAAAAAAA)),
+                (BitConverter.UInt64BitsToDouble(0xFFFAAAAA_AAAAAAAAU),
                     BitConverter.UInt16BitsToHalf(0b1_11111_1010101010)), // Signalling Negative NaN
                 (BitConverter.Int64BitsToDouble(0x7FFAAAAA_AAAAAAAA),
                     BitConverter.UInt16BitsToHalf(0b0_11111_1010101010)), // Signalling Positive NaN
@@ -578,15 +578,15 @@ namespace System.Tests
                     BitConverter.UInt16BitsToHalf(0b0_00000_0111111111)), // just below middle subnormal
                 (BitConverter.Int64BitsToDouble(0x3E70000000000000),
                     BitConverter.UInt16BitsToHalf(0b0_00000_0000000001)), // smallest subnormal
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBE70000000000000)),
+                (BitConverter.UInt64BitsToDouble(0xBE70000000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_00000_0000000001)), // highest negative subnormal
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBEFFF00000000000)),
+                (BitConverter.UInt64BitsToDouble(0xBEFFF00000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_00000_0111111111)), // just above negative middle subnormal
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBF00000000000000)),
+                (BitConverter.UInt64BitsToDouble(0xBF00000000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_00000_1000000000)), // negative middle subnormal
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBF0FF80000000000)),
+                (BitConverter.UInt64BitsToDouble(0xBF0FF80000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_00000_1111111111)), // lowest negative subnormal
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBF10000000000000)),
+                (BitConverter.UInt64BitsToDouble(0xBF10000000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_00001_0000000000)), // highest negative normal
                 (BitConverter.Int64BitsToDouble(0x40900E0000000001),
                     BitConverter.UInt16BitsToHalf(0b0_11001_0000000100)), // 1027.5+ULP rounds up
@@ -594,11 +594,11 @@ namespace System.Tests
                     BitConverter.UInt16BitsToHalf(0b0_11001_0000000100)), // 1027.5 rounds to even
                 (BitConverter.Int64BitsToDouble(0x40900DFFFFFFFFFF),
                     BitConverter.UInt16BitsToHalf(0b0_11001_0000000011)), // 1027.5-ULP rounds down
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xC0900DFFFFFFFFFF)),
+                (BitConverter.UInt64BitsToDouble(0xC0900DFFFFFFFFFFU),
                     BitConverter.UInt16BitsToHalf(0b1_11001_0000000011)), // -1027.5+ULP rounds towards zero
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xC0900E0000000000)),
+                (BitConverter.UInt64BitsToDouble(0xC0900E0000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_11001_0000000100)), // -1027.5 rounds to even
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xC0900E0000000001)),
+                (BitConverter.UInt64BitsToDouble(0xC0900E0000000001U),
                     BitConverter.UInt16BitsToHalf(0b1_11001_0000000100)), // -1027.5-ULP rounds away from zero
                 (BitConverter.Int64BitsToDouble(0x3F001C0000000001),
                     BitConverter.UInt16BitsToHalf(0b0_00000_1000000100)), // subnormal + ULP rounds up
@@ -606,11 +606,11 @@ namespace System.Tests
                     BitConverter.UInt16BitsToHalf(0b0_00000_1000000100)), // subnormal rounds to even
                 (BitConverter.Int64BitsToDouble(0x3F001BFFFFFFFFFF),
                     BitConverter.UInt16BitsToHalf(0b0_00000_1000000011)), // subnormal - ULP rounds down
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBF001BFFFFFFFFFF)),
+                (BitConverter.UInt64BitsToDouble(0xBF001BFFFFFFFFFFU),
                     BitConverter.UInt16BitsToHalf(0b1_00000_1000000011)), // neg subnormal + ULP rounds higher
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBF001C0000000000)),
+                (BitConverter.UInt64BitsToDouble(0xBF001C0000000000U),
                     BitConverter.UInt16BitsToHalf(0b1_00000_1000000100)), // neg subnormal rounds to even
-                (BitConverter.Int64BitsToDouble(unchecked((long)0xBF001C0000000001)),
+                (BitConverter.UInt64BitsToDouble(0xBF001C0000000001U),
                     BitConverter.UInt16BitsToHalf(0b1_00000_1000000100)), // neg subnormal - ULP rounds lower
                 (BitConverter.Int64BitsToDouble(0x3E60000000000000), BitConverter.UInt16BitsToHalf(0b0_00000_000000000)), // (half-precision minimum subnormal / 2) should underflow to zero
             };
