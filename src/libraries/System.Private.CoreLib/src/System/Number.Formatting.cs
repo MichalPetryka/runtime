@@ -2661,7 +2661,7 @@ namespace System
 
         private static ushort ExtractFractionAndBiasedExponent(Half value, out int exponent)
         {
-            ushort bits = (ushort)BitConverter.HalfToInt16Bits(value);
+            ushort bits = BitConverter.HalfToUInt16Bits(value);
             ushort fraction = (ushort)(bits & 0x3FF);
             exponent = ((int)(bits >> 10) & 0x1F);
 

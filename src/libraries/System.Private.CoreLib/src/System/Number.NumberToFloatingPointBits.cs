@@ -392,7 +392,7 @@ namespace System
 
                 if (info.DenormalMantissaBits == 10)
                 {
-                    return (ushort)(BitConverter.HalfToInt16Bits((Half)result));
+                    return BitConverter.HalfToUInt16Bits((Half)result);
                 }
                 return (uint)(BitConverter.SingleToInt32Bits(result));
             }
@@ -422,7 +422,7 @@ namespace System
                 else
                 {
                     Debug.Assert(info.DenormalMantissaBits == 10);
-                    return (uint)(BitConverter.HalfToInt16Bits((Half)(result)));
+                    return BitConverter.HalfToUInt16Bits((Half)(result));
                 }
             }
 
