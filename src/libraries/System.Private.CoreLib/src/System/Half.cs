@@ -519,7 +519,7 @@ namespace System
         {
             const int DoubleMaxExponent = 0x7FF;
 
-            ulong doubleInt = (ulong)BitConverter.DoubleToInt64Bits(value);
+            ulong doubleInt = BitConverter.DoubleToUInt64Bits(value);
             bool sign = (doubleInt & double.SignMask) >> double.SignShift != 0;
             int exp = (int)((doubleInt & double.ExponentMask) >> double.ExponentShift);
             ulong sig = doubleInt & double.SignificandMask;
@@ -589,7 +589,7 @@ namespace System
             {
                 if (sig == 0)
                 {
-                    return BitConverter.Int64BitsToDouble((long)(sign ? double.SignMask : 0)); // Positive / Negative zero
+                    return BitConverter.UInt64BitsToDouble(sign ? double.SignMask : 0); // Positive / Negative zero
                 }
                 (exp, sig) = NormSubnormalF16Sig(sig);
                 exp -= 1;
@@ -680,14 +680,14 @@ namespace System
             ulong signInt = (sign ? 1UL : 0UL) << double.SignShift;
             ulong sigInt = significand >> 12;
 
-            return BitConverter.Int64BitsToDouble((long)(signInt | NaNBits | sigInt));
+            return BitConverter.UInt64BitsToDouble(signInt | NaNBits | sigInt);
         }
 
         private static float CreateSingle(bool sign, byte exp, uint sig)
             => BitConverter.Int32BitsToSingle((int)(((sign ? 1U : 0U) << float.SignShift) + ((uint)exp << float.ExponentShift) + sig));
 
         private static double CreateDouble(bool sign, ushort exp, ulong sig)
-            => BitConverter.Int64BitsToDouble((long)(((sign ? 1UL : 0UL) << double.SignShift) + ((ulong)exp << double.ExponentShift) + sig));
+            => BitConverter.UInt64BitsToDouble(((sign ? 1UL : 0UL) << double.SignShift) + ((ulong)exp << double.ExponentShift) + sig);
 
         #endregion
     }

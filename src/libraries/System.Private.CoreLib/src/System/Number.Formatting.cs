@@ -2629,7 +2629,7 @@ namespace System
 
         private static ulong ExtractFractionAndBiasedExponent(double value, out int exponent)
         {
-            ulong bits = (ulong)(BitConverter.DoubleToInt64Bits(value));
+            ulong bits = BitConverter.DoubleToUInt64Bits(value);
             ulong fraction = (bits & 0xFFFFFFFFFFFFF);
             exponent = ((int)(bits >> 52) & 0x7FF);
 

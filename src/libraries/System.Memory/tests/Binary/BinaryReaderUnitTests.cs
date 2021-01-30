@@ -104,7 +104,7 @@ namespace System.Buffers.Binary.Tests
             Assert.True(TryReadDoubleBigEndian(span, out double doubleValue));
             Assert.Equal<double>(expectedDouble, doubleValue);
 
-            expectedDouble = BitConverter.Int64BitsToDouble(unchecked((long)0x8877665544332211));
+            expectedDouble = BitConverter.UInt64BitsToDouble(0x8877665544332211U);
             Assert.Equal<double>(expectedDouble, ReadDoubleLittleEndian(span));
             Assert.True(TryReadDoubleLittleEndian(span, out doubleValue));
             Assert.Equal<double>(expectedDouble, doubleValue);
@@ -203,7 +203,7 @@ namespace System.Buffers.Binary.Tests
             Assert.True(TryReadDoubleBigEndian(span, out double doubleValue));
             Assert.Equal<double>(expectedDouble, doubleValue);
 
-            expectedDouble = BitConverter.Int64BitsToDouble(unchecked((long)0x8877665544332211));
+            expectedDouble = BitConverter.UInt64BitsToDouble(0x8877665544332211U);
             Assert.Equal<double>(expectedDouble, ReadDoubleLittleEndian(span));
             Assert.True(TryReadDoubleLittleEndian(span, out doubleValue));
             Assert.Equal<double>(expectedDouble, doubleValue);

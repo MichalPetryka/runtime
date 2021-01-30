@@ -413,7 +413,7 @@ namespace System
 
                 if (info.DenormalMantissaBits == 52)
                 {
-                    return (ulong)(BitConverter.DoubleToInt64Bits(result));
+                    return BitConverter.DoubleToUInt64Bits(result);
                 }
                 else if (info.DenormalMantissaBits == 23)
                 {

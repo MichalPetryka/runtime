@@ -161,19 +161,19 @@ namespace System.Tests
         [Fact]
         public static void E()
         {
-            Assert.Equal(unchecked((long)0x4005BF0A8B145769), BitConverter.DoubleToInt64Bits(Math.E));
+            Assert.Equal(0x4005BF0A8B145769U, BitConverter.DoubleTouInt64Bits(Math.E));
         }
 
         [Fact]
         public static void Pi()
         {
-            Assert.Equal(unchecked((long)0x400921FB54442D18), BitConverter.DoubleToInt64Bits(Math.PI));
+            Assert.Equal(0x400921FB54442D18U, BitConverter.DoubleToUInt64Bits(Math.PI));
         }
 
         [Fact]
         public static void Tau()
         {
-            Assert.Equal(unchecked((long)0x401921FB54442D18), BitConverter.DoubleToInt64Bits(Math.Tau));
+            Assert.Equal(0x401921FB54442D18U, BitConverter.DoubleToUInt64Bits(Math.Tau));
         }
 
         /// <summary>Verifies that two <see cref="float"/> values are equal, within the <paramref name="variance"/>.</summary>
@@ -2934,7 +2934,7 @@ namespace System.Tests
         [InlineData( 9.267056966972586,        2,                             37.06822786789034,        CrossPlatformMachineEpsilon * 100)]
         [InlineData( 0.5617597462207241,       5,                             17.97631187906317,        CrossPlatformMachineEpsilon * 100)]
         [InlineData( 0.7741522965913037,       6,                             49.545746981843436,       CrossPlatformMachineEpsilon * 100)]
-        [InlineData( -0.6787637026394024,      7,                             -86.88175393784351,       CrossPlatformMachineEpsilon * 100)]        
+        [InlineData( -0.6787637026394024,      7,                             -86.88175393784351,       CrossPlatformMachineEpsilon * 100)]
         [InlineData( -6.531673581913484,       1,                             -13.063347163826968,      CrossPlatformMachineEpsilon * 100)]
         [InlineData( 9.267056966972586,        2,                             37.06822786789034,        CrossPlatformMachineEpsilon * 100)]
         [InlineData( 0.5617597462207241,       5,                             17.97631187906317,        CrossPlatformMachineEpsilon * 100)]

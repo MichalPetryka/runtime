@@ -247,9 +247,9 @@ namespace System.Text.Json.Serialization.Tests
             AssertFloatingPointBehavior(netfxExpectedValue: 0x00000000u, netcoreExpectedValue: 0x80000000u, () => (uint)SingleToInt32Bits(JsonSerializer.Deserialize<float>("-0")));
             AssertFloatingPointBehavior(netfxExpectedValue: 0x00000000u, netcoreExpectedValue: 0x80000000u, () => (uint)SingleToInt32Bits(JsonSerializer.Deserialize<float>("-0.0")));
 
-            AssertFloatingPointBehavior(netfxExpectedValue: 0x0000000000000000ul, netcoreExpectedValue: 0x0000000000000000ul, () => (ulong)BitConverter.DoubleToInt64Bits(JsonSerializer.Deserialize<double>("0")));
-            AssertFloatingPointBehavior(netfxExpectedValue: 0x0000000000000000ul, netcoreExpectedValue: 0x8000000000000000ul, () => (ulong)BitConverter.DoubleToInt64Bits(JsonSerializer.Deserialize<double>("-0")));
-            AssertFloatingPointBehavior(netfxExpectedValue: 0x0000000000000000ul, netcoreExpectedValue: 0x8000000000000000ul, () => (ulong)BitConverter.DoubleToInt64Bits(JsonSerializer.Deserialize<double>("-0.0")));
+            AssertFloatingPointBehavior(netfxExpectedValue: 0x0000000000000000ul, netcoreExpectedValue: 0x0000000000000000ul, () => BitConverter.DoubleToUInt64Bits(JsonSerializer.Deserialize<double>("0")));
+            AssertFloatingPointBehavior(netfxExpectedValue: 0x0000000000000000ul, netcoreExpectedValue: 0x8000000000000000ul, () => BitConverter.DoubleToUInt64Bits(JsonSerializer.Deserialize<double>("-0")));
+            AssertFloatingPointBehavior(netfxExpectedValue: 0x0000000000000000ul, netcoreExpectedValue: 0x8000000000000000ul, () => BitConverter.DoubleToUInt64Bits(JsonSerializer.Deserialize<double>("-0.0")));
 
             // Verify Round-tripping.
             Assert.Equal(float.MaxValue, JsonSerializer.Deserialize<float>(float.MaxValue.ToString(JsonTestHelper.SingleFormatString, CultureInfo.InvariantCulture)));

@@ -410,7 +410,7 @@ namespace System.Tests
             for (int i = start; i != end; i++)
             {
                 double d = Math.Pow(b, i);
-                ulong bits = (ulong)BitConverter.DoubleToInt64Bits(d);
+                ulong bits = BitConverter.DoubleTouInt64Bits(d);
 
                 TestRoundTripDouble(bits - 1);
                 TestRoundTripDouble(bits);
@@ -604,7 +604,7 @@ namespace System.Tests
 
         private void CheckOneDouble(string s, ulong expectedBits)
         {
-            CheckOneDouble(s, BitConverter.Int64BitsToDouble((long)(expectedBits)));
+            CheckOneDouble(s, BitConverter.UInt64BitsToDouble(expectedBits));
         }
 
         private void CheckOneDouble(string s, double expected)
@@ -642,7 +642,7 @@ namespace System.Tests
 
         private void TestRoundTripDouble(ulong bits)
         {
-            double d = BitConverter.Int64BitsToDouble((long)(bits));
+            double d = BitConverter.UInt64BitsToDouble(bits);
 
             if (double.IsFinite(d))
             {

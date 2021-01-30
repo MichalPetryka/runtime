@@ -2114,7 +2114,7 @@ namespace System
             else
             {
                 ulong bits = NumberToFloatingPointBits(ref number, in FloatingPointInfo.Double);
-                result = BitConverter.Int64BitsToDouble((long)(bits));
+                result = BitConverter.UInt64BitsToDouble(bits);
             }
 
             return number.IsNegative ? -result : result;
