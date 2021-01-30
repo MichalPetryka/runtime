@@ -410,7 +410,7 @@ namespace System.Tests
             for (int i = start; i != end; i++)
             {
                 double d = Math.Pow(b, i);
-                ulong bits = BitConverter.DoubleTouInt64Bits(d);
+                ulong bits = BitConverter.DoubleToUInt64Bits(d);
 
                 TestRoundTripDouble(bits - 1);
                 TestRoundTripDouble(bits);

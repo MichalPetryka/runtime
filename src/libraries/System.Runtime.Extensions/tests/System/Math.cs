@@ -161,7 +161,7 @@ namespace System.Tests
         [Fact]
         public static void E()
         {
-            Assert.Equal(0x4005BF0A8B145769U, BitConverter.DoubleTouInt64Bits(Math.E));
+            Assert.Equal(0x4005BF0A8B145769U, BitConverter.DoubleToUInt64Bits(Math.E));
         }
 
         [Fact]
