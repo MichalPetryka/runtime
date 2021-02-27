@@ -161,19 +161,19 @@ namespace System.Tests
         [Fact]
         public static void E()
         {
-            Assert.Equal(unchecked((long)0x4005BF0A8B145769), BitConverter.DoubleToInt64Bits(Math.E));
+            Assert.Equal(0x4005BF0A8B145769UL, BitConverter.DoubleToUInt64Bits(Math.E));
         }
 
         [Fact]
         public static void Pi()
         {
-            Assert.Equal(unchecked((long)0x400921FB54442D18), BitConverter.DoubleToInt64Bits(Math.PI));
+            Assert.Equal(0x400921FB54442D18UL, BitConverter.DoubleToUInt64Bits(Math.PI));
         }
 
         [Fact]
         public static void Tau()
         {
-            Assert.Equal(unchecked((long)0x401921FB54442D18), BitConverter.DoubleToInt64Bits(Math.Tau));
+            Assert.Equal(0x401921FB54442D18UL, BitConverter.DoubleToUInt64Bits(Math.Tau));
         }
 
         /// <summary>Verifies that two <see cref="float"/> values are equal, within the <paramref name="variance"/>.</summary>
