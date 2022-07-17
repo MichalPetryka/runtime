@@ -5077,7 +5077,15 @@ GenTree* Compiler::impSRCSUnsafeIntrinsic(NamedIntrinsic        intrinsic,
             // stobj !!T
             // ret
 
-            return nullptr;
+            GenTree* op1 = impPopStack().val;
+            GenTree* op2 = impPopStack().val;
+
+            CorInfoType jitType = info.compCompHnd->asCorInfoType(sig->sigInst.methInst[0]);
+            var_types varType = JITtype2varType(jitType);
+
+            GenTree* ind1 = gtNewOperNode(GT_IND, varType, op1);
+            GenTree* ind2 = gtNewOperNode(GT_IND, varType, op2);
+            return gtNewOperNode(GT_ASG, varType, ind1, ind2);
         }
 
         case NI_SRCS_UNSAFE_CopyBlock:
@@ -5196,26 +5204,26 @@ GenTree* Compiler::impSRCSUnsafeIntrinsic(NamedIntrinsic        intrinsic,
         }
 
         case NI_SRCS_UNSAFE_Read:
-        {
-            assert(sig->sigInst.methInstCount == 1);
-
-            // ldarg.0
-            // ldobj !!T
-            // ret
-
-            return nullptr;
-        }
-
         case NI_SRCS_UNSAFE_ReadUnaligned:
         {
             assert(sig->sigInst.methInstCount == 1);
 
             // ldarg.0
-            // unaligned. 0x1
+            // if NI_SRCS_UNSAFE_ReadUnaligned: unaligned. 0x1
             // ldobj !!T
             // ret
 
-            return nullptr;
+            GenTree* op1 = impPopStack().val;
+
+            CorInfoType jitType = info.compCompHnd->asCorInfoType(sig->sigInst.methInst[0]);
+            var_types varType = JITtype2varType(jitType);
+
+            GenTree* ind = gtNewOperNode(GT_IND, varType, op1);
+            if (intrinsic == NI_SRCS_UNSAFE_ReadUnaligned)
+            {
+                ind->gtFlags |= GTF_IND_UNALIGNED;
+            }
+            return ind;
         }
 
         case NI_SRCS_UNSAFE_SizeOf:
@@ -5306,28 +5314,28 @@ GenTree* Compiler::impSRCSUnsafeIntrinsic(NamedIntrinsic        intrinsic,
         }
 
         case NI_SRCS_UNSAFE_Write:
-        {
-            assert(sig->sigInst.methInstCount == 1);
-
-            // ldarg.0
-            // ldarg.1
-            // stobj !!T
-            // ret
-
-            return nullptr;
-        }
-
         case NI_SRCS_UNSAFE_WriteUnaligned:
         {
             assert(sig->sigInst.methInstCount == 1);
 
             // ldarg.0
             // ldarg.1
-            // unaligned. 0x01
+            // if NI_SRCS_UNSAFE_WriteUnaligned: unaligned. 0x01
             // stobj !!T
             // ret
 
-            return nullptr;
+            GenTree* op1 = impPopStack().val;
+            GenTree* op2 = impPopStack().val;
+
+            CorInfoType jitType = info.compCompHnd->asCorInfoType(sig->sigInst.methInst[0]);
+            var_types varType = JITtype2varType(jitType);
+
+            GenTree* ind = gtNewOperNode(GT_IND, varType, op1);
+            if (intrinsic == NI_SRCS_UNSAFE_WriteUnaligned)
+            {
+                ind->gtFlags |= GTF_IND_UNALIGNED;
+            }
+            return gtNewOperNode(GT_ASG, varType, ind, op2);
         }
 
         default:
