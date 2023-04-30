@@ -16032,7 +16032,7 @@ GenTree* Compiler::gtNewRefCOMfield(GenTree*                objPtr,
             {
                 // TODO: deal with flags
                 GenTreeFlags flags = GTF_EMPTY;
-                assg = impGetNodeAddr(assg, structType, CHECK_SPILL_ALL, &flags);
+                assg               = impGetNodeAddr(assg, structType, CHECK_SPILL_ALL, &flags);
             }
             else if (lclTyp == TYP_DOUBLE && assg->TypeGet() == TYP_FLOAT)
             {
@@ -16109,8 +16109,8 @@ GenTree* Compiler::gtNewRefCOMfield(GenTree*                objPtr,
                 {
                     // get the result as primitive type
                     GenTreeFlags flags = GTF_EMPTY;
-                    result = impGetNodeAddr(result, structType, CHECK_SPILL_ALL, &flags);
-                    result = gtNewIndir(lclTyp, result, flags);
+                    result             = impGetNodeAddr(result, structType, CHECK_SPILL_ALL, &flags);
+                    result             = gtNewIndir(lclTyp, result, flags);
                 }
             }
             else if (varTypeIsIntegral(lclTyp) && genTypeSize(lclTyp) < genTypeSize(TYP_INT))
