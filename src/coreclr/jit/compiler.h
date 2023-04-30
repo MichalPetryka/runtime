@@ -4053,7 +4053,7 @@ public:
                                 const DebugInfo&     di         = DebugInfo(),
                                 BasicBlock*          block      = nullptr);
 
-    GenTree* impGetNodeAddr(GenTree* val, CORINFO_CLASS_HANDLE typeHnd, unsigned curLevel, GenTreeFlags* derefFlags);
+    GenTree* impGetNodeAddr(GenTree* val, CORINFO_CLASS_HANDLE typeHnd, unsigned curLevel, GenTreeFlags* pDerefFlags);
 
     var_types impNormStructType(CORINFO_CLASS_HANDLE structHnd, CorInfoType* simdBaseJitType = nullptr);
 
