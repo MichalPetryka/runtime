@@ -1872,6 +1872,10 @@ bool Compiler::impSpillStackEntry(unsigned level,
     /* Assign the spilled entry to the temp */
     impAssignTempGen(tnum, tree, verCurrentState.esStack[level].seTypeInfo.GetClassHandle(), level);
 
+    JITDUMP("\n\nSpill V%02u new %d isret %d\n\n", tnum, isNewTemp, tree->OperGet() == GT_RET_EXPR);
+    DISPTREE(tree);
+    JITDUMP("\n\nEndtree\n\n");
+
     if (isNewTemp)
     {
         assert(lvaTable[tnum].lvSingleDef == 0);
