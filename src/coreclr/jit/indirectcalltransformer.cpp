@@ -833,7 +833,7 @@ private:
             {
                 if (clsHnd != NO_CLASS_HANDLE)
     {
-        JITDUMP("\nattrib check 39 values: %d %d\n", (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+        JITDUMP("\nattrib check 39 values: %d %d\n", (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_SHAREDINST) != 0, (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
     }
     else
     {
@@ -846,7 +846,7 @@ private:
                 auto a =compiler->info.compCompHnd->getMethodClass(inlineInfo->guardedMethodHandle);
                 if (a != NO_CLASS_HANDLE)
     {
-        JITDUMP("\nattrib check 40 values: %d %d\n", (info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+        JITDUMP("\nattrib check 40 values: %d %d\n", (compiler->info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_SHAREDINST) != 0, (compiler->info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
     }
     else
     {
