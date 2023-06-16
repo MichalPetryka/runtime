@@ -5587,7 +5587,7 @@ private:
             CORINFO_CLASS_HANDLE retClsHnd = comp->gtGetClassHandle(retExpr, &isExact, &isNonNull);
             if (retClsHnd != NO_CLASS_HANDLE)
     {
-        JITDUMP("\nattrib check 38 values: %d %d\n", (info.compCompHnd->getClassAttribs(retClsHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(retClsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+        JITDUMP("\nattrib check 38 values: %d %d\n", (comp->info.compCompHnd->getClassAttribs(retClsHnd) & CORINFO_FLG_SHAREDINST) != 0, (comp->info.compCompHnd->getClassAttribs(retClsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
     }
     else
     {
