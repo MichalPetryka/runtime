@@ -3547,8 +3547,19 @@ void Compiler::fgFindBasicBlocks()
                 if (info.compRetType == TYP_REF)
                 {
                     CORINFO_CLASS_HANDLE retClassHnd = impInlineInfo->inlineCandidateInfo->methInfo.args.retTypeClass;
+                    if (retClassHnd != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 30 values: %d %d\n", (info.compCompHnd->getClassAttribs(retClassHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(retClassHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 30 null\n");
+    }
                     if (retClassHnd != nullptr)
                     {
+
+
+
                         lvaSetClass(lvaInlineeReturnSpillTemp, retClassHnd);
                     }
                 }

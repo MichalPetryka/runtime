@@ -1696,6 +1696,14 @@ bool Compiler::impSpillStackEntry(unsigned level,
         if (lvaTable[tnum].lvType == TYP_REF)
         {
             CORINFO_CLASS_HANDLE stkHnd = verCurrentState.esStack[level].seTypeInfo.GetClassHandleForObjRef();
+            if (stkHnd != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 31 values: %d %d\n", (info.compCompHnd->getClassAttribs(stkHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(stkHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 31 null\n");
+    }
             lvaSetClass(tnum, tree, stkHnd);
         }
 
@@ -3145,8 +3153,15 @@ void Compiler::impImportAndPushBox(CORINFO_RESOLVED_TOKEN* pResolvedToken)
             lvaTable[impBoxTemp].lvType      = TYP_REF;
             lvaTable[impBoxTemp].lvSingleDef = 1;
             JITDUMP("Marking V%02u as a single def local\n", impBoxTemp);
-            const bool isExact =
-                (info.compCompHnd->getClassAttribs(pResolvedToken->hClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) == 0;
+            const bool isExact = true;
+            if (pResolvedToken->hClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 32 values: %d %d\n", (info.compCompHnd->getClassAttribs(pResolvedToken->hClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(pResolvedToken->hClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 32 null\n");
+    }
             lvaSetClass(impBoxTemp, pResolvedToken->hClass, isExact);
         }
 
@@ -5720,6 +5735,14 @@ GenTree* Compiler::impCastClassOrIsInstToTree(
     assert(lclDsc->lvSingleDef == 0);
     lclDsc->lvSingleDef = 1;
     JITDUMP("Marked V%02u as a single def temp\n", tmp);
+    if (pResolvedToken->hClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 33 values: %d %d\n", (info.compCompHnd->getClassAttribs(pResolvedToken->hClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(pResolvedToken->hClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 33 null\n");
+    }
     lvaSetClass(tmp, pResolvedToken->hClass);
     return gtNewLclvNode(tmp, TYP_REF);
 }
@@ -8649,6 +8672,14 @@ void Compiler::impImportBlockCode(BasicBlock* block)
                         assert(lvaTable[lclNum].lvSingleDef == 0);
                         lvaTable[lclNum].lvSingleDef = 1;
                         JITDUMP("Marked V%02u as a single def local\n", lclNum);
+                        if (resolvedToken.hClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 34 values: %d %d\n", (info.compCompHnd->getClassAttribs(resolvedToken.hClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(resolvedToken.hClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 34 null\n");
+    }
                         lvaSetClass(lclNum, resolvedToken.hClass, true /* is Exact */);
 
                         newObjThisPtr = gtNewLclvNode(lclNum, TYP_REF);
@@ -13262,6 +13293,14 @@ unsigned Compiler::impInlineFetchLocal(unsigned lclNum DEBUGARG(const char* reas
         // signature and pass in a more precise type.
         if (lclTyp == TYP_REF)
         {
+            if (inlineeLocal.lclTypeHandle != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 35 values: %d %d\n", (info.compCompHnd->getClassAttribs(inlineeLocal.lclTypeHandle) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(inlineeLocal.lclTypeHandle) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 35 null\n");
+    }
             lvaSetClass(tmpNum, inlineeLocal.lclTypeHandle);
         }
 
@@ -13443,6 +13482,15 @@ GenTree* Compiler::impInlineFetchArg(unsigned lclNum, InlArgInfo* inlArgInfo, In
 
             lvaTable[tmpNum].lvType = lclTyp;
 
+            if (lclInfo.lclTypeHandle != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 36 values: %d %d\n", (info.compCompHnd->getClassAttribs(lclInfo.lclTypeHandle) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(lclInfo.lclTypeHandle) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 36 null\n");
+    }
+
             // If arg can't be modified, mark it as single def.
             // For ref types, determine the class of the arg temp.
             if (!argCanBeModified)
@@ -13450,6 +13498,7 @@ GenTree* Compiler::impInlineFetchArg(unsigned lclNum, InlArgInfo* inlArgInfo, In
                 assert(lvaTable[tmpNum].lvSingleDef == 0);
                 lvaTable[tmpNum].lvSingleDef = 1;
                 JITDUMP("Marked V%02u as a single def temp\n", tmpNum);
+
                 if (lclTyp == TYP_REF)
                 {
                     lvaSetClass(tmpNum, argNode, lclInfo.lclTypeHandle);

@@ -17853,6 +17853,15 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
     var_types treeType = tree->TypeGet();
     if (treeType != TYP_REF)
     {
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 27 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 27 null\n");
+    }
         return objClass;
     }
 
@@ -17860,11 +17869,29 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
     GenTree*         obj   = tree->gtEffectiveVal(false);
     const genTreeOps objOp = obj->OperGet();
 
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 26 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 26 null\n");
+    }
+
     switch (objOp)
     {
         case GT_COMMA:
         {
             // gtEffectiveVal above means we shouldn't see commas here.
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 25 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 25 null\n");
+    }
             assert(!"unexpected GT_COMMA");
             break;
         }
@@ -17876,6 +17903,15 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
 
             objClass  = lvaTable[objLcl].lvClassHnd;
             *pIsExact = lvaTable[objLcl].lvClassIsExact;
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 24 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 24 null\n");
+    }
             break;
         }
 
@@ -17891,6 +17927,15 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     *pIsExact   = true;
                 }
             }
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 23 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 23 null\n");
+    }
             break;
         }
 
@@ -17900,6 +17945,15 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             // return value expression.
             GenTree* retExpr = obj->AsRetExpr()->gtInlineCandidate;
             objClass         = gtGetClassHandle(retExpr, pIsExact, pIsNonNull);
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 22 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 22 null\n");
+    }
             break;
         }
 
@@ -17921,8 +17975,26 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     objClass    = specialObjClass;
                     *pIsExact   = true;
                     *pIsNonNull = true;
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 21 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 21 null\n");
+    }
                     break;
                 }
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 20 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 20 null\n");
+    }
             }
             if (call->IsInlineCandidate() && !call->IsGuardedDevirtualizationCandidate())
             {
@@ -17963,6 +18035,15 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                         objClass = sig.retTypeClass;
                     }
                 }
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 19 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 19 null\n");
+    }
             }
             else if (call->gtCallType == CT_USER_FUNC)
             {
@@ -17988,11 +18069,38 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     assert(sig.retType == CORINFO_TYPE_CLASS);
                     objClass = sig.retTypeClass;
                 }
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 18 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 18 null\n");
+    }
             }
             else if (call->gtCallType == CT_HELPER)
             {
                 objClass = gtGetHelperCallClassHandle(call, pIsExact, pIsNonNull);
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 17 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 17 null\n");
+    }
             }
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 16 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 16 null\n");
+    }
 
             break;
         }
@@ -18011,6 +18119,15 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                 *pIsNonNull = true;
             }
 
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 15 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 15 null\n");
+    }
             break;
         }
 
@@ -18021,6 +18138,16 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             objClass    = impGetStringClass();
             *pIsExact   = true;
             *pIsNonNull = true;
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 14 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 14 null\n");
+    }
             break;
         }
 
@@ -18038,6 +18165,16 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                 const unsigned objLcl = base->AsLclVarCommon()->GetLclNum();
                 objClass              = lvaTable[objLcl].lvClassHnd;
                 *pIsExact             = lvaTable[objLcl].lvClassIsExact;
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 13 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 13 null\n");
+    }
             }
             else if (base->OperIs(GT_INDEX_ADDR, GT_ARR_ELEM))
             {
@@ -18054,6 +18191,16 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
 
                 *pIsExact   = false;
                 *pIsNonNull = false;
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 12 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 12 null\n");
+    }
             }
             else if (base->OperGet() == GT_ADD)
             {
@@ -18080,9 +18227,29 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                         if (fieldType == TYP_REF)
                         {
                             objClass = fieldClass;
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 11 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 11 null\n");
+    }
                         }
                     }
                 }
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 10 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 10 null\n");
+    }
             }
             else if (base->IsIconHandle(GTF_ICON_CONST_PTR, GTF_ICON_STATIC_HDL))
             {
@@ -18093,11 +18260,40 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     CORINFO_FIELD_HANDLE fldHandle = base->AsIntCon()->gtFieldSeq->GetFieldHandle();
                     objClass                       = gtGetFieldClassHandle(fldHandle, pIsExact, pIsNonNull);
                 }
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 9 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 9 null\n");
+    }
             }
             else if (base->OperIs(GT_FIELD_ADDR))
             {
                 objClass = gtGetFieldClassHandle(base->AsFieldAddr()->gtFldHnd, pIsExact, pIsNonNull);
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 8 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 8 null\n");
+    }
             }
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 7 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 7 null\n");
+    }
             break;
         }
 
@@ -18113,13 +18309,44 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             objClass                  = lvaTable[boxTempLcl].lvClassHnd;
             *pIsExact                 = lvaTable[boxTempLcl].lvClassIsExact;
             *pIsNonNull               = true;
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 6 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 6 null\n");
+    }
             break;
         }
 
         default:
         {
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 5 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 5 null\n");
+    }
             break;
         }
+    }
+
+
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 4 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 4 null\n");
     }
 
     if ((objClass != NO_CLASS_HANDLE) && !*pIsExact && JitConfig.JitEnableExactDevirtualization())
@@ -18129,7 +18356,25 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
         {
             *pIsExact = true;
             objClass  = exactClass;
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 3 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 3 null\n");
+    }
         }
+    }
+
+    if (objClass != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 2 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 2 null\n");
     }
 
     return objClass;

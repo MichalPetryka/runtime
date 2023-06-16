@@ -3643,6 +3643,7 @@ GenTree* Compiler::impIntrinsic(GenTree*                newobjThis,
                     CORINFO_CLASS_HANDLE typeHnd = gtGetClassHandle(op1, &isExact, &notNull);
                     if ((typeHnd != NO_CLASS_HANDLE) && isExact)
                     {
+                        JITDUMP("\nattrib check 1 values: %d %d\n", (info.compCompHnd->getClassAttribs(typeHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(typeHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
                         JITDUMP("Optimizing object.GetType() with known type to typeof\n");
                         op1 = impPopStack().val;
                         if (!notNull && fgAddrCouldBeNull(op1))
@@ -4072,6 +4073,14 @@ GenTree* Compiler::impSRCSUnsafeIntrinsic(NamedIntrinsic          intrinsic,
                 unsigned localNum = lvaGrabTemp(true DEBUGARG("updating class info"));
                 impStoreTemp(localNum, op, CHECK_SPILL_ALL);
 
+if (inst != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 37 values: %d %d\n", (info.compCompHnd->getClassAttribs(inst) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(inst) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 37 null\n");
+    }
                 // NOTE: we still can't say for sure that it is the exact type of the argument
                 lvaSetClass(localNum, inst, /*isExact*/ false);
                 return gtNewLclvNode(localNum, TYP_REF);
@@ -5576,6 +5585,14 @@ private:
             bool                 isExact   = false;
             bool                 isNonNull = false;
             CORINFO_CLASS_HANDLE retClsHnd = comp->gtGetClassHandle(retExpr, &isExact, &isNonNull);
+            if (retClsHnd != NO_CLASS_HANDLE)
+    {
+        JITDUMP("\nattrib check 38 values: %d %d\n", (info.compCompHnd->getClassAttribs(retClsHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(retClsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
+    }
+    else
+    {
+        JITDUMP("\nattrib check 38 null\n");
+    }
             if (retClsHnd != nullptr)
             {
                 comp->lvaSetClass(tmp, retClsHnd, isExact);
