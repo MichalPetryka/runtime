@@ -831,26 +831,18 @@ private:
 
             if (clsHnd != NO_CLASS_HANDLE)
             {
-                if (clsHnd != NO_CLASS_HANDLE)
+                if (clsHnd != NO_CLASS_HANDLE && (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0))
     {
-        JITDUMP("\nattrib check 39 values: %d %d\n", (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_SHAREDINST) != 0, (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 39 null\n");
+        printf("\nattrib check 39\n";
     }
                 compiler->lvaSetClass(thisTemp, clsHnd, true);
             }
             else
             {
                 auto a =compiler->info.compCompHnd->getMethodClass(inlineInfo->guardedMethodHandle);
-                if (a != NO_CLASS_HANDLE)
+                if (a != NO_CLASS_HANDLE && (compiler->info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 40 values: %d %d\n", (compiler->info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_SHAREDINST) != 0, (compiler->info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 40 null\n");
+        printf("\nattrib check 40\n");
     }
                 compiler->lvaSetClass(thisTemp,
                                       a);

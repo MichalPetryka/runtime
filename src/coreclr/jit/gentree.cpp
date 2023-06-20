@@ -17854,13 +17854,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
     if (treeType != TYP_REF)
     {
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 27 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 27 null\n");
+        printf("\nattrib check 27\n");
     }
         return objClass;
     }
@@ -17869,13 +17865,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
     GenTree*         obj   = tree->gtEffectiveVal(false);
     const genTreeOps objOp = obj->OperGet();
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 26 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 26 null\n");
+        printf("\nattrib check 26\n");
     }
 
     switch (objOp)
@@ -17884,13 +17876,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
         {
             // gtEffectiveVal above means we shouldn't see commas here.
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 25 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 25 null\n");
+        printf("\nattrib check 25\n");
     }
             assert(!"unexpected GT_COMMA");
             break;
@@ -17904,13 +17892,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             objClass  = lvaTable[objLcl].lvClassHnd;
             *pIsExact = lvaTable[objLcl].lvClassIsExact;
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 24 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 24 null\n");
+        printf("\nattrib check 24\n");
     }
             break;
         }
@@ -17928,13 +17912,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                 }
             }
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 23 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 23 null\n");
+        printf("\nattrib check 23\n");
     }
             break;
         }
@@ -17946,13 +17926,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             GenTree* retExpr = obj->AsRetExpr()->gtInlineCandidate;
             objClass         = gtGetClassHandle(retExpr, pIsExact, pIsNonNull);
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 22 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 22 null\n");
+        printf("\nattrib check 22\n");
     }
             break;
         }
@@ -17976,24 +17952,16 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     *pIsExact   = true;
                     *pIsNonNull = true;
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 21 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 21 null\n");
+        printf("\nattrib check 21\n");
     }
                     break;
                 }
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 20 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 20 null\n");
+        printf("\nattrib check 20\n");
     }
             }
             if (call->IsInlineCandidate() && !call->IsGuardedDevirtualizationCandidate())
@@ -18036,13 +18004,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     }
                 }
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 19 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 19 null\n");
+        printf("\nattrib check 19\n");
     }
             }
             else if (call->gtCallType == CT_USER_FUNC)
@@ -18070,36 +18034,24 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                     objClass = sig.retTypeClass;
                 }
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 18 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 18 null\n");
+        printf("\nattrib check 18\n");
     }
             }
             else if (call->gtCallType == CT_HELPER)
             {
                 objClass = gtGetHelperCallClassHandle(call, pIsExact, pIsNonNull);
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 17 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 17 null\n");
+        printf("\nattrib check 17\n");
     }
             }
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 16 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 16 null\n");
+        printf("\nattrib check 16\n");
     }
 
             break;
@@ -18120,13 +18072,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             }
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 15 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 15 null\n");
+        printf("\nattrib check 15\n");
     }
             break;
         }
@@ -18140,13 +18088,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             *pIsNonNull = true;
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 14 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 14 null\n");
+        printf("\nattrib check 14\n");
     }
             break;
         }
@@ -18167,13 +18111,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                 *pIsExact             = lvaTable[objLcl].lvClassIsExact;
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 13 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 13 null\n");
+        printf("\nattrib check 13\n");
     }
             }
             else if (base->OperIs(GT_INDEX_ADDR, GT_ARR_ELEM))
@@ -18193,13 +18133,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                 *pIsNonNull = false;
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 12 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 12 null\n");
+        printf("\nattrib check 12\n");
     }
             }
             else if (base->OperGet() == GT_ADD)
@@ -18229,26 +18165,18 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                             objClass = fieldClass;
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 11 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 11 null\n");
+        printf("\nattrib check 11\n");
     }
                         }
                     }
                 }
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 10 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 10 null\n");
+        printf("\nattrib check 10\n");
     }
             }
             else if (base->IsIconHandle(GTF_ICON_CONST_PTR, GTF_ICON_STATIC_HDL))
@@ -18262,37 +18190,25 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
                 }
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 9 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 9 null\n");
+        printf("\nattrib check 9\n");
     }
             }
             else if (base->OperIs(GT_FIELD_ADDR))
             {
                 objClass = gtGetFieldClassHandle(base->AsFieldAddr()->gtFldHnd, pIsExact, pIsNonNull);
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 8 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 8 null\n");
+        printf("\nattrib check 8\n");
     }
             }
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 7 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 7 null\n");
+        printf("\nattrib check 7\n");
     }
             break;
         }
@@ -18311,13 +18227,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             *pIsNonNull               = true;
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 6 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 6 null\n");
+        printf("\nattrib check 6\n");
     }
             break;
         }
@@ -18326,13 +18238,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
         {
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 5 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 5 null\n");
+        printf("\nattrib check 5\n");
     }
             break;
         }
@@ -18340,13 +18248,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
 
 
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 4 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 4 null\n");
+        printf("\nattrib check 4\n");
     }
 
     if ((objClass != NO_CLASS_HANDLE) && !*pIsExact && JitConfig.JitEnableExactDevirtualization())
@@ -18357,24 +18261,16 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
             *pIsExact = true;
             objClass  = exactClass;
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 3 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 3 null\n");
+        printf("\nattrib check 3\n");
     }
         }
     }
 
-    if (objClass != NO_CLASS_HANDLE)
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0))
     {
-        JITDUMP("\nattrib check 2 values: %d %d\n", (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 2 null\n");
+        printf("\nattrib check 2\n";
     }
 
     return objClass;

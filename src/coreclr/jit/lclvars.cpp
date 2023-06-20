@@ -299,13 +299,9 @@ void Compiler::lvaInitTypeRef()
         if (corInfoType == CORINFO_TYPE_CLASS)
         {
             CORINFO_CLASS_HANDLE clsHnd = info.compCompHnd->getArgClass(&info.compMethodInfo->locals, localsSig);
-            if (clsHnd != NO_CLASS_HANDLE)
+            if (clsHnd != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 47 values: %d %d\n", (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 47 null\n");
+        printf("\nattrib check 47\n");
     }
             lvaSetClass(varNum, clsHnd);
         }
@@ -486,13 +482,9 @@ void Compiler::lvaInitThisPtr(InitVarDscInfo* varDscInfo)
         else
         {
             varDsc->lvType = TYP_REF;
-            if (info.compClassHnd != NO_CLASS_HANDLE)
+            if (info.compClassHnd != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(info.compClassHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 45 values: %d %d\n", (info.compCompHnd->getClassAttribs(info.compClassHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(info.compClassHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 45 null\n");
+        printf("\nattrib check 45\n");
     }
             lvaSetClass(varDscInfo->varNum, info.compClassHnd);
         }
@@ -629,13 +621,9 @@ void Compiler::lvaInitUserArgs(InitVarDscInfo* varDscInfo, unsigned skipArgs, un
         if (strip(corInfoType) == CORINFO_TYPE_CLASS)
         {
             CORINFO_CLASS_HANDLE clsHnd = info.compCompHnd->getArgClass(&info.compMethodInfo->args, argLst);
-            if (clsHnd != NO_CLASS_HANDLE)
+            if (clsHnd != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 44 values: %d %d\n", (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 44 null\n");
+        printf("\nattrib check 44\n");
     }
             lvaSetClass(varDscInfo->varNum, clsHnd);
         }
@@ -3180,38 +3168,26 @@ void Compiler::lvaSetClass(unsigned varNum, GenTree* tree, CORINFO_CLASS_HANDLE 
 
     if (clsHnd != nullptr)
     {
-        if (clsHnd != NO_CLASS_HANDLE)
+        if (clsHnd != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 41 values: %d %d\n", (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 41 null\n");
+        printf("\nattrib check 41\n");
     }
         lvaSetClass(varNum, clsHnd, isExact);
     }
     else if (stackHnd != nullptr)
     {
-        if (stackHnd != NO_CLASS_HANDLE)
+        if (stackHnd != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(stackHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 42 values: %d %d\n", (info.compCompHnd->getClassAttribs(stackHnd) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(stackHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 42 null\n");
+        printf("\nattrib check 42\n");
     }
         lvaSetClass(varNum, stackHnd);
     }
     else
     {
         auto a = impGetObjectClass();
-        if (a != NO_CLASS_HANDLE)
+        if (a != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        JITDUMP("\nattrib check 43 values: %d %d\n", (info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_SHAREDINST) != 0, (info.compCompHnd->getClassAttribs(a) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0);
-    }
-    else
-    {
-        JITDUMP("\nattrib check 43 null\n");
+        printf("\nattrib check 43\n");
     }
         lvaSetClass(varNum, a);
     }
