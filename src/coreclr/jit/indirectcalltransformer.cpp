@@ -831,9 +831,9 @@ private:
 
             if (clsHnd != NO_CLASS_HANDLE)
             {
-                if (clsHnd != NO_CLASS_HANDLE && (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0))
+                if (clsHnd != NO_CLASS_HANDLE && (compiler->info.compCompHnd->getClassAttribs(clsHnd) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        printf("\nattrib check 39\n";
+        printf("\nattrib check 39\n");
     }
                 compiler->lvaSetClass(thisTemp, clsHnd, true);
             }

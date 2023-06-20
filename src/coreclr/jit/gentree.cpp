@@ -18268,9 +18268,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* pIsExact, b
         }
     }
 
-    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0))
+    if (objClass != NO_CLASS_HANDLE && (info.compCompHnd->getClassAttribs(objClass) & CORINFO_FLG_GENERIC_TYPE_VARIABLE) != 0)
     {
-        printf("\nattrib check 2\n";
+        printf("\nattrib check 2\n");
     }
 
     return objClass;
