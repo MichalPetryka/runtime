@@ -44,6 +44,7 @@ unsigned Compiler::fgCheckInlineDepthAndRecursion(InlineInfo* inlineInfo)
 
         if (inlineContext->GetCode() == candidateCode)
         {
+            printf("recurse block\n");
             // This inline candidate has the same IL code buffer as an already
             // inlined method does.
             inlineResult->NoteFatal(InlineObservation::CALLSITE_IS_RECURSIVE);
