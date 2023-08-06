@@ -12317,7 +12317,7 @@ void Compiler::impFixPredLists()
 //
 bool Compiler::impIsInvariant(const GenTree* tree)
 {
-    return tree->OperIsConst() || impIsAddressInLocal(tree) || tree->OperIs(GT_FTN_ADDR);
+    return tree->OperIsConst() || impIsAddressInLocal(tree) || tree->OperIs(GT_FTN_ADDR) || gtIsTypeof(tree);
 }
 
 //------------------------------------------------------------------------

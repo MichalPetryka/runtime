@@ -18503,7 +18503,7 @@ CORINFO_CLASS_HANDLE Compiler::gtGetFieldClassHandle(CORINFO_FIELD_HANDLE fieldH
 // Return Value:
 //    Is the tree typeof()
 //
-bool Compiler::gtIsTypeof(GenTree* tree, CORINFO_CLASS_HANDLE* handle)
+bool Compiler::gtIsTypeof(const GenTree* tree, CORINFO_CLASS_HANDLE* handle)
 {
     if (tree->IsCall())
     {
@@ -26229,7 +26229,7 @@ bool GenTreeLclFld::IsOffsetMisaligned() const
 
 bool GenTree::IsInvariant() const
 {
-    return OperIsConst() || OperIs(GT_LCL_ADDR) || OperIs(GT_FTN_ADDR);
+    return OperIsConst() || OperIs(GT_LCL_ADDR) || OperIs(GT_FTN_ADDR) || gtIsTypeof(this);
 }
 
 //------------------------------------------------------------------------
