@@ -215,11 +215,16 @@ namespace System.Numerics.Tensors
                             while (remainder >= (uint)(Vector128<TInput>.Count * 8))
                             {
                                 // We load, process, and store the first four vectors
+                                
+                                vector1 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 0));
+                                vector2 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 1));
+                                vector3 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 2));
+                                vector4 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 3));
 
-                                vector1 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 0)));
-                                vector2 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 1)));
-                                vector3 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 2)));
-                                vector4 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 3)));
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.StoreAlignedNonTemporal(dPtr + (uint)(Vector128<TOutput>.Count * 0));
                                 vector2.StoreAlignedNonTemporal(dPtr + (uint)(Vector128<TOutput>.Count * 1));
@@ -227,11 +232,16 @@ namespace System.Numerics.Tensors
                                 vector4.StoreAlignedNonTemporal(dPtr + (uint)(Vector128<TOutput>.Count * 3));
 
                                 // We load, process, and store the next four vectors
+                                
+                                vector1 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 4));
+                                vector2 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 5));
+                                vector3 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 6));
+                                vector4 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 7));
 
-                                vector1 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 4)));
-                                vector2 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 5)));
-                                vector3 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 6)));
-                                vector4 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 7)));
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.StoreAlignedNonTemporal(dPtr + (uint)(Vector128<TOutput>.Count * 4));
                                 vector2.StoreAlignedNonTemporal(dPtr + (uint)(Vector128<TOutput>.Count * 5));
@@ -253,10 +263,15 @@ namespace System.Numerics.Tensors
                             {
                                 // We load, process, and store the first four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 0)));
-                                vector2 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 1)));
-                                vector3 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 2)));
-                                vector4 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 3)));
+                                vector1 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 0));
+                                vector2 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 1));
+                                vector3 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 2));
+                                vector4 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 3));
+
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.Store(dPtr + (uint)(Vector128<TOutput>.Count * 0));
                                 vector2.Store(dPtr + (uint)(Vector128<TOutput>.Count * 1));
@@ -265,10 +280,15 @@ namespace System.Numerics.Tensors
 
                                 // We load, process, and store the next four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 4)));
-                                vector2 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 5)));
-                                vector3 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 6)));
-                                vector4 = TUnaryOperator.Invoke(Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 7)));
+                                vector1 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 4));
+                                vector2 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 5));
+                                vector3 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 6));
+                                vector4 = Vector128.Load(xPtr + (uint)(Vector128<TInput>.Count * 7));
+
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.Store(dPtr + (uint)(Vector128<TOutput>.Count * 4));
                                 vector2.Store(dPtr + (uint)(Vector128<TOutput>.Count * 5));
@@ -427,10 +447,15 @@ namespace System.Numerics.Tensors
                             {
                                 // We load, process, and store the first four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 0)));
-                                vector2 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 1)));
-                                vector3 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 2)));
-                                vector4 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 3)));
+                                vector1 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 0));
+                                vector2 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 1));
+                                vector3 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 2));
+                                vector4 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 3));
+                                
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.StoreAlignedNonTemporal(dPtr + (uint)(Vector256<TOutput>.Count * 0));
                                 vector2.StoreAlignedNonTemporal(dPtr + (uint)(Vector256<TOutput>.Count * 1));
@@ -438,11 +463,16 @@ namespace System.Numerics.Tensors
                                 vector4.StoreAlignedNonTemporal(dPtr + (uint)(Vector256<TOutput>.Count * 3));
 
                                 // We load, process, and store the next four vectors
+                                
+                                vector1 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 4));
+                                vector2 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 5));
+                                vector3 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 6));
+                                vector4 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 7));
 
-                                vector1 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 4)));
-                                vector2 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 5)));
-                                vector3 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 6)));
-                                vector4 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 7)));
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.StoreAlignedNonTemporal(dPtr + (uint)(Vector256<TOutput>.Count * 4));
                                 vector2.StoreAlignedNonTemporal(dPtr + (uint)(Vector256<TOutput>.Count * 5));
@@ -464,10 +494,15 @@ namespace System.Numerics.Tensors
                             {
                                 // We load, process, and store the first four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 0)));
-                                vector2 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 1)));
-                                vector3 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 2)));
-                                vector4 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 3)));
+                                vector1 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 0));
+                                vector2 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 1));
+                                vector3 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 2));
+                                vector4 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 3));
+                                
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.Store(dPtr + (uint)(Vector256<TOutput>.Count * 0));
                                 vector2.Store(dPtr + (uint)(Vector256<TOutput>.Count * 1));
@@ -476,10 +511,15 @@ namespace System.Numerics.Tensors
 
                                 // We load, process, and store the next four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 4)));
-                                vector2 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 5)));
-                                vector3 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 6)));
-                                vector4 = TUnaryOperator.Invoke(Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 7)));
+                                vector1 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 4));
+                                vector2 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 5));
+                                vector3 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 6));
+                                vector4 = Vector256.Load(xPtr + (uint)(Vector256<TInput>.Count * 7));
+
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.Store(dPtr + (uint)(Vector256<TOutput>.Count * 4));
                                 vector2.Store(dPtr + (uint)(Vector256<TOutput>.Count * 5));
@@ -638,10 +678,15 @@ namespace System.Numerics.Tensors
                             {
                                 // We load, process, and store the first four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 0)));
-                                vector2 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 1)));
-                                vector3 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 2)));
-                                vector4 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 3)));
+                                vector1 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 0));
+                                vector2 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 1));
+                                vector3 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 2));
+                                vector4 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 3));
+                                
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.StoreAlignedNonTemporal(dPtr + (uint)(Vector512<TOutput>.Count * 0));
                                 vector2.StoreAlignedNonTemporal(dPtr + (uint)(Vector512<TOutput>.Count * 1));
@@ -650,10 +695,15 @@ namespace System.Numerics.Tensors
 
                                 // We load, process, and store the next four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 4)));
-                                vector2 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 5)));
-                                vector3 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 6)));
-                                vector4 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 7)));
+                                vector1 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 4));
+                                vector2 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 5));
+                                vector3 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 6));
+                                vector4 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 7));
+                                
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.StoreAlignedNonTemporal(dPtr + (uint)(Vector512<TOutput>.Count * 4));
                                 vector2.StoreAlignedNonTemporal(dPtr + (uint)(Vector512<TOutput>.Count * 5));
@@ -675,10 +725,15 @@ namespace System.Numerics.Tensors
                             {
                                 // We load, process, and store the first four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 0)));
-                                vector2 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 1)));
-                                vector3 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 2)));
-                                vector4 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 3)));
+                                vector1 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 0));
+                                vector2 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 1));
+                                vector3 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 2));
+                                vector4 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 3));
+                                
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.Store(dPtr + (uint)(Vector512<TOutput>.Count * 0));
                                 vector2.Store(dPtr + (uint)(Vector512<TOutput>.Count * 1));
@@ -687,10 +742,15 @@ namespace System.Numerics.Tensors
 
                                 // We load, process, and store the next four vectors
 
-                                vector1 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 4)));
-                                vector2 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 5)));
-                                vector3 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 6)));
-                                vector4 = TUnaryOperator.Invoke(Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 7)));
+                                vector1 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 4));
+                                vector2 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 5));
+                                vector3 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 6));
+                                vector4 = Vector512.Load(xPtr + (uint)(Vector512<TInput>.Count * 7));
+                                
+                                vector1 = TUnaryOperator.Invoke(vector1);
+                                vector2 = TUnaryOperator.Invoke(vector2);
+                                vector3 = TUnaryOperator.Invoke(vector3);
+                                vector4 = TUnaryOperator.Invoke(vector4);
 
                                 vector1.Store(dPtr + (uint)(Vector512<TOutput>.Count * 4));
                                 vector2.Store(dPtr + (uint)(Vector512<TOutput>.Count * 5));
