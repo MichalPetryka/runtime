@@ -187,6 +187,9 @@ size_t printClassName(
 bool isValueClass(
           CORINFO_CLASS_HANDLE cls) override;
 
+bool isBitwiseEquatable(
+          CORINFO_CLASS_HANDLE cls) override;
+
 uint32_t getClassAttribs(
           CORINFO_CLASS_HANDLE cls) override;
 

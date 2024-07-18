@@ -473,6 +473,15 @@ bool interceptor_ICJI::isValueClass(CORINFO_CLASS_HANDLE cls)
     return temp;
 }
 
+// Checks if type can be compared for equality as bytes.
+bool interceptor_ICJI::isBitwiseEquatable(CORINFO_CLASS_HANDLE cls)
+{
+    mc->cr->AddCall("isBitwiseEquatable");
+    bool temp = original_ICorJitInfo->isBitwiseEquatable(cls);
+    mc->recIsBitwiseEquatable(cls, temp);
+    return temp;
+}
+
 // return flags (defined above, CORINFO_FLG_PUBLIC ...)
 uint32_t interceptor_ICJI::getClassAttribs(CORINFO_CLASS_HANDLE cls)
 {

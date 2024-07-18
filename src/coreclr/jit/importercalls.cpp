@@ -3330,6 +3330,7 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
             case NI_System_Type_IsAssignableTo:
             case NI_System_Type_get_IsGenericType:
             case NI_System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences:
+            case NI_System_Runtime_CompilerServices_RuntimeHelpers_IsBitwiseEquatable:
 
             // Lightweight intrinsics
             case NI_System_String_get_Chars:
@@ -3559,6 +3560,15 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
 
                 bool refOrContains = varTypeIsGC(fromType) || (fromLayout != nullptr && fromLayout->HasGCPtr());
                 retNode            = refOrContains ? gtNewIconNode(1) : gtNewIconNode(0);
+                break;
+            }
+
+            case NI_System_Runtime_CompilerServices_RuntimeHelpers_IsBitwiseEquatable:
+            {
+                assert(sig->sigInst.methInstCount == 1);
+
+                CORINFO_CLASS_HANDLE hClass = sig->sigInst.methInst[0];
+                retNode                     = gtNewIconNode(info.compCompHnd->isBitwiseEquatable(hClass) ? 1 : 0);
                 break;
             }
 
@@ -10367,6 +10377,10 @@ NamedIntrinsic Compiler::lookupNamedIntrinsic(CORINFO_METHOD_HANDLE method)
                             {
                                 result =
                                     NI_System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences;
+                            }
+                            else if (strcmp(methodName, "IsBitwiseEquatable") == 0)
+                            {
+                                result = NI_System_Runtime_CompilerServices_RuntimeHelpers_IsBitwiseEquatable;
                             }
                         }
                         else if (strcmp(className, "Unsafe") == 0)

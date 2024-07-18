@@ -319,18 +319,6 @@ namespace System.Runtime.CompilerServices
         [LibraryImport(QCall, EntryPoint = "ObjectNative_AllocateUninitializedClone")]
         internal static partial void AllocateUninitializedClone(ObjectHandleOnStack objHandle);
 
-        /// <returns>true if given type is bitwise equatable (memcmp can be used for equality checking)</returns>
-        /// <remarks>
-        /// Only use the result of this for Equals() comparison, not for CompareTo() comparison.
-        /// </remarks>
-        [Intrinsic]
-        internal static bool IsBitwiseEquatable<T>()
-        {
-            // The body of this function will be replaced by the EE with unsafe code!!!
-            // See getILIntrinsicImplementationForRuntimeHelpers for how this happens.
-            throw new InvalidOperationException();
-        }
-
         [Intrinsic]
         internal static bool EnumEquals<T>(T x, T y) where T : struct, Enum
         {

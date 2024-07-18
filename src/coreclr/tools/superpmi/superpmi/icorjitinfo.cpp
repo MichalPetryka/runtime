@@ -401,6 +401,13 @@ bool MyICJI::isValueClass(CORINFO_CLASS_HANDLE cls)
     return jitInstance->mc->repIsValueClass(cls);
 }
 
+// Checks if type can be compared for equality as bytes.
+bool MyICJI::isBitwiseEquatable(CORINFO_CLASS_HANDLE cls)
+{
+    jitInstance->mc->cr->AddCall("isBitwiseEquatable");
+    return jitInstance->mc->repIsBitwiseEquatable(cls);
+}
+
 // return flags (defined above, CORINFO_FLG_PUBLIC ...)
 uint32_t MyICJI::getClassAttribs(CORINFO_CLASS_HANDLE cls)
 {

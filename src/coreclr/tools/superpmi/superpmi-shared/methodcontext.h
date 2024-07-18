@@ -220,6 +220,10 @@ public:
     void dmpIsValueClass(DWORDLONG key, DWORD value);
     bool repIsValueClass(CORINFO_CLASS_HANDLE cls);
 
+    void recIsBitwiseEquatable(CORINFO_CLASS_HANDLE cls, bool result);
+    void dmpIsBitwiseEquatable(DWORDLONG key, DWORD value);
+    bool repIsBitwiseEquatable(CORINFO_CLASS_HANDLE cls);
+
     void recGetClassSize(CORINFO_CLASS_HANDLE cls, unsigned result);
     void dmpGetClassSize(DWORDLONG key, DWORD val);
     unsigned repGetClassSize(CORINFO_CLASS_HANDLE cls);
@@ -1185,6 +1189,7 @@ enum mcPackets
     Packet_GetClassThreadStaticDynamicInfo = 219,
     Packet_IsGenericType = 220,
     Packet_GetTypeForBoxOnStack = 221,
+    Packet_IsBitwiseEquatable = 222,
 };
 
 void SetDebugDumpVariables();

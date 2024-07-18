@@ -2347,6 +2347,9 @@ public:
     // Quick check whether the type is a value class. Returns the same value as getClassAttribs(cls) & CORINFO_FLG_VALUECLASS, except faster.
     virtual bool isValueClass(CORINFO_CLASS_HANDLE cls) = 0;
 
+    // Checks if type can be compared for equality as bytes.
+    virtual bool isBitwiseEquatable(CORINFO_CLASS_HANDLE cls) = 0;
+
     // return flags (a bitfield of CorInfoFlags values)
     virtual uint32_t getClassAttribs (
             CORINFO_CLASS_HANDLE    cls
@@ -2386,7 +2389,7 @@ public:
     virtual size_t getClassThreadStaticDynamicInfo (
             CORINFO_CLASS_HANDLE    cls
             ) = 0;
-            
+
     virtual bool getStaticBaseAddress(
             CORINFO_CLASS_HANDLE  cls,
             bool                  isGc,

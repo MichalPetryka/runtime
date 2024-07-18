@@ -6157,7 +6157,7 @@ CORINFO_CLASS_HANDLE  CEEInfo::getTypeForBoxOnStack(CORINFO_CLASS_HANDLE cls)
     JIT_TO_EE_TRANSITION();
 
     TypeHandle VMClsHnd(cls);
-    if (Nullable::IsNullableType(VMClsHnd)) 
+    if (Nullable::IsNullableType(VMClsHnd))
     {
         VMClsHnd = VMClsHnd.AsMethodTable()->GetInstantiation()[0];
     }
@@ -7183,8 +7183,42 @@ bool getILIntrinsicImplementationForInterlocked(MethodDesc * ftn,
     return true;
 }
 
-bool IsBitwiseEquatable(TypeHandle typeHandle, MethodTable * methodTable)
+bool isBitwiseEquatableHelper(TypeHandle typeHandle)
 {
+    // Ideally we could detect automatically whether a type is trivially equatable
+    // (i.e., its operator == could be implemented via memcmp). The best we can do
+    // for now is hardcode a list of known supported types and then also include anything
+    // that doesn't provide its own object.Equals override / IEquatable<T> implementation.
+    // n.b. This doesn't imply that the type's CompareTo method can be memcmp-implemented,
+    // as a method like CompareTo may need to take a type's signedness into account.
+
+    MethodTable* methodTable = typeHandle.GetMethodTable();
+
+    // avoid saying true for float and double enums
+    if (methodTable->IsEnum())
+    {
+        CorElementType elemType = typeHandle.AsMethodTable()->GetInternalCorElementType();
+        typeHandle = TypeHandle(CoreLibBinder::GetElementType(elemType));
+        methodTable = typeHandle.GetMethodTable();
+    }
+
+    if (methodTable == CoreLibBinder::GetClass(CLASS__BOOLEAN)
+        || methodTable == CoreLibBinder::GetClass(CLASS__BYTE)
+        || methodTable == CoreLibBinder::GetClass(CLASS__SBYTE)
+        || methodTable == CoreLibBinder::GetClass(CLASS__CHAR)
+        || methodTable == CoreLibBinder::GetClass(CLASS__INT16)
+        || methodTable == CoreLibBinder::GetClass(CLASS__UINT16)
+        || methodTable == CoreLibBinder::GetClass(CLASS__INT32)
+        || methodTable == CoreLibBinder::GetClass(CLASS__UINT32)
+        || methodTable == CoreLibBinder::GetClass(CLASS__INT64)
+        || methodTable == CoreLibBinder::GetClass(CLASS__UINT64)
+        || methodTable == CoreLibBinder::GetClass(CLASS__INTPTR)
+        || methodTable == CoreLibBinder::GetClass(CLASS__UINTPTR)
+        || methodTable == CoreLibBinder::GetClass(CLASS__RUNE))
+    {
+        return true;
+    }
+
     if (!methodTable->IsValueType() ||
         !CanCompareBitsOrUseFastGetHashCode(methodTable))
     {
@@ -7202,6 +7236,27 @@ bool IsBitwiseEquatable(TypeHandle typeHandle, MethodTable * methodTable)
     return true;
 }
 
+/*********************************************************************/
+bool CEEInfo::isBitwiseEquatable(CORINFO_CLASS_HANDLE cls)
+{
+    CONTRACTL {
+        THROWS;
+        GC_TRIGGERS;
+        MODE_PREEMPTIVE;
+    } CONTRACTL_END;
+
+    bool result = false;
+
+    JIT_TO_EE_TRANSITION();
+
+    TypeHandle typeHandle(cls);
+    result = isBitwiseEquatableHelper(typeHandle);
+
+    EE_TO_JIT_TRANSITION();
+
+    return result;
+}
+
 bool getILIntrinsicImplementationForRuntimeHelpers(MethodDesc * ftn,
     CORINFO_METHOD_INFO * methInfo)
 {
@@ -7210,55 +7265,6 @@ bool getILIntrinsicImplementationForRuntimeHelpers(MethodDesc * ftn,
     _ASSERTE(CoreLibBinder::IsClass(ftn->GetMethodTable(), CLASS__RUNTIME_HELPERS));
 
     mdMethodDef tk = ftn->GetMemberDef();
-
-    if (tk == CoreLibBinder::GetMethod(METHOD__RUNTIME_HELPERS__IS_BITWISE_EQUATABLE)->GetMemberDef())
-    {
-        _ASSERTE(ftn->HasMethodInstantiation());
-        Instantiation inst = ftn->GetMethodInstantiation();
-
-        _ASSERTE(ftn->GetNumGenericMethodArgs() == 1);
-        TypeHandle typeHandle = inst[0];
-        MethodTable * methodTable = typeHandle.GetMethodTable();
-
-        static const BYTE returnTrue[] = { CEE_LDC_I4_1, CEE_RET };
-        static const BYTE returnFalse[] = { CEE_LDC_I4_0, CEE_RET };
-
-        // Ideally we could detect automatically whether a type is trivially equatable
-        // (i.e., its operator == could be implemented via memcmp). The best we can do
-        // for now is hardcode a list of known supported types and then also include anything
-        // that doesn't provide its own object.Equals override / IEquatable<T> implementation.
-        // n.b. This doesn't imply that the type's CompareTo method can be memcmp-implemented,
-        // as a method like CompareTo may need to take a type's signedness into account.
-
-        if (methodTable == CoreLibBinder::GetClass(CLASS__BOOLEAN)
-            || methodTable == CoreLibBinder::GetClass(CLASS__BYTE)
-            || methodTable == CoreLibBinder::GetClass(CLASS__SBYTE)
-            || methodTable == CoreLibBinder::GetClass(CLASS__CHAR)
-            || methodTable == CoreLibBinder::GetClass(CLASS__INT16)
-            || methodTable == CoreLibBinder::GetClass(CLASS__UINT16)
-            || methodTable == CoreLibBinder::GetClass(CLASS__INT32)
-            || methodTable == CoreLibBinder::GetClass(CLASS__UINT32)
-            || methodTable == CoreLibBinder::GetClass(CLASS__INT64)
-            || methodTable == CoreLibBinder::GetClass(CLASS__UINT64)
-            || methodTable == CoreLibBinder::GetClass(CLASS__INTPTR)
-            || methodTable == CoreLibBinder::GetClass(CLASS__UINTPTR)
-            || methodTable == CoreLibBinder::GetClass(CLASS__RUNE)
-            || methodTable->IsEnum()
-            || IsBitwiseEquatable(typeHandle, methodTable))
-        {
-            methInfo->ILCode = const_cast<BYTE*>(returnTrue);
-        }
-        else
-        {
-            methInfo->ILCode = const_cast<BYTE*>(returnFalse);
-        }
-
-        methInfo->ILCodeSize = sizeof(returnTrue);
-        methInfo->maxStack = 1;
-        methInfo->EHcount = 0;
-        methInfo->options = (CorInfoOptions)0;
-        return true;
-    }
 
     if (tk == CoreLibBinder::GetMethod(METHOD__RUNTIME_HELPERS__GET_METHOD_TABLE)->GetMemberDef())
     {

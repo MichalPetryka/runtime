@@ -295,6 +295,12 @@ bool interceptor_ICJI::isValueClass(
     return original_ICorJitInfo->isValueClass(cls);
 }
 
+bool interceptor_ICJI::isBitwiseEquatable(
+          CORINFO_CLASS_HANDLE cls)
+{
+    return original_ICorJitInfo->isBitwiseEquatable(cls);
+}
+
 uint32_t interceptor_ICJI::getClassAttribs(
           CORINFO_CLASS_HANDLE cls)
 {

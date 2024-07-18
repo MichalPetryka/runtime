@@ -187,15 +187,6 @@ namespace System.Runtime.CompilerServices
             return !MethodTable.Of<T>()->IsValueType;
         }
 
-        [Intrinsic]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsBitwiseEquatable<T>()
-        {
-            // Only reachable for universal shared code - the compiler replaces this otherwise.
-            // Returning false is conservative.
-            return false;
-        }
-
         internal static ref byte GetRawData(this object obj) =>
             ref Unsafe.As<RawData>(obj).Data;
 

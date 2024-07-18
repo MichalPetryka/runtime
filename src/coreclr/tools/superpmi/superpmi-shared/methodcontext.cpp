@@ -1781,6 +1781,28 @@ bool MethodContext::repIsValueClass(CORINFO_CLASS_HANDLE cls)
     return value != 0;
 }
 
+void MethodContext::recIsBitwiseEquatable(CORINFO_CLASS_HANDLE cls, bool result)
+{
+    if (IsBitwiseEquatable == nullptr)
+        IsBitwiseEquatable = new LightWeightMap<DWORDLONG, DWORD>();
+
+    DWORDLONG key = CastHandle(cls);
+    DWORD value = result ? 1 : 0;
+    IsBitwiseEquatable->Add(key, value);
+    DEBUG_REC(dmpIsBitwiseEquatable(key, value));
+}
+void MethodContext::dmpIsBitwiseEquatable(DWORDLONG key, DWORD value)
+{
+    printf("IsBitwiseEquatable key cls-%016" PRIX64 ", value res-%u", key, value);
+}
+bool MethodContext::repIsBitwiseEquatable(CORINFO_CLASS_HANDLE cls)
+{
+    DWORDLONG key = CastHandle(cls);
+    DWORD value = LookupByKeyOrMiss(IsBitwiseEquatable, key, ": key %016" PRIX64 "", key);
+    DEBUG_REP(dmpIsBitwiseEquatable(key, value));
+    return value != 0;
+}
+
 void MethodContext::recGetClassSize(CORINFO_CLASS_HANDLE cls, unsigned result)
 {
     if (GetClassSize == nullptr)

@@ -168,5 +168,12 @@ namespace System.Runtime.CompilerServices
         /// <returns>true if the given type is a reference type or a value type that contains references or by-refs; otherwise, false.</returns>
         [Intrinsic]
         public static bool IsReferenceOrContainsReferences<T>() where T: allows ref struct => IsReferenceOrContainsReferences<T>();
+
+        /// <returns>true if given type is bitwise equatable (memcmp can be used for equality checking)</returns>
+        /// <remarks>
+        /// Only use the result of this for Equals() comparison, not for CompareTo() comparison.
+        /// </remarks>
+        [Intrinsic]
+        internal static bool IsBitwiseEquatable<T>() => IsBitwiseEquatable<T>();
     }
 }
