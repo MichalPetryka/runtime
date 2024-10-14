@@ -15097,7 +15097,7 @@ BYTE* emitter::emitOutputRR(BYTE* dst, instrDesc* id)
 #ifdef TARGET_AMD64
 
         assert((size < EA_4BYTE) || (insIsCMOV(ins)));
-        if ((size == EA_8BYTE) || (ins == INS_movsx))
+        if ((size == EA_8BYTE) && (ins == INS_movsx))
         {
             code = AddRexWPrefix(id, code);
         }
