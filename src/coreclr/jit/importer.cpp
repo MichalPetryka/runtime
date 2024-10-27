@@ -9227,31 +9227,6 @@ void Compiler::impImportBlockCode(BasicBlock* block)
                         default:
                             break;
                     }
-
-                    if (!isLoadAddress && (fieldInfo.fieldFlags & CORINFO_FLG_FIELD_STATIC) && (lclTyp == TYP_STRUCT))
-                    {
-                        if ((info.compCompHnd->getTypeForPrimitiveValueClass(clsHnd) == CORINFO_TYPE_UNDEF) &&
-                            !(info.compFlags & CORINFO_FLG_FORCEINLINE))
-                        {
-                            // Loading a static valuetype field usually will cause a JitHelper to be called
-                            // for the static base. This will bloat the code.
-
-                            // Make an exception - small getters (6 bytes of IL) returning initialized fields, e.g.:
-                            //
-                            //  static DateTime Foo { get; } = DateTime.Now;
-                            //
-                            bool isInitedFld = (opcode == CEE_LDSFLD) && (info.compILCodeSize <= 6) &&
-                                               (fieldInfo.fieldFlags & CORINFO_FLG_FIELD_FINAL);
-                            if (!isInitedFld)
-                            {
-                                compInlineResult->Note(InlineObservation::CALLEE_LDFLD_STATIC_VALUECLASS);
-                                if (compInlineResult->IsFailure())
-                                {
-                                    return;
-                                }
-                            }
-                        }
-                    }
                 }
 
                 if (isLoadAddress)
