@@ -851,9 +851,10 @@ public:
             return false;
         }
         const unsigned argNum = value - SLOT_ARGUMENT;
-        if (argNum < info->argCnt)
+        if ((argNum < info->argCnt) && info->inlArgInfo[argNum].argIsConstant)
         {
-            return info->inlArgInfo[argNum].argIsInvariant;
+            assert(info->inlArgInfo[argNum].argIsInvariant);
+            return true;
         }
         return false;
     }
@@ -2652,8 +2653,9 @@ void Compiler::fgObserveInlineConstants(OPCODE opcode, const FgStack& stack, boo
                     // Check for the double whammy of an incoming constant argument
                     // feeding a constant test.
                     unsigned varNum = FgStack::SlotTypeToArgNum(slot0);
-                    if (impInlineInfo->inlArgInfo[varNum].argIsInvariant)
+                    if (impInlineInfo->inlArgInfo[varNum].argIsConstant)
                     {
+                        assert(impInlineInfo->inlArgInfo[varNum].argIsInvariant);
                         compInlineResult->Note(InlineObservation::CALLSITE_CONSTANT_ARG_FEEDS_TEST);
                     }
                 }
@@ -2694,8 +2696,9 @@ void Compiler::fgObserveInlineConstants(OPCODE opcode, const FgStack& stack, boo
             compInlineResult->Note(InlineObservation::CALLEE_ARG_FEEDS_TEST);
 
             unsigned varNum = FgStack::SlotTypeToArgNum(slot0);
-            if (impInlineInfo->inlArgInfo[varNum].argIsInvariant)
+            if (impInlineInfo->inlArgInfo[varNum].argIsConstant)
             {
+                assert(impInlineInfo->inlArgInfo[varNum].argIsInvariant);
                 compInlineResult->Note(InlineObservation::CALLSITE_CONSTANT_ARG_FEEDS_TEST);
             }
         }
@@ -2705,8 +2708,9 @@ void Compiler::fgObserveInlineConstants(OPCODE opcode, const FgStack& stack, boo
             compInlineResult->Note(InlineObservation::CALLEE_ARG_FEEDS_TEST);
 
             unsigned varNum = FgStack::SlotTypeToArgNum(slot1);
-            if (impInlineInfo->inlArgInfo[varNum].argIsInvariant)
+            if (impInlineInfo->inlArgInfo[varNum].argIsConstant)
             {
+                assert(impInlineInfo->inlArgInfo[varNum].argIsInvariant);
                 compInlineResult->Note(InlineObservation::CALLSITE_CONSTANT_ARG_FEEDS_TEST);
             }
         }

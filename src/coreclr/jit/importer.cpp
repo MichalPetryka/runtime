@@ -4181,7 +4181,7 @@ GenTree* Compiler::impImportStaticFieldAddress(CORINFO_RESOLVED_TOKEN* pResolved
             }
             if (isStaticReadOnlyInitedRef)
             {
-                indirFlags |= (GTF_IND_INVARIANT | GTF_IND_NONNULL);
+                indirFlags |= (GTF_IND_NONFAULTING | GTF_IND_INVARIANT | GTF_IND_NONNULL);
             }
             break;
         }
@@ -12988,6 +12988,7 @@ void Compiler::impInlineRecordArgInfo(InlineInfo*   pInlineInfo,
     if (impIsInvariant(curArgVal))
     {
         inlCurArgInfo->argIsInvariant = true;
+        inlCurArgInfo->argIsConstant  = !curArgVal->OperIs(GT_IND);
         if (inlCurArgInfo->argIsThis && (curArgVal->gtOper == GT_CNS_INT) && (curArgVal->AsIntCon()->gtIconVal == 0))
         {
             // Abort inlining at this call site
@@ -12998,6 +12999,7 @@ void Compiler::impInlineRecordArgInfo(InlineInfo*   pInlineInfo,
     else if (gtIsTypeof(curArgVal))
     {
         inlCurArgInfo->argIsInvariant = true;
+        inlCurArgInfo->argIsConstant  = true;
         inlCurArgInfo->argHasSideEff  = false;
     }
 
@@ -13131,6 +13133,7 @@ void Compiler::impInlineInitVars(InlineInfo* pInlineInfo)
                 if (arg.GetNode()->IsCnsIntOrI())
                 {
                     ctxInfo->argIsInvariant = true;
+                    ctxInfo->argIsConstant  = true;
                 }
                 else
                 {
