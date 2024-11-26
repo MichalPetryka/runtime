@@ -2122,6 +2122,13 @@ Statement* Compiler::fgInlinePrependStatements(InlineInfo* inlineInfo)
                     compSuppressedZeroInit       = true;
                     continue;
                 }
+                else if (tmpDsc->lvIsParam)
+                {
+                    JITDUMP("\nSuppressing zero-init for V%02u -- local is a paramerer\n", tmpNum);
+                    tmpDsc->lvSuppressedZeroInit = 1;
+                    compSuppressedZeroInit       = true;
+                    continue;
+                }
 
                 var_types lclTyp = tmpDsc->TypeGet();
                 noway_assert(lclTyp == lclVarInfo[lclNum + inlineInfo->argCnt].lclTypeInfo);
