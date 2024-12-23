@@ -128,11 +128,12 @@ namespace System.Runtime.InteropServices
             int toLength;
             if (fromSize == toSize)
             {
-                // Special case for same size types - `(ulong)fromLength * (ulong)fromSize / (ulong)toSize`
-                // should be optimized to just `length` but the JIT doesn't do that today.
-                toLength = (int)fromLength;
+                // Special case for same size types
+                // should be optimized without this but the JIT doesn't do that today.
+                return Unsafe.BitCast<Span<TFrom>, Span<TTo>>(span);
             }
-            else if (fromSize == 1)
+
+            if (fromSize == 1)
             {
                 // Special case for byte sized TFrom - `(ulong)fromLength * (ulong)fromSize / (ulong)toSize`
                 // becomes `(ulong)fromLength / (ulong)toSize` but the JIT can't narrow it down to `int`
@@ -183,11 +184,12 @@ namespace System.Runtime.InteropServices
             int toLength;
             if (fromSize == toSize)
             {
-                // Special case for same size types - `(ulong)fromLength * (ulong)fromSize / (ulong)toSize`
-                // should be optimized to just `length` but the JIT doesn't do that today.
-                toLength = (int)fromLength;
+                // Special case for same size types
+                // should be optimized without this but the JIT doesn't do that today.
+                return Unsafe.BitCast<ReadOnlySpan<TFrom>, ReadOnlySpan<TTo>>(span);
             }
-            else if (fromSize == 1)
+
+            if (fromSize == 1)
             {
                 // Special case for byte sized TFrom - `(ulong)fromLength * (ulong)fromSize / (ulong)toSize`
                 // becomes `(ulong)fromLength / (ulong)toSize` but the JIT can't narrow it down to `int`
