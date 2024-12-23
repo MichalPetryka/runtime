@@ -124,8 +124,6 @@ namespace System.Runtime.InteropServices
             // and checked casts are faster and smaller.
             uint fromSize = (uint)sizeof(TFrom);
             uint toSize = (uint)sizeof(TTo);
-            uint fromLength = (uint)span.Length;
-            int toLength;
             if (fromSize == toSize)
             {
                 // Special case for same size types
@@ -133,6 +131,8 @@ namespace System.Runtime.InteropServices
                 return Unsafe.BitCast<Span<TFrom>, Span<TTo>>(span);
             }
 
+            uint fromLength = (uint)span.Length;
+            int toLength;
             if (fromSize == 1)
             {
                 // Special case for byte sized TFrom - `(ulong)fromLength * (ulong)fromSize / (ulong)toSize`
@@ -180,8 +180,6 @@ namespace System.Runtime.InteropServices
             // and checked casts are faster and smaller.
             uint fromSize = (uint)sizeof(TFrom);
             uint toSize = (uint)sizeof(TTo);
-            uint fromLength = (uint)span.Length;
-            int toLength;
             if (fromSize == toSize)
             {
                 // Special case for same size types
@@ -189,6 +187,8 @@ namespace System.Runtime.InteropServices
                 return Unsafe.BitCast<ReadOnlySpan<TFrom>, ReadOnlySpan<TTo>>(span);
             }
 
+            uint fromLength = (uint)span.Length;
+            int toLength;
             if (fromSize == 1)
             {
                 // Special case for byte sized TFrom - `(ulong)fromLength * (ulong)fromSize / (ulong)toSize`
