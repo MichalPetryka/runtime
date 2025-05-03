@@ -55,30 +55,19 @@ namespace System.Collections.Generic
                 Initialize(capacity);
             }
 
-            // For reference types, we always want to store a comparer instance, either
-            // the one provided, or if one wasn't provided, the default (accessing
-            // EqualityComparer<TKey>.Default with shared generics on every dictionary
-            // access can add measurable overhead).  For value types, if no comparer is
-            // provided, or if the default is provided, we'd prefer to use
-            // EqualityComparer<TKey>.Default.Equals on every use, enabling the JIT to
-            // devirtualize and possibly inline the operation.
-            if (!typeof(TKey).IsValueType)
-            {
-                _comparer = comparer ?? EqualityComparer<TKey>.Default;
-
-                // Special-case EqualityComparer<string>.Default, StringComparer.Ordinal, and StringComparer.OrdinalIgnoreCase.
-                // We use a non-randomized comparer for improved perf, falling back to a randomized comparer if the
-                // hash buckets become unbalanced.
-                if (typeof(TKey) == typeof(string) &&
-                    NonRandomizedStringEqualityComparer.GetStringComparer(_comparer!) is IEqualityComparer<string> stringComparer)
-                {
-                    _comparer = (IEqualityComparer<TKey>)stringComparer;
-                }
-            }
-            else if (comparer is not null && // first check for null to avoid forcing default comparer instantiation unnecessarily
-                     comparer != EqualityComparer<TKey>.Default)
+            if (comparer is not null && // first check for null to avoid forcing default comparer instantiation unnecessarily
+                comparer != EqualityComparer<TKey>.Default)
             {
                 _comparer = comparer;
+            }
+            
+            // Special-case EqualityComparer<string>.Default, StringComparer.Ordinal, and StringComparer.OrdinalIgnoreCase.
+            // We use a non-randomized comparer for improved perf, falling back to a randomized comparer if the
+            // hash buckets become unbalanced.
+            if (typeof(TKey) == typeof(string) &&
+                NonRandomizedStringEqualityComparer.GetStringComparer(comparer ?? EqualityComparer<TKey>.Default) is IEqualityComparer<string> stringComparer)
+            {
+                _comparer = (IEqualityComparer<TKey>)stringComparer;
             }
         }
 
@@ -406,8 +395,7 @@ namespace System.Collections.Generic
             {
                 Debug.Assert(_entries != null, "expected entries to be != null");
                 IEqualityComparer<TKey>? comparer = _comparer;
-                if (typeof(TKey).IsValueType && // comparer can only be null for value types; enable JIT to eliminate entire if block for ref types
-                    comparer == null)
+                if (comparer == null)
                 {
                     uint hashCode = (uint)key.GetHashCode();
                     int i = GetBucket(hashCode);
@@ -522,15 +510,13 @@ namespace System.Collections.Generic
             Debug.Assert(entries != null, "expected entries to be non-null");
 
             IEqualityComparer<TKey>? comparer = _comparer;
-            Debug.Assert(comparer is not null || typeof(TKey).IsValueType);
-            uint hashCode = (uint)((typeof(TKey).IsValueType && comparer == null) ? key.GetHashCode() : comparer!.GetHashCode(key));
+            uint hashCode = (uint)(comparer == null ? key.GetHashCode() : comparer!.GetHashCode(key));
 
             uint collisionCount = 0;
             ref int bucket = ref GetBucket(hashCode);
             int i = bucket - 1; // Value in _buckets is 1-based
 
-            if (typeof(TKey).IsValueType && // comparer can only be null for value types; enable JIT to eliminate entire if block for ref types
-                comparer == null)
+            if (comparer == null)
             {
                 // ValueType: Devirtualize with EqualityComparer<TKey>.Default intrinsic
                 while ((uint)i < (uint)entries.Length)
@@ -1087,15 +1073,13 @@ namespace System.Collections.Generic
                 Debug.Assert(entries != null, "expected entries to be non-null");
 
                 IEqualityComparer<TKey>? comparer = dictionary._comparer;
-                Debug.Assert(comparer is not null || typeof(TKey).IsValueType);
-                uint hashCode = (uint)((typeof(TKey).IsValueType && comparer == null) ? key.GetHashCode() : comparer!.GetHashCode(key));
+                uint hashCode = (uint)(comparer == null ? key.GetHashCode() : comparer!.GetHashCode(key));
 
                 uint collisionCount = 0;
                 ref int bucket = ref dictionary.GetBucket(hashCode);
                 int i = bucket - 1; // Value in _buckets is 1-based
 
-                if (typeof(TKey).IsValueType && // comparer can only be null for value types; enable JIT to eliminate entire if block for ref types
-                    comparer == null)
+                if (comparer == null)
                 {
                     // ValueType: Devirtualize with EqualityComparer<TKey>.Default intrinsic
                     while ((uint)i < (uint)entries.Length)
@@ -1305,8 +1289,7 @@ namespace System.Collections.Generic
                 uint collisionCount = 0;
 
                 IEqualityComparer<TKey>? comparer = _comparer;
-                Debug.Assert(typeof(TKey).IsValueType || comparer is not null);
-                uint hashCode = (uint)(typeof(TKey).IsValueType && comparer == null ? key.GetHashCode() : comparer!.GetHashCode(key));
+                uint hashCode = (uint)(comparer == null ? key.GetHashCode() : comparer!.GetHashCode(key));
 
                 ref int bucket = ref GetBucket(hashCode);
                 Entry[]? entries = _entries;
@@ -1317,7 +1300,7 @@ namespace System.Collections.Generic
                     ref Entry entry = ref entries[i];
 
                     if (entry.hashCode == hashCode &&
-                        (typeof(TKey).IsValueType && comparer == null ? EqualityComparer<TKey>.Default.Equals(entry.key, key) : comparer!.Equals(entry.key, key)))
+                        (comparer == null ? EqualityComparer<TKey>.Default.Equals(entry.key, key) : comparer!.Equals(entry.key, key)))
                     {
                         if (last < 0)
                         {
@@ -1378,8 +1361,7 @@ namespace System.Collections.Generic
                 uint collisionCount = 0;
 
                 IEqualityComparer<TKey>? comparer = _comparer;
-                Debug.Assert(typeof(TKey).IsValueType || comparer is not null);
-                uint hashCode = (uint)(typeof(TKey).IsValueType && comparer == null ? key.GetHashCode() : comparer!.GetHashCode(key));
+                uint hashCode = (uint)(comparer == null ? key.GetHashCode() : comparer!.GetHashCode(key));
 
                 ref int bucket = ref GetBucket(hashCode);
                 Entry[]? entries = _entries;
@@ -1390,7 +1372,7 @@ namespace System.Collections.Generic
                     ref Entry entry = ref entries[i];
 
                     if (entry.hashCode == hashCode &&
-                        (typeof(TKey).IsValueType && comparer == null ? EqualityComparer<TKey>.Default.Equals(entry.key, key) : comparer!.Equals(entry.key, key)))
+                        (comparer == null ? EqualityComparer<TKey>.Default.Equals(entry.key, key) : comparer!.Equals(entry.key, key)))
                     {
                         if (last < 0)
                         {
