@@ -10360,10 +10360,12 @@ void Compiler::impImportBlockCode(BasicBlock* block)
                     // compareTypesForEquality should bail on comparisons for shared value classes.
                     if (clsHnd != NO_CLASS_HANDLE)
                     {
+                        const CorInfoType typ = info.compCompHnd->getTypeForPrimitiveValueClass(resolvedToken.hClass);
                         const TypeCompareState compare =
                             info.compCompHnd->compareTypesForEquality(resolvedToken.hClass, clsHnd);
 
-                        if (compare == TypeCompareState::Must)
+                        if ((compare == TypeCompareState::Must) || ((typ >= CORINFO_TYPE_BYTE) && (typ <= CORINFO_TYPE_ULONG) &&
+                            (info.compCompHnd->getTypeForPrimitiveValueClass(clsHnd) == typ)))
                         {
                             JITDUMP("\nOptimizing %s (%s) -- type test will succeed\n",
                                     opcode == CEE_UNBOX ? "UNBOX" : "UNBOX.ANY", eeGetClassName(clsHnd));
