@@ -21,12 +21,10 @@ SET_DEFAULT_DEBUG_CHANNEL(EXCEPT); // some headers have code with asserts, so do
 #include "pal/palinternal.h"
 #if HAVE_MACH_EXCEPTIONS
 #include "machexception.h"
-#include "pal/critsect.h"
 #include "pal/debug.h"
 #include "pal/init.h"
 #include "pal/utils.h"
 #include "pal/context.h"
-#include "pal/malloc.hpp"
 #include "pal/process.h"
 #include "pal/virtual.h"
 #include "pal/map.hpp"
@@ -34,6 +32,7 @@ SET_DEFAULT_DEBUG_CHANNEL(EXCEPT); // some headers have code with asserts, so do
 
 #include <minipal/debugger.h>
 #include <minipal/utils.h>
+#include <minipal/ospagesize.h>
 
 #include "machmessage.h"
 
@@ -753,7 +752,7 @@ HijackFaultingThread(
     if (exceptionRecord.ExceptionCode == EXCEPTION_ACCESS_VIOLATION)
     {
         // Calculate the page base addresses for the fault and the faulting thread's SP.
-        int cbPage = getpagesize();
+        int cbPage = minipal_getpagesize();
         char *pFaultPage = (char*)(exceptionRecord.ExceptionInformation[1] & ~(cbPage - 1));
         char *pStackTopPage = (char*)((size_t)targetSP & ~(cbPage - 1));
 

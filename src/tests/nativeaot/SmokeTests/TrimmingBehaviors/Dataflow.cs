@@ -30,6 +30,7 @@ class Dataflow
         TestMakeGenericDataflowInvalid.Run();
         TestMarshalIntrinsics.Run();
         Regression97758.Run();
+        TestMakeGenericDataflowInLocalMethod.Run();
 
         return 100;
     }
@@ -565,10 +566,7 @@ class Dataflow
                 // so that we can tests this doesn't lead to keeping the type.
                 Assert.Equal(666, s_neverAllocatedTypeAskingForNonPublicMethods.GetType().CountMethods());
             }
-            // This is not great - the GetType() call above "wished" NeverAllocatedTypeAskingForNonPublicMethods
-            // into existence, but it shouldn't have. We could do better here if this is a problem.
-            // If we do that, change this .NotNull to .Null.
-            Assert.NotNull(typeof(TestObjectGetTypeDataflow).GetNestedTypeSecretly(nameof(NeverAllocatedTypeAskingForNonPublicMethods)));
+            Assert.Null(typeof(TestObjectGetTypeDataflow).GetNestedTypeSecretly(nameof(NeverAllocatedTypeAskingForNonPublicMethods)));
             // Sanity check
             Assert.NotNull(typeof(TestObjectGetTypeDataflow).GetNestedTypeSecretly(nameof(TypeWithNonPublicMethodsKept)));
 
@@ -772,6 +770,28 @@ class Dataflow
         public static void Run()
         {
             Foo<int>.Trigger();
+        }
+    }
+
+    class TestMakeGenericDataflowInLocalMethod
+    {
+        class Gen<T> { }
+
+        struct Atom { }
+
+        class GenMethods
+        {
+            public static void Bridge<T>() { }
+        }
+
+        public static void Run()
+        {
+            MakeGenericType<Atom>();
+            MakeGenericMethod<Atom>();
+
+            static object MakeGenericType<T>() => Activator.CreateInstance(typeof(Gen<>).MakeGenericType(typeof(T)));
+
+            static void MakeGenericMethod<T>() => typeof(GenMethods).GetMethod(nameof(GenMethods.Bridge)).MakeGenericMethod(typeof(T)).Invoke(null, []);
         }
     }
 }

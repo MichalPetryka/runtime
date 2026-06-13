@@ -593,12 +593,13 @@ struct HandleHistogramProfileCandidateInfo
 //
 struct InlineCandidateInfo : public HandleHistogramProfileCandidateInfo
 {
-    CORINFO_CLASS_HANDLE  guardedClassHandle;
-    CORINFO_METHOD_HANDLE guardedMethodHandle;
-    CORINFO_METHOD_HANDLE guardedMethodUnboxedEntryHandle;
-    CORINFO_METHOD_HANDLE guardedMethodInstantiatedEntryHandle;
-    unsigned              likelihood;
-    bool                  arrayInterface;
+    CORINFO_CLASS_HANDLE   guardedClassHandle;
+    CORINFO_METHOD_HANDLE  guardedMethodHandle;
+    CORINFO_METHOD_HANDLE  guardedMethodUnboxedEntryHandle;
+    CORINFO_LOOKUP         guardedMethodInstParamLookup;
+    CORINFO_RESOLVED_TOKEN guardedMethodResolvedToken;        // Only used by R2R
+    CORINFO_RESOLVED_TOKEN guardedMethodUnboxedResolvedToken; // Only used by R2R
+    unsigned               likelihood;
 
     CORINFO_METHOD_INFO methInfo;
 
@@ -610,10 +611,9 @@ struct InlineCandidateInfo : public HandleHistogramProfileCandidateInfo
     //
     CORINFO_CONTEXT_HANDLE exactContextHandle;
 
-    // Context handle of the call before any
-    // GDV/Inlining evaluation
+    // Method handle of the call before any GDV/Inlining evaluation.
     //
-    CORINFO_CONTEXT_HANDLE originalContextHandle;
+    CORINFO_METHOD_HANDLE originalMethodHandle;
 
     // The GT_RET_EXPR node linking back to the inline candidate.
     GenTreeRetExpr* retExpr;
@@ -622,10 +622,7 @@ struct InlineCandidateInfo : public HandleHistogramProfileCandidateInfo
     unsigned clsAttr;
     unsigned methAttr;
 
-    // actual IL offset of instruction that resulted in this inline candidate
-    IL_OFFSET              ilOffset;
     CorInfoInitClassResult initClassResult;
-    var_types              fncRetType;
     bool                   exactContextNeedsRuntimeLookup;
     InlineContext*         inlinersContext;
 };
@@ -636,7 +633,9 @@ struct InlineCandidateInfo : public HandleHistogramProfileCandidateInfo
 //
 struct LateDevirtualizationInfo
 {
+    CORINFO_METHOD_HANDLE  methodHnd;
     CORINFO_CONTEXT_HANDLE exactContextHnd;
+    ILLocation             ilLocation;
 };
 
 // InlArgInfo describes inline candidate argument properties.
@@ -715,6 +714,21 @@ struct InlineInfo
     GenTreeCall* iciCall;  // The GT_CALL node to be inlined.
     Statement*   iciStmt;  // The statement iciCall is in.
     BasicBlock*  iciBlock; // The basic block iciStmt is in.
+};
+
+//------------------------------------------------------------------------
+// PgoInfo
+//   Schema and data for a method's PGO data.
+//
+struct PgoInfo
+{
+    PgoInfo();
+    PgoInfo(Compiler* compiler);
+    PgoInfo(InlineContext* inlineContext);
+
+    ICorJitInfo::PgoInstrumentationSchema* PgoSchema;      // pgo schema for method
+    BYTE*                                  PgoData;        // pgo data for the method
+    unsigned                               PgoSchemaCount; // count of schema elements
 };
 
 // InlineContext tracks the inline history in a method.
@@ -872,6 +886,21 @@ public:
     }
 #endif
 
+    const PgoInfo& GetPgoInfo()
+    {
+        return m_PgoInfo;
+    }
+
+    void SetPgoInfo(const PgoInfo& info)
+    {
+        m_PgoInfo = info;
+    }
+
+    bool HasPgoInfo() const
+    {
+        return (m_PgoInfo.PgoSchema != nullptr) && (m_PgoInfo.PgoSchemaCount > 0) && (m_PgoInfo.PgoData != nullptr);
+    }
+
 private:
     InlineContext(InlineStrategy* strategy);
 
@@ -882,6 +911,7 @@ private:
     const BYTE*            m_Code;             // address of IL buffer for the method
     CORINFO_METHOD_HANDLE  m_Callee;           // handle to the method
     CORINFO_CONTEXT_HANDLE m_RuntimeContext;   // handle to the exact context
+    PgoInfo                m_PgoInfo;          // profile data
     unsigned               m_ILSize;           // size of IL buffer for the method
     unsigned               m_ImportedILSize;   // estimated size of imported IL
     ILLocation             m_Location;         // inlining statement location within parent
@@ -924,7 +954,7 @@ public:
     // Compiler associated with this strategy
     Compiler* GetCompiler() const
     {
-        return m_Compiler;
+        return m_compiler;
     }
 
     // Root context
@@ -953,6 +983,44 @@ public:
     unsigned GetMaxForceInlineDepth() const
     {
         return m_MaxForceInlineDepth;
+    }
+
+    // Maximum number of over-budget [Intrinsic]-type inlines allowed per root method.
+    enum
+    {
+        MAX_OVER_BUDGET_INTRINSIC_INLINES = 50,
+
+        // When the root method or an already-imported inlinee references a
+        // Vector*/HW-intrinsic IsSupported / IsHardwareAccelerated property,
+        // multiply the initial inline time budget by this factor (one-shot).
+        // Methods with SIMD ISA fallbacks tend to be IL-heavy, and inlining one
+        // such callee can otherwise consume the budget for trivial helpers
+        // (e.g., Span.Slice, property getters) that follow.
+        SIMD_BUDGET_BOOST_MULTIPLIER = 5
+    };
+
+    // Number of over-budget inlines admitted because the callee was on an [Intrinsic] type.
+    unsigned GetOverBudgetIntrinsicInlineCount() const
+    {
+        return m_OverBudgetIntrinsicInlineCount;
+    }
+
+    // Note an over-budget inline that was admitted due to the callee's [Intrinsic] type.
+    void NoteOverBudgetIntrinsicInline()
+    {
+        m_OverBudgetIntrinsicInlineCount++;
+    }
+
+    // Note that the root method or an already-imported inlinee uses a HW
+    // intrinsic IsSupported / IsHardwareAccelerated capability check (e.g.,
+    // Vector128.IsHardwareAccelerated, Vector<T>.IsSupported, Sse41.IsSupported).
+    // On the first such observation per root method this dramatically increases
+    // the inline time budget so that subsequent small inlinees are not starved.
+    void NoteHardwareIntrinsicCheckObserved();
+
+    bool HasObservedHardwareIntrinsicCheck() const
+    {
+        return m_HasHardwareIntrinsicCheck;
     }
 
     // Number of successful inlines into the root
@@ -1075,14 +1143,6 @@ private:
     // Accounting updates for a successful or failed inline.
     void NoteOutcome(InlineContext* context);
 
-    // Cap on allowable increase in jit time due to inlining.
-    // Multiplicative, so BUDGET = 10 means up to 10x increase
-    // in jit time.
-    enum
-    {
-        BUDGET = 10
-    };
-
     // Estimate the jit time change because of this inline.
     int EstimateTime(InlineContext* context);
 
@@ -1099,7 +1159,7 @@ private:
     static CritSecObject s_XmlWriterLock;
 #endif // defined(DEBUG)
 
-    Compiler*         m_Compiler;
+    Compiler*         m_compiler;
     InlineContext*    m_RootContext;
     InlinePolicy*     m_LastSuccessfulPolicy;
     InlineContext*    m_LastContext;
@@ -1116,6 +1176,7 @@ private:
     unsigned          m_MaxInlineSize;
     unsigned          m_MaxInlineDepth;
     unsigned          m_MaxForceInlineDepth;
+    unsigned          m_OverBudgetIntrinsicInlineCount;
     int               m_InitialTimeBudget;
     int               m_InitialTimeEstimate;
     int               m_CurrentTimeBudget;
@@ -1123,6 +1184,7 @@ private:
     int               m_InitialSizeEstimate;
     int               m_CurrentSizeEstimate;
     bool              m_HasForceViaDiscretionary;
+    bool              m_HasHardwareIntrinsicCheck;
 
 #if defined(DEBUG)
     long       m_MethodXmlFilePosition;

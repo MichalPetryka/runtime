@@ -8,6 +8,10 @@ namespace System.Text.Json.Serialization.Metadata
 {
     public static partial class JsonMetadataServices
     {
+        // When adding/removing a built-in JsonConverter property below, also update
+        // gen/JsonSourceGenerator.Parser.cs::GetSupportedJsonValueTypes so the union ambiguity
+        // diagnostic (SYSLIB1227) agrees with JsonTypeInfo.BuildUnionValueTypeMap.
+
         /// <summary>
         /// Returns a <see cref="JsonConverter{T}"/> instance that converts <see cref="bool"/> values.
         /// </summary>
@@ -282,10 +286,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <remarks>This API is for use by the output of the System.Text.Json source generator and should not be called directly.</remarks>
         public static JsonConverter<T> GetEnumConverter<T>(JsonSerializerOptions options) where T : struct, Enum
         {
-            if (options is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(options));
-            }
+            ArgumentNullException.ThrowIfNull(options);
 
             return EnumConverterFactory.Helpers.Create<T>(EnumConverterOptions.AllowNumbers, options);
         }
@@ -299,10 +300,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <remarks>This API is for use by the output of the System.Text.Json source generator and should not be called directly.</remarks>
         public static JsonConverter<T?> GetNullableConverter<T>(JsonTypeInfo<T> underlyingTypeInfo) where T : struct
         {
-            if (underlyingTypeInfo is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(underlyingTypeInfo));
-            }
+            ArgumentNullException.ThrowIfNull(underlyingTypeInfo);
 
             JsonConverter<T> underlyingConverter = GetTypedConverter<T>(underlyingTypeInfo.Converter);
 
@@ -318,10 +316,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <remarks>This API is for use by the output of the System.Text.Json source generator and should not be called directly.</remarks>
         public static JsonConverter<T?> GetNullableConverter<T>(JsonSerializerOptions options) where T : struct
         {
-            if (options is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(options));
-            }
+            ArgumentNullException.ThrowIfNull(options);
 
             JsonConverter<T> underlyingConverter = GetTypedConverter<T>(options.GetConverterInternal(typeof(T)));
 

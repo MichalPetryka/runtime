@@ -65,7 +65,7 @@ static const GUID IID_INoMarshal = {0xecc8691b, 0xc1db, 0x4dc0, { 0x85, 0x5e, 0x
 #endif // !__INoMarshal_INTERFACE_DEFINED__
 
 // NOTE: In the following vtables, QI points to the same function
-//       this is because, during marshalling between COM & COM+ we want a fast way to
+//       this is because, during marshalling between COM & CLR we want a fast way to
 //       check if a COM IP is a tear-off that we created.
 
 // array of vtable pointers for std. interfaces such as IProvideClassInfo etc.
@@ -155,8 +155,9 @@ Unknown_QueryInterface_Internal(ComCallWrapper* pWrap, IUnknown* pUnk, REFIID ri
             {
                 Exception *e = GET_EXCEPTION();
                 hr = e->GetHR();
+                RethrowTerminalExceptions();
             }
-            EX_END_CATCH(RethrowTerminalExceptions)
+            EX_END_CATCH
         }
 
 ErrExit:
@@ -417,7 +418,7 @@ Unknown_ReleaseSpecial_IErrorInfo_Internal(IUnknown* pUnk)
         SimpleComCallWrapper *pSimpleWrap = SimpleComCallWrapper::GetWrapperFromIP(pUnk);
         cbRef = pSimpleWrap->Release();
     EX_CATCH
-    EX_END_CATCH(SwallowAllExceptions)
+    EX_END_CATCH
 
     return cbRef;
 }
@@ -699,7 +700,7 @@ HRESULT GetITypeInfoForEEClass(MethodTable *pClass, ITypeInfo **ppTI, bool bClas
                     {
                         pThrowable = GET_THROWABLE();
                     }
-                    EX_END_CATCH(SwallowAllExceptions);
+                    EX_END_CATCH
 
                     if (pThrowable != NULL)
                         hr = SetupErrorInfo(pThrowable);
@@ -1347,7 +1348,7 @@ InternalDispatchImpl_GetIDsOfNames (
 
         ComMethodTable* pCMT = ComMethodTable::ComMethodTableFromIP(pDisp);
         if (pCMT->IsIClassXOrBasicItf() && pCMT->GetClassInterfaceType() != clsIfNone)
-            pCMT->CheckParentComVisibility(FALSE);
+            pCMT->CheckParentComVisibility();
 
         pSimpleWrap = pCCW->GetSimpleWrapper();
         pDispInfo = ComMethodTable::ComMethodTableFromIP(pDisp)->GetDispatchInfo();
@@ -1419,7 +1420,7 @@ InternalDispatchImpl_Invoke
 
         ComMethodTable* pCMT = ComMethodTable::ComMethodTableFromIP(pDisp);
         if (pCMT->IsIClassXOrBasicItf() && pCMT->GetClassInterfaceType() != clsIfNone)
-            pCMT->CheckParentComVisibility(FALSE);
+            pCMT->CheckParentComVisibility();
 
         pSimpleWrap = pCCW->GetSimpleWrapper();
 
@@ -1435,7 +1436,7 @@ InternalDispatchImpl_Invoke
 
 
 //------------------------------------------------------------------------------------------
-//      IDispatchEx methods for COM+ objects
+//      IDispatchEx methods for CLR objects
 
 // IDispatchEx::GetTypeInfoCount
 HRESULT __stdcall   DispatchEx_GetTypeInfoCount(IDispatch* pDisp, unsigned int *pctinfo)
@@ -1886,34 +1887,17 @@ HRESULT __stdcall   DispatchEx_GetMemberProperties (
 
                     case Property:
                     {
-                        BOOL bCanRead = FALSE;
-                        BOOL bCanWrite = FALSE;
-
-                        // Find the MethodDesc's for the CanRead property.
-                        MethodDesc *pCanReadMD = MemberLoader::FindPropertyMethod(MemberInfoObj->GetMethodTable(), PROPERTY_INFO_CAN_READ_PROP, PropertyGet);
-                        PREFIX_ASSUME_MSG((pCanReadMD != NULL), "Unable to find getter method for property PropertyInfo::CanRead");
-                        MethodDescCallSite canRead(pCanReadMD, &MemberInfoObj);
-
-                        // Find the MethodDesc's for the CanWrite property.
-                        MethodDesc *pCanWriteMD = MemberLoader::FindPropertyMethod(MemberInfoObj->GetMethodTable(), PROPERTY_INFO_CAN_WRITE_PROP, PropertyGet);
-                        PREFIX_ASSUME_MSG((pCanWriteMD != NULL), "Unable to find setter method for property PropertyInfo::CanWrite");
-                        MethodDescCallSite canWrite(pCanWriteMD, &MemberInfoObj);
-
-                        // Check to see if the property can be read.
-                        ARG_SLOT CanReadArgs[] =
+                        enum : INT32
                         {
-                            ObjToArgSlot(MemberInfoObj)
+                            DispatchExPropertyCanRead = 1,
+                            DispatchExPropertyCanWrite = 2,
                         };
 
-                        bCanRead = canRead.Call_RetBool(CanReadArgs);
+                        UnmanagedCallersOnlyCaller getDispatchExPropertyFlags(METHOD__IDISPATCHHELPERS__GET_DISPATCH_EX_PROPERTY_FLAGS);
+                        INT32 propertyFlags = getDispatchExPropertyFlags.InvokeThrowing_Ret<INT32>(&MemberInfoObj);
 
-                        // Check to see if the property can be written to.
-                        ARG_SLOT CanWriteArgs[] =
-                        {
-                            ObjToArgSlot(MemberInfoObj)
-                        };
-
-                        bCanWrite = canWrite.Call_RetBool(CanWriteArgs);
+                        bool bCanRead = (propertyFlags & DispatchExPropertyCanRead) != 0;
+                        bool bCanWrite = (propertyFlags & DispatchExPropertyCanWrite) != 0;
 
                         *pgrfdex = (bCanRead ? fdexPropCanGet : fdexPropCannotGet) |
                                    (bCanWrite ? fdexPropCanPut : fdexPropCannotPut) |
@@ -2112,7 +2096,7 @@ HRESULT GetSpecialMarshaler(IMarshal* pMarsh, SimpleComCallWrapper* pSimpleWrap,
 
 
 //------------------------------------------------------------------------------------------
-//      IMarshal methods for COM+ objects
+//      IMarshal methods for CLR objects
 
 //------------------------------------------------------------------------------------------
 
@@ -2285,7 +2269,7 @@ HRESULT __stdcall Marshal_DisconnectObject (IMarshal* pMarsh, ULONG dwReserved)
 }
 
 //------------------------------------------------------------------------------------------
-//      IConnectionPointContainer methods for COM+ objects
+//      IConnectionPointContainer methods for CLR objects
 //------------------------------------------------------------------------------------------
 
 // Enumerate all the connection points supported by the component.
@@ -2356,7 +2340,7 @@ HRESULT __stdcall ConnectionPointContainer_FindConnectionPoint(IUnknown* pUnk,
 
 
 //------------------------------------------------------------------------------------------
-//      IObjectSafety methods for COM+ objects
+//      IObjectSafety methods for CLR objects
 //------------------------------------------------------------------------------------------
 
 HRESULT __stdcall ObjectSafety_GetInterfaceSafetyOptions(IUnknown* pUnk,
@@ -2379,7 +2363,7 @@ HRESULT __stdcall ObjectSafety_GetInterfaceSafetyOptions(IUnknown* pUnk,
     if (pdwSupportedOptions == NULL || pdwEnabledOptions == NULL)
         return E_POINTER;
 
-    // Make sure the COM+ object implements the requested interface.
+    // Make sure the CLR object implements the requested interface.
     SafeComHolderPreemp<IUnknown> pItf;
     HRESULT hr = SafeQueryInterfacePreemp(pUnk, riid, (IUnknown**)&pItf);
     LogInteropQI(pUnk, riid, hr, "QI to for riid in GetInterfaceSafetyOptions");
@@ -2414,7 +2398,7 @@ HRESULT __stdcall ObjectSafety_SetInterfaceSafetyOptions(IUnknown* pUnk,
     }
     CONTRACTL_END;
 
-    // Make sure the COM+ object implements the requested interface.
+    // Make sure the CLR object implements the requested interface.
     SafeComHolderPreemp<IUnknown> pItf;
     HRESULT hr = SafeQueryInterfacePreemp(pUnk, riid, (IUnknown**)&pItf);
     LogInteropQI(pUnk, riid, hr, "QI to for riid in SetInterfaceSafetyOptions");

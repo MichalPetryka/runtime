@@ -270,6 +270,8 @@ BOOL ZapSig::GetSignatureForTypeHandle(TypeHandle      handle,
         elemType = ELEMENT_TYPE_OBJECT;
     else if (pMT == g_pStringClass)
         elemType = ELEMENT_TYPE_STRING;
+    else if (pMT == g_TypedReferenceMT)
+        elemType = ELEMENT_TYPE_TYPEDBYREF;
     else if (pMT == g_pCanonMethodTableClass)
         elemType = (CorElementType) ELEMENT_TYPE_CANON_ZAPSIG;
     else if (pMT->IsArray())
@@ -349,8 +351,10 @@ BOOL ZapSig::GetSignatureForTypeHandle(TypeHandle      handle,
         case ELEMENT_TYPE_R8:
         case ELEMENT_TYPE_BOOLEAN:
         case ELEMENT_TYPE_CHAR:
-        case ELEMENT_TYPE_TYPEDBYREF:
             RETURN(sigType == handleType);
+
+        case ELEMENT_TYPE_TYPEDBYREF:
+            RETURN(handle == TypeHandle(g_TypedReferenceMT));
 
         case ELEMENT_TYPE_STRING:
             RETURN(handle == TypeHandle(g_pStringClass));
@@ -419,7 +423,7 @@ BOOL ZapSig::GetSignatureForTypeHandle(TypeHandle      handle,
                 EX_CATCH
                 {
                 }
-                EX_END_CATCH(SwallowAllExceptions);
+                EX_END_CATCH
                 if (!resolved)
                     RETURN(FALSE);
             }
@@ -482,7 +486,7 @@ BOOL ZapSig::GetSignatureForTypeHandle(TypeHandle      handle,
                 EX_CATCH
                 {
                 }
-                EX_END_CATCH(SwallowAllExceptions);
+                EX_END_CATCH
                 if (!resolved)
                     RETURN(FALSE);
             }
@@ -917,16 +921,19 @@ MethodDesc *ZapSig::DecodeMethod(ModuleBase *pInfoModule,
 
 
     // This must be called even if nargs == 0, in order to create an instantiating
-    // stub for static methods in generic classees if needed, also for BoxedEntryPointStubs
+    // stub for static methods in generic classes if needed, also for BoxedEntryPointStubs
     // in non-generic structs.
     BOOL isInstantiatingStub = (methodFlags & ENCODE_METHOD_SIG_InstantiatingStub);
     BOOL isUnboxingStub = (methodFlags & ENCODE_METHOD_SIG_UnboxingStub);
+    bool isAsyncVariant = (methodFlags & ENCODE_METHOD_SIG_AsyncVariant) != 0;
 
     pMethod = MethodDesc::FindOrCreateAssociatedMethodDesc(pMethod, thOwner.GetMethodTable(),
                                                             isUnboxingStub,
                                                             inst,
                                                             !(isInstantiatingStub || isUnboxingStub) && !actualOwnerRequired,
-                                                            actualOwnerRequired);
+                                                            isAsyncVariant ? AsyncVariantLookup::Async : AsyncVariantLookup::Ordinary,
+                                                            actualOwnerRequired,
+                                                            TRUE);
 
     if (methodFlags & ENCODE_METHOD_SIG_Constrained)
     {
@@ -948,6 +955,11 @@ MethodDesc *ZapSig::DecodeMethod(ModuleBase *pInfoModule,
             _ASSERTE(!"Constrained method resolution failed");
 
             MemberLoader::ThrowMissingMethodException(constrainedType.GetMethodTable(), NULL, NULL, NULL, 0, NULL);
+        }
+
+        if (directMethod->IsStatic() && (ppTH != NULL))
+        {
+            *ppTH = directMethod->GetMethodTable();
         }
 
         // Strip the instantiating stub if the signature did not ask for one
@@ -1216,6 +1228,8 @@ BOOL ZapSig::EncodeMethod(
         methodFlags |= ENCODE_METHOD_SIG_InstantiatingStub;
     if (fMethodNeedsInstantiation)
         methodFlags |= ENCODE_METHOD_SIG_MethodInstantiation;
+    if (pMethod->IsAsyncVariantMethod())
+        methodFlags |= ENCODE_METHOD_SIG_AsyncVariant;
 
     // Assume that the owner type is going to be needed
     methodFlags |= ENCODE_METHOD_SIG_OwnerType;

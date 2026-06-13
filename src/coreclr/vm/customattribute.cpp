@@ -52,7 +52,7 @@ static HRESULT ParseCaType(
 
         if (!th.IsNull() && th.IsEnum())
         {
-            pCaType->enumType = (CorSerializationType)th.GetVerifierCorElementType();
+            pCaType->enumType = (CorSerializationType)th.GetInternalCorElementType();
 
             // The assembly qualified name of th might not equal pCaType->szEnumName.
             // e.g. th could be "MyEnum, MyAssembly, Version=4.0.0.0" while
@@ -809,7 +809,7 @@ static ARG_SLOT GetDataFromBlob(Assembly *pCtorAssembly,
 
             // ok we have the class, now we go and read the data
             MethodTable *pMT = typeHnd.AsMethodTable();
-            PREFIX_ASSUME(pMT != NULL);
+            _ASSERTE(pMT != NULL);
             CorSerializationType objNormType = (CorSerializationType)pMT->GetInternalCorElementType();
             BOOL isObject = FALSE;
             retValue = GetDataFromBlob(pCtorAssembly, objNormType, nullTH, pBlob, endBlob, pModule, &isObject);

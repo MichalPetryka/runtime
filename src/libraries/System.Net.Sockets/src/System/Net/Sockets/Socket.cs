@@ -70,7 +70,7 @@ namespace System.Net.Sockets
         private bool _disposed;
 
         public Socket(SocketType socketType, ProtocolType protocolType)
-            : this(OSSupportsIPv6DualMode ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork, socketType, protocolType)
+            : this(OSSupportsIPv6 ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork, socketType, protocolType)
         {
             if (OSSupportsIPv6DualMode)
             {
@@ -132,6 +132,7 @@ namespace System.Net.Sockets
             {
                 // Get properties like address family and blocking mode from the OS.
                 LoadSocketTypeFromHandle(handle, out _addressFamily, out _socketType, out _protocolType, out _willBlockInternal, out _isListening, out bool isSocket);
+                _willBlock = _willBlockInternal;
 
                 if (isSocket)
                 {
@@ -291,7 +292,7 @@ namespace System.Net.Sockets
         }
 
         // Gets the local end point.
-        public EndPoint? LocalEndPoint
+        public unsafe EndPoint? LocalEndPoint
         {
             get
             {
@@ -339,7 +340,7 @@ namespace System.Net.Sockets
         }
 
         // Gets the remote end point.
-        public EndPoint? RemoteEndPoint
+        public unsafe EndPoint? RemoteEndPoint
         {
             get
             {
@@ -749,7 +750,7 @@ namespace System.Net.Sockets
                 {
                     return false;
                 }
-                if (!OSSupportsIPv6DualMode)
+                if (OperatingSystem.IsWasi())
                 {
                     return false;
                 }
@@ -762,7 +763,7 @@ namespace System.Net.Sockets
                     throw new NotSupportedException(SR.net_invalidversion);
                 }
 
-                if (!OSSupportsIPv6DualMode && value) throw new PlatformNotSupportedException();
+                if (OperatingSystem.IsWasi() && value) throw new PlatformNotSupportedException();
 
                 SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, value ? 0 : 1);
             }
@@ -850,11 +851,11 @@ namespace System.Net.Sockets
 
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Info(this, $"DST:{remoteEP}");
 
+            ValidateForMultiConnect(); // needs to come before CanTryAddressFamily call
+
             DnsEndPoint? dnsEP = remoteEP as DnsEndPoint;
             if (dnsEP != null)
             {
-                ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
-
                 if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily(dnsEP.AddressFamily))
                 {
                     throw new NotSupportedException(SR.net_invalidversion);
@@ -863,8 +864,6 @@ namespace System.Net.Sockets
                 Connect(dnsEP.Host, dnsEP.Port);
                 return;
             }
-
-            ValidateForMultiConnect(isMultiEndpoint: false);
 
             SocketAddress socketAddress = Serialize(ref remoteEP);
             _pendingConnectRightEndPoint = remoteEP;
@@ -887,7 +886,7 @@ namespace System.Net.Sockets
 
             ThrowIfConnectedStreamSocket();
 
-            ValidateForMultiConnect(isMultiEndpoint: false); // needs to come before CanTryAddressFamily call
+            ValidateForMultiConnect(); // needs to come before CanTryAddressFamily call
 
             if (!CanTryAddressFamily(address.AddressFamily))
             {
@@ -951,7 +950,7 @@ namespace System.Net.Sockets
 
             ThrowIfConnectedStreamSocket();
 
-            ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+            ValidateForMultiConnect(); // needs to come before CanTryAddressFamily call
 
             ExceptionDispatchInfo? lastex = null;
             foreach (IPAddress address in addresses)
@@ -964,7 +963,7 @@ namespace System.Net.Sockets
                         lastex = null;
                         break;
                     }
-                    catch (Exception ex) when (!ExceptionCheck.IsFatal(ex))
+                    catch (Exception ex) when (CanProceedWithMultiConnect && !ExceptionCheck.IsFatal(ex))
                     {
                         lastex = ExceptionDispatchInfo.Capture(ex);
                     }
@@ -1326,6 +1325,13 @@ namespace System.Net.Sockets
             if (!Socket.OSSupportsThreads) throw new PlatformNotSupportedException(); // TODO remove with https://github.com/dotnet/runtime/pull/107185
 
             ThrowIfDisposed();
+
+            // SendFile is not supported on non-blocking sockets.
+            // ValidateBlockingMode() below checks for async mismatch; this checks explicit non-blocking.
+            if (!Blocking)
+            {
+                throw new InvalidOperationException(SR.net_sockets_blocking);
+            }
 
             if (!IsConnectionOriented || !Connected)
             {
@@ -2017,7 +2023,7 @@ namespace System.Net.Sockets
             if (!Socket.OSSupportsThreads) throw new PlatformNotSupportedException(); // TODO remove with https://github.com/dotnet/runtime/pull/107185
 
             ThrowIfDisposed();
-            ArgumentNullException.ThrowIfNull(receivedAddress, nameof(receivedAddress));
+            ArgumentNullException.ThrowIfNull(receivedAddress);
 
             if (receivedAddress.Size < SocketAddress.GetMaximumAddressSize(AddressFamily))
             {
@@ -2877,11 +2883,14 @@ namespace System.Net.Sockets
         }
 
         public bool ConnectAsync(SocketAsyncEventArgs e) =>
-            ConnectAsync(e, userSocket: true, saeaCancelable: true);
+            ConnectAsync(e, userSocket: true, saeaMultiConnectCancelable: true);
 
-        internal bool ConnectAsync(SocketAsyncEventArgs e, bool userSocket, bool saeaCancelable)
+        internal bool ConnectAsync(SocketAsyncEventArgs e, bool userSocket, bool saeaMultiConnectCancelable, CancellationToken cancellationToken = default)
         {
-            bool pending;
+            // saeaMultiConnectCancelable == true means that this method is being called by a SocketAsyncEventArgs-based top level API.
+            // In such cases, SocketAsyncEventArgs.StartOperationConnect() will set up an internal cancellation token (_multipleConnectCancellation)
+            // to support cancelling DNS multi-connect for Socket.CancelConnectAsync().
+            Debug.Assert(!saeaMultiConnectCancelable || cancellationToken == default);
 
             ThrowIfDisposed();
 
@@ -2897,16 +2906,16 @@ namespace System.Net.Sockets
             }
 
             ThrowIfConnectedStreamSocket();
+            ValidateForMultiConnect(); // needs to come before CanTryAddressFamily call
 
             // Prepare SocketAddress.
             EndPoint? endPointSnapshot = e.RemoteEndPoint;
             DnsEndPoint? dnsEP = endPointSnapshot as DnsEndPoint;
 
+            bool pending;
             if (dnsEP != null)
             {
                 if (NetEventSource.Log.IsEnabled()) NetEventSource.ConnectedAsyncDns(this);
-
-                ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
 
                 if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily(dnsEP.AddressFamily))
                 {
@@ -2914,10 +2923,10 @@ namespace System.Net.Sockets
                 }
 
                 e.StartOperationCommon(this, SocketAsyncOperation.Connect);
-                e.StartOperationConnect(saeaCancelable, userSocket);
+                e.StartOperationConnect(saeaMultiConnectCancelable, userSocket);
                 try
                 {
-                    pending = e.DnsConnectAsync(dnsEP, default, default);
+                    pending = e.DnsConnectAsync(dnsEP, default, default, default, cancellationToken);
                 }
                 catch
                 {
@@ -2927,8 +2936,6 @@ namespace System.Net.Sockets
             }
             else
             {
-                ValidateForMultiConnect(isMultiEndpoint: false); // needs to come before CanTryAddressFamily call
-
                 // Throw if remote address family doesn't match socket.
                 if (!CanTryAddressFamily(e.RemoteEndPoint.AddressFamily))
                 {
@@ -2962,8 +2969,8 @@ namespace System.Net.Sockets
                     // ConnectEx supports connection-oriented sockets but not UDS. The socket must be bound before calling ConnectEx.
                     bool canUseConnectEx = _socketType == SocketType.Stream && endPointSnapshot.AddressFamily != AddressFamily.Unix;
                     SocketError socketError = canUseConnectEx ?
-                        e.DoOperationConnectEx(this, _handle) :
-                        e.DoOperationConnect(_handle); // For connectionless protocols, Connect is not an I/O call.
+                        e.DoOperationConnectEx(this, _handle, cancellationToken) :
+                        e.DoOperationConnect(_handle, cancellationToken); // For connectionless protocols, Connect is not an I/O call.
                     pending = socketError == SocketError.IOPending;
                 }
                 catch (Exception ex)
@@ -2982,9 +2989,16 @@ namespace System.Net.Sockets
             return pending;
         }
 
-        public static bool ConnectAsync(SocketType socketType, ProtocolType protocolType, SocketAsyncEventArgs e)
+        public static bool ConnectAsync(SocketType socketType, ProtocolType protocolType, SocketAsyncEventArgs e) =>
+                            ConnectAsync(socketType, protocolType, e, ConnectAlgorithm.Default);
+        public static bool ConnectAsync(SocketType socketType, ProtocolType protocolType, SocketAsyncEventArgs e, ConnectAlgorithm connectAlgorithm)
         {
             ArgumentNullException.ThrowIfNull(e);
+            if (connectAlgorithm != ConnectAlgorithm.Default &&
+                connectAlgorithm != ConnectAlgorithm.Parallel)
+            {
+                throw new ArgumentException(SR.Format(SR.net_sockets_invalid_connect_algorithm, connectAlgorithm), nameof(connectAlgorithm));
+            }
 
             if (e.HasMultipleBuffers)
             {
@@ -3006,7 +3020,7 @@ namespace System.Net.Sockets
                 e.StartOperationConnect(saeaMultiConnectCancelable: true, userSocket: false);
                 try
                 {
-                    pending = e.DnsConnectAsync(dnsEP, socketType, protocolType);
+                    pending = e.DnsConnectAsync(dnsEP, socketType, protocolType, connectAlgorithm, cancellationToken: default);
                 }
                 catch
                 {
@@ -3017,7 +3031,7 @@ namespace System.Net.Sockets
             else
             {
                 Socket attemptSocket = new Socket(endPointSnapshot.AddressFamily, socketType, protocolType);
-                pending = attemptSocket.ConnectAsync(e, userSocket: false, saeaCancelable: true);
+                pending = attemptSocket.ConnectAsync(e, userSocket: false, saeaMultiConnectCancelable: true);
             }
 
             return pending;
@@ -3589,7 +3603,7 @@ namespace System.Net.Sockets
             }
         }
 
-        internal unsafe void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue, bool silent)
+        internal void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue, bool silent)
         {
             // WASI is always set to receive PacketInformation
             if (OperatingSystem.IsWasi() && optionName == SocketOptionName.PacketInformation)
@@ -3838,7 +3852,7 @@ namespace System.Net.Sockets
                 return;
             }
 
-            Debug.Assert(_nonBlockingConnectInProgress == false);
+            Debug.Assert(!_nonBlockingConnectInProgress);
 
             // Update the status: this socket was indeed connected at
             // some point in time update the perf counter as well.
@@ -3985,7 +3999,7 @@ namespace System.Net.Sockets
         // a previous call failed and the platform does not support that.  In some cases,
         // the call may also be able to "fix" the Socket to continue working, even if the
         // platform wouldn't otherwise support it.  Windows always supports this.
-        partial void ValidateForMultiConnect(bool isMultiEndpoint);
+        partial void ValidateForMultiConnect();
 
         // Helper for SendFile implementations
         private static SafeFileHandle? OpenFileHandle(string? name) => string.IsNullOrEmpty(name) ? null : File.OpenHandle(name, FileMode.Open, FileAccess.Read);
