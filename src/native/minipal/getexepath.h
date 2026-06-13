@@ -15,8 +15,15 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
+#elif defined(__OpenBSD__)
+#include <string.h>
+#include <unistd.h>
+#include <sys/sysctl.h>
 #elif defined(_WIN32)
 #include <windows.h>
+#elif defined(__HAIKU__)
+#include <FindDirectory.h>
+#include <StorageDefs.h>
 #elif HAVE_GETAUXVAL
 #include <sys/auxv.h>
 #endif
@@ -54,10 +61,30 @@ static inline char* minipal_getexepath(void)
     }
 
     return strdup(path);
+#elif defined(__OpenBSD__)
+    const int name[] = { CTL_KERN, KERN_PROC_ARGS, getpid(), KERN_PROC_ARGV };
+    void *argv[PATH_MAX];
+    size_t len = sizeof(argv);
+    if (sysctl(name, 4, argv, &len, NULL, 0) != 0)
+    {
+        return NULL;
+    }
+
+    return realpath((char *)argv[0], NULL);
 #elif defined(__sun)
     const char* path = getexecname();
     if (path == NULL)
     {
+        return NULL;
+    }
+
+    return realpath(path, NULL);
+#elif defined(__HAIKU__)
+    char path[B_PATH_NAME_LENGTH];
+    status_t status = find_path(B_APP_IMAGE_SYMBOL, B_FIND_PATH_IMAGE_PATH, NULL, path, B_PATH_NAME_LENGTH);
+    if (status != B_OK)
+    {
+        errno = status;
         return NULL;
     }
 
@@ -71,8 +98,8 @@ static inline char* minipal_getexepath(void)
 
     return strdup(path);
 #elif defined(TARGET_WASM)
-    // This is a packaging convention that our tooling should enforce.
-    return strdup("/managed");
+    const char *browserVirtualAppBase = "/"; // keep in sync other places that define browserVirtualAppBase
+    return strdup(browserVirtualAppBase);
 #else
 #ifdef __linux__
     const char* symlinkEntrypointExecutable = "/proc/self/exe";

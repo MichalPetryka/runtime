@@ -401,6 +401,10 @@ ClassLoader::CreateTypeHandleForNonCanonicalGenericInstantiation(
 
     // Fill in interface map pointer
     pMT->SetInterfaceMap(wNumInterfaces, pInterfaceMap);
+    if (pMT->IsNullable())
+    {
+        pMT->SetNullableDetails((UINT16)pOldMT->GetNullableValueAddrOffset(), (UINT16)pOldMT->GetNullableValueSize());
+    }
 
     // Copy across extra flags for these interfaces as well. We may need additional memory for this.
     PVOID pExtraInterfaceInfo = NULL;
@@ -490,6 +494,8 @@ ClassLoader::CreateTypeHandleForNonCanonicalGenericInstantiation(
     RETURN(TypeHandle(pMT));
 } // ClassLoader::CreateTypeHandleForNonCanonicalGenericInstantiation
 
+#endif // !DACCESS_COMPILE
+
 namespace Generics
 {
 
@@ -527,6 +533,13 @@ BOOL CheckInstantiation(Instantiation inst)
     }
     return TRUE;
 }
+
+} // namespace Generics
+
+#ifndef DACCESS_COMPILE
+
+namespace Generics
+{
 
 // Just records the owner and links to the previous graph.
 RecursionGraph::RecursionGraph(RecursionGraph *pPrev, TypeHandle thOwner)

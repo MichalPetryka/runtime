@@ -70,9 +70,6 @@ enum DictionaryEntrySignatureSource : BYTE
 class DictionaryEntryLayout
 {
 public:
-    DictionaryEntryLayout(PTR_VOID signature)
-    { LIMITED_METHOD_CONTRACT; m_signature = signature; }
-
     DictionaryEntryKind GetKind();
 
     PTR_VOID m_signature;
@@ -279,7 +276,6 @@ public:
     static DictionaryEntry PopulateEntry(MethodDesc * pMD,
                                          MethodTable * pMT,
                                          LPVOID signature,
-                                         BOOL nonExpansive,
                                          DictionaryEntry ** ppSlot,
                                          DWORD dictionaryIndexAndSlot = -1,
                                          Module * pModule = NULL);

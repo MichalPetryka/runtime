@@ -6,56 +6,16 @@ using Microsoft.Win32.SafeHandles;
 
 namespace System.Security.Cryptography
 {
-    internal sealed partial class ECOpenSsl
+    internal static partial class ECOpenSsl
     {
         internal const string ECDSA_P256_OID_VALUE = "1.2.840.10045.3.1.7"; // Also called nistP256 or secP256r1
         internal const string ECDSA_P384_OID_VALUE = "1.3.132.0.34"; // Also called nistP384 or secP384r1
         internal const string ECDSA_P521_OID_VALUE = "1.3.132.0.35"; // Also called nistP521or secP521r1
 
-        public int ImportParameters(ECParameters parameters)
-        {
-            SafeEcKeyHandle key;
-
-            parameters.Validate();
-
-            if (parameters.Curve.IsPrime)
-            {
-                key = ImportPrimeCurveParameters(parameters);
-            }
-            else if (parameters.Curve.IsCharacteristic2)
-            {
-                key = ImportCharacteristic2CurveParameters(parameters);
-            }
-            else if (parameters.Curve.IsNamed)
-            {
-                key = ImportNamedCurveParameters(parameters);
-            }
-            else
-            {
-                throw new PlatformNotSupportedException(
-                    SR.Format(SR.Cryptography_CurveNotSupported, parameters.Curve.CurveType.ToString()));
-            }
-
-            if (key == null || key.IsInvalid)
-            {
-                Exception e = Interop.Crypto.CreateOpenSslCryptographicException();
-                key?.Dispose();
-                throw e;
-            }
-
-            // The Import* methods above may have polluted the error queue even if in the end they succeeded.
-            // Clean up the error queue.
-            Interop.Crypto.ErrClearError();
-
-            FreeKey();
-            _key = new Lazy<SafeEcKeyHandle>(key);
-            return KeySize;
-        }
-
-        public static ECParameters ExportExplicitParameters(SafeEcKeyHandle currentKey, bool includePrivateParameters) =>
+        private static ECParameters ExportExplicitParameters(SafeEcKeyHandle currentKey, bool includePrivateParameters) =>
             ExportExplicitCurveParameters(currentKey, includePrivateParameters);
 
-        public static ECParameters ExportParameters(SafeEcKeyHandle currentKey, bool includePrivateParameters)
+        private static ECParameters ExportParameters(SafeEcKeyHandle currentKey, bool includePrivateParameters)
         {
             ECParameters ecparams;
             if (Interop.Crypto.EcKeyHasCurveName(currentKey))
@@ -104,63 +64,6 @@ namespace System.Security.Cryptography
             return parameters;
         }
 
-        private static SafeEcKeyHandle ImportNamedCurveParameters(ECParameters parameters)
-        {
-            Debug.Assert(parameters.Curve.IsNamed);
-
-            // Use oid Value first if present, otherwise FriendlyName
-            string oid = !string.IsNullOrEmpty(parameters.Curve.Oid.Value) ?
-                parameters.Curve.Oid.Value : parameters.Curve.Oid.FriendlyName!;
-
-            SafeEcKeyHandle key = Interop.Crypto.EcKeyCreateByKeyParameters(
-                oid,
-                parameters.Q.X, parameters.Q.X?.Length ?? 0,
-                parameters.Q.Y, parameters.Q.Y?.Length ?? 0,
-                parameters.D, parameters.D == null ? 0 : parameters.D.Length);
-
-            return key;
-        }
-
-        private static SafeEcKeyHandle ImportPrimeCurveParameters(ECParameters parameters)
-        {
-            Debug.Assert(parameters.Curve.IsPrime);
-            SafeEcKeyHandle key = Interop.Crypto.EcKeyCreateByExplicitParameters(
-                parameters.Curve.CurveType,
-                parameters.Q.X, parameters.Q.X?.Length ?? 0,
-                parameters.Q.Y, parameters.Q.Y?.Length ?? 0,
-                parameters.D, parameters.D == null ? 0 : parameters.D.Length,
-                parameters.Curve.Prime!, parameters.Curve.Prime!.Length,
-                parameters.Curve.A!, parameters.Curve.A!.Length,
-                parameters.Curve.B!, parameters.Curve.B!.Length,
-                parameters.Curve.G.X!, parameters.Curve.G.X!.Length,
-                parameters.Curve.G.Y!, parameters.Curve.G.Y!.Length,
-                parameters.Curve.Order!, parameters.Curve.Order!.Length,
-                parameters.Curve.Cofactor, parameters.Curve.Cofactor!.Length,
-                parameters.Curve.Seed, parameters.Curve.Seed == null ? 0 : parameters.Curve.Seed.Length);
-
-            return key;
-        }
-
-        private static SafeEcKeyHandle ImportCharacteristic2CurveParameters(ECParameters parameters)
-        {
-            Debug.Assert(parameters.Curve.IsCharacteristic2);
-            SafeEcKeyHandle key = Interop.Crypto.EcKeyCreateByExplicitParameters(
-                parameters.Curve.CurveType,
-                parameters.Q.X, parameters.Q.X?.Length ?? 0,
-                parameters.Q.Y, parameters.Q.Y?.Length ?? 0,
-                parameters.D, parameters.D == null ? 0 : parameters.D.Length,
-                parameters.Curve.Polynomial!, parameters.Curve.Polynomial!.Length,
-                parameters.Curve.A!, parameters.Curve.A!.Length,
-                parameters.Curve.B!, parameters.Curve.B!.Length,
-                parameters.Curve.G.X!, parameters.Curve.G.X!.Length,
-                parameters.Curve.G.Y!, parameters.Curve.G.Y!.Length,
-                parameters.Curve.Order!, parameters.Curve.Order!.Length,
-                parameters.Curve.Cofactor, parameters.Curve.Cofactor!.Length,
-                parameters.Curve.Seed, parameters.Curve.Seed == null ? 0 : parameters.Curve.Seed.Length);
-
-            return key;
-        }
-
         private static void CheckInvalidKey(SafeEcKeyHandle key)
         {
             if (key == null || key.IsInvalid)
@@ -169,34 +72,97 @@ namespace System.Security.Cryptography
             }
         }
 
-        public static SafeEcKeyHandle GenerateKeyByKeySize(int keySize)
+        private static void CheckInvalidKey(SafeEvpPKeyHandle key)
         {
-            string oid;
-            switch (keySize)
-            {
-                case 256: oid = ECDSA_P256_OID_VALUE; break;
-                case 384: oid = ECDSA_P384_OID_VALUE; break;
-                case 521: oid = ECDSA_P521_OID_VALUE; break;
-                default:
-                    // Only above three sizes supported for backwards compatibility; named curves should be used instead
-                    throw new InvalidOperationException(SR.Cryptography_InvalidKeySize);
-            }
-
-            SafeEcKeyHandle? key = Interop.Crypto.EcKeyCreateByOid(oid);
-
             if (key == null || key.IsInvalid)
             {
-                key?.Dispose();
-                throw new PlatformNotSupportedException(SR.Format(SR.Cryptography_CurveNotSupported, oid));
+                throw new CryptographicException(SR.Cryptography_OpenInvalidHandle);
             }
+        }
 
-            if (!Interop.Crypto.EcKeyGenerateKey(key))
+        public static ECParameters ExportParameters(SafeEvpPKeyHandle pkey, bool includePrivateParameters)
+        {
+            CheckInvalidKey(pkey);
+
+            if (SafeEvpPKeyHandle.OpenSslVersion >= 0x3_00_00_00_0)
             {
-                key.Dispose();
-                throw Interop.Crypto.CreateOpenSslCryptographicException();
+                return ExportECParametersFromEvpPKeyUsingParams(pkey, includePrivateParameters);
             }
 
-            return key;
+            using (SafeEcKeyHandle ecKey = Interop.Crypto.EvpPkeyGetEcKey(pkey))
+            {
+                return ECOpenSsl.ExportParameters(ecKey, includePrivateParameters);
+            }
+        }
+
+        public static ECParameters ExportExplicitParameters(SafeEvpPKeyHandle pkey, bool includePrivateParameters)
+        {
+            CheckInvalidKey(pkey);
+
+            if (SafeEvpPKeyHandle.OpenSslVersion >= 0x3_00_00_00_0)
+            {
+                return ExportExplicitCurveParametersFromEvpPKeyUsingParams(pkey, includePrivateParameters);
+            }
+
+            using (SafeEcKeyHandle ecKey = Interop.Crypto.EvpPkeyGetEcKey(pkey))
+            {
+                return ECOpenSsl.ExportExplicitParameters(ecKey, includePrivateParameters);
+            }
+        }
+
+        /// <summary>
+        /// Extracts ECParameters from an EVP_PKEY* using OpenSSL 3 params API.
+        /// This is needed in case EVP_PKEY* was created by provider and getting EC_KEY is not possible.
+        /// For keys created with EC_KEY, ECOpenSsl.ExportParameters should be used.
+        /// </summary>
+        private static ECParameters ExportECParametersFromEvpPKeyUsingParams(SafeEvpPKeyHandle pkey, bool includePrivateParameters)
+        {
+            // Check encoding first — explicit-encoding keys must be exported with
+            // explicit curve parameters even if OpenSSL can match a named curve.
+            if (Interop.Crypto.EvpPKeyEcHasExplicitEncoding(pkey))
+            {
+                return ExportExplicitCurveParametersFromEvpPKeyUsingParams(pkey, includePrivateParameters);
+            }
+
+            string? curveName = Interop.Crypto.EvpPKeyGetCurveName(pkey);
+
+            if (curveName is null)
+            {
+                return ExportExplicitCurveParametersFromEvpPKeyUsingParams(pkey, includePrivateParameters);
+            }
+
+            return ExportNamedCurveParametersFromEvpPKeyUsingParams(pkey, curveName, includePrivateParameters);
+        }
+
+        private static ECParameters ExportNamedCurveParametersFromEvpPKeyUsingParams(SafeEvpPKeyHandle pkey, string curveName, bool includePrivateParameters)
+        {
+            Debug.Assert(curveName != null);
+            ECParameters parameters = Interop.Crypto.EvpPKeyGetEcKeyParameters(pkey, includePrivateParameters);
+
+            bool hasPrivateKey = (parameters.D != null);
+
+            if (hasPrivateKey != includePrivateParameters)
+            {
+                throw new CryptographicException(SR.Cryptography_CSP_NoPrivateKey);
+            }
+
+            // Assign Curve
+            parameters.Curve = ECCurve.CreateFromValue(curveName);
+
+            return parameters;
+        }
+
+        private static ECParameters ExportExplicitCurveParametersFromEvpPKeyUsingParams(SafeEvpPKeyHandle pkey, bool includePrivateParameters)
+        {
+            ECParameters parameters = Interop.Crypto.EvpPKeyGetEcCurveParameters(pkey, includePrivateParameters);
+
+            bool hasPrivateKey = (parameters.D != null);
+            if (hasPrivateKey != includePrivateParameters)
+            {
+                throw new CryptographicException(SR.Cryptography_CSP_NoPrivateKey);
+            }
+
+            return parameters;
         }
     }
 }

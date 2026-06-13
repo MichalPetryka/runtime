@@ -205,15 +205,15 @@ namespace ComInterfaceGenerator.Unit.Tests
             partial interface INativeAPI
             {
 
-                {{UnmanagedCallConv(CallConvs: new[] { typeof(CallConvCdecl) })}}
+                {{UnmanagedCallConv(CallConvs: [typeof(CallConvCdecl)])}}
                 {{VirtualMethodIndex(0)}}
                 void Method();
-                {{UnmanagedCallConv(CallConvs: new[] { typeof(CallConvCdecl), typeof(CallConvMemberFunction) })}}
+                {{UnmanagedCallConv(CallConvs: [typeof(CallConvCdecl), typeof(CallConvMemberFunction)])}}
                 {{VirtualMethodIndex(1)}}
                 void Method1();
 
                 [SuppressGCTransition]
-                {{UnmanagedCallConv(CallConvs: new[] { typeof(CallConvCdecl), typeof(CallConvMemberFunction) })}}
+                {{UnmanagedCallConv(CallConvs: [typeof(CallConvCdecl), typeof(CallConvMemberFunction)])}}
                 {{VirtualMethodIndex(2)}}
                 void Method2();
 
@@ -416,6 +416,7 @@ namespace ComInterfaceGenerator.Unit.Tests
             {{_attributeProvider.AdditionalUserRequiredInterfaces("INativeAPI")}}
             """;
 
+#pragma warning disable IL2057 // https://github.com/dotnet/runtime/issues/126862
         public string BasicReturnTypeCustomExceptionHandling(string typeName, string customExceptionType, string preDeclaration = "") => $$"""
             using System.Runtime.CompilerServices;
             using System.Runtime.InteropServices;
@@ -431,6 +432,7 @@ namespace ComInterfaceGenerator.Unit.Tests
             }
             {{_attributeProvider.AdditionalUserRequiredInterfaces("INativeAPI")}}
             """;
+#pragma warning restore IL2057
 
         public string DerivedComInterfaceTypeWithShadowingMethod => $$"""
             using System.Runtime.CompilerServices;
@@ -671,6 +673,55 @@ namespace ComInterfaceGenerator.Unit.Tests
             }
             """;
 
+        public string ForwarderWithPreserveSigAndRefKind(string refKind) => $$"""
+            using System;
+            using System.Runtime.CompilerServices;
+            using System.Runtime.InteropServices;
+            using System.Runtime.InteropServices.Marshalling;
+
+            #nullable enable
+
+            [assembly:DisableRuntimeMarshalling]
+
+            {{GeneratedComInterface()}}
+            partial interface IValue
+            {
+            }
+
+            {{GeneratedComInterface()}}
+            partial interface INativeAPIBase
+            {
+                [PreserveSig]
+                int FindValue(int key, {{refKind}} IValue? value);
+            }
+
+            {{GeneratedComInterface()}}
+            unsafe partial interface INativeDerived : INativeAPIBase
+            {
+                [PreserveSig]
+                int GetName(out char* name);
+            }
+            """;
+
+        public string DerivedComInterfaceTypeWithUnsafeBaseMethod => $$"""
+            using System.Runtime.CompilerServices;
+            using System.Runtime.InteropServices;
+            using System.Runtime.InteropServices.Marshalling;
+
+            [assembly:DisableRuntimeMarshalling]
+
+            {{GeneratedComInterface()}}
+            partial interface IComInterfaceBase
+            {
+                unsafe void Method(void* pBuffer);
+            }
+            {{GeneratedComInterface()}}
+            partial interface IComInterfaceDerived : IComInterfaceBase
+            {
+                void Method2();
+            }
+            """;
+
         public class ManagedToUnmanaged : IVirtualMethodIndexSignatureProvider
         {
             public MarshalDirection Direction => MarshalDirection.ManagedToUnmanaged;
@@ -721,5 +772,21 @@ namespace ComInterfaceGenerator.Unit.Tests
 
             public IComInterfaceAttributeProvider AttributeProvider { get; }
         }
+
+        public string ComInterfaceWithNativeMarshalling => $$"""
+            using System;
+            using System.Runtime.CompilerServices;
+            using System.Runtime.InteropServices;
+            using System.Runtime.InteropServices.Marshalling;
+
+            [assembly:DisableRuntimeMarshalling]
+
+            {{GeneratedComInterface()}}
+            [NativeMarshalling(typeof(UniqueComInterfaceMarshaller<IFoo>))]
+            partial interface IFoo
+            {
+                void DoWorkTogether(IFoo foo);
+            }
+            """;
     }
 }

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace System.Runtime.CompilerServices
@@ -15,7 +16,7 @@ namespace System.Runtime.CompilerServices
 
         [DebuggerHidden]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void InitClassSlow(MethodTable* mt)
+        internal static void InitClassSlow(MethodTable* mt)
         {
             InitClassHelper(mt);
         }
@@ -48,6 +49,28 @@ namespace System.Runtime.CompilerServices
                 return;
             else
                 InitClassSlow(pMT);
+        }
+
+        [DebuggerHidden]
+        [UnmanagedCallersOnly]
+        internal static void CallClassConstructor(void* cctor, void* instantiatingArg, Exception* pException)
+        {
+            try
+            {
+                if (instantiatingArg == null)
+                {
+                    ((delegate*<void>)cctor)();
+                }
+                else
+                {
+                    // Explicitly pass the instantiating argument as a regular argument to match the ABI of a non-instantiating stub.
+                    ((delegate*<void*, void>)cctor)(instantiatingArg);
+                }
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
         }
     }
 }

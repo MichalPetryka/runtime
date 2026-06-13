@@ -134,34 +134,6 @@ HANDLE CreateWin32EventOrThrow(
     RETURN h;
 }
 
-//-----------------------------------------------------------------------------
-// Open an event. Another helper for DebuggerRCThread::Init
-//-----------------------------------------------------------------------------
-HANDLE OpenWin32EventOrThrow(
-    DWORD dwDesiredAccess,
-    BOOL bInheritHandle,
-    LPCWSTR lpName
-)
-{
-    CONTRACT(HANDLE)
-    {
-        THROWS;
-        GC_NOTRIGGER;
-        POSTCONDITION(RETVAL != NULL);
-    }
-    CONTRACT_END;
-
-    HANDLE h = OpenEvent(
-        dwDesiredAccess,
-        bInheritHandle,
-        lpName
-    );
-    if (h == NULL)
-        ThrowLastError();
-
-    RETURN h;
-}
-
 //---------------------------------------------------------------------------------------
 //
 // Init
@@ -219,15 +191,6 @@ HRESULT DebuggerIPCControlBlock::Init(
 #else
     m_checkedBuild = false;
 #endif
-    m_bHostingInFiber = false;
-
-    // Are we in fiber mode? In Whidbey, we do not support launch a fiber mode process
-    // nor do we support attach to a fiber mode process.
-    //
-    if (g_CORDebuggerControlFlags & DBCF_FIBERMODE)
-    {
-        m_bHostingInFiber = true;
-    }
 
 #if !defined(FEATURE_DBGIPC_TRANSPORT_VM)
     // Copy RSEA and RSER into the control block.
@@ -568,8 +531,9 @@ static LONG _debugFilter(LPEXCEPTION_POINTERS ep, PVOID pv)
         EX_CATCH
         {
             string = "*Could not retrieve stack*";
+            RethrowTerminalExceptions();
         }
-        EX_END_CATCH(RethrowTerminalExceptions);
+        EX_END_CATCH
 
         CONSISTENCY_CHECK_MSGF(false,
             ("Unhandled exception on the helper thread.\nEvent=%s(0x%p)\nCode=0x%0x, Ip=0x%p, .cxr=%p, .exr=%p.\n pid=0x%x (%d), tid=0x%x (%d).\n-----\nStack of exception:\n%s\n----\n",
@@ -610,7 +574,7 @@ void DebuggerRCThread::ThreadProc(void)
     // This message actually serves a purpose (which is why it is always run)
     // The Stress log is run during hijacking, when other threads can be suspended
     // at arbitrary locations (including when holding a lock that NT uses to serialize
-    // all memory allocations).  By sending a message now, we insure that the stress
+    // all memory allocations).  By sending a message now, we ensure that the stress
     // log will not allocate memory at these critical times an avoid deadlock.
     {
         SUPPRESS_ALLOCATION_ASSERTS_IN_THIS_SCOPE;
@@ -1379,7 +1343,7 @@ HRESULT DebuggerRCThread::Start(void)
 
         // This gets published immediately.
         DebuggerIPCControlBlock* dcb = GetDCB();
-        PREFIX_ASSUME(dcb != NULL);
+        _ASSERTE(dcb != NULL);
         dcb->m_realHelperThreadId = helperThreadId;
 
 #ifdef _DEBUG
@@ -1416,11 +1380,7 @@ HRESULT DebuggerRCThread::AsyncStop(void)
         NOTHROW;
         GC_NOTRIGGER;
 
-#ifdef TARGET_X86
         PRECONDITION(!ThisIsHelperThreadWorker());
-#else
-        PRECONDITION(!ThisIsHelperThreadWorker());
-#endif
     }
     CONTRACTL_END;
 

@@ -281,6 +281,9 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.LeadingZeroCount(TSelf)" />
         public static byte LeadingZeroCount(byte value) => (byte)(BitOperations.LeadingZeroCount(value) - 24);
 
+        /// <inheritdoc cref="IBinaryInteger{TSelf}.Log10(TSelf)" />
+        public static byte Log10(byte value) => (byte)uint.Log10(value);
+
         /// <inheritdoc cref="IBinaryInteger{TSelf}.PopCount(TSelf)" />
         public static byte PopCount(byte value) => (byte)BitOperations.PopCount(value);
 
@@ -319,7 +322,7 @@ namespace System
                 }
 
                 // We only have 1-byte so read it directly
-                result = Unsafe.Add(ref MemoryMarshal.GetReference(source), source.Length - sizeof(byte));
+                result = source[source.Length - sizeof(byte)];
             }
 
             value = result;
@@ -352,7 +355,7 @@ namespace System
                 }
 
                 // We only have 1-byte so read it directly
-                result = MemoryMarshal.GetReference(source);
+                result = source[0];
             }
 
             value = result;
@@ -370,8 +373,7 @@ namespace System
         {
             if (destination.Length >= sizeof(byte))
             {
-                byte value = m_value;
-                MemoryMarshal.GetReference(destination) = value;
+                destination[0] = m_value;
 
                 bytesWritten = sizeof(byte);
                 return true;
@@ -388,8 +390,7 @@ namespace System
         {
             if (destination.Length >= sizeof(byte))
             {
-                byte value = m_value;
-                MemoryMarshal.GetReference(destination) = value;
+                destination[0] = m_value;
 
                 bytesWritten = sizeof(byte);
                 return true;
@@ -1115,13 +1116,13 @@ namespace System
         //
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_LeftShift(TSelf, TOther)" />
-        static byte IShiftOperators<byte, int, byte>.operator <<(byte value, int shiftAmount) => (byte)(value << shiftAmount);
+        static byte IShiftOperators<byte, int, byte>.operator <<(byte value, int shiftAmount) => (byte)(value << (shiftAmount & 7));
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_RightShift(TSelf, TOther)" />
-        static byte IShiftOperators<byte, int, byte>.operator >>(byte value, int shiftAmount) => (byte)(value >> shiftAmount);
+        static byte IShiftOperators<byte, int, byte>.operator >>(byte value, int shiftAmount) => (byte)(value >> (shiftAmount & 7));
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_UnsignedRightShift(TSelf, TOther)" />
-        static byte IShiftOperators<byte, int, byte>.operator >>>(byte value, int shiftAmount) => (byte)(value >>> shiftAmount);
+        static byte IShiftOperators<byte, int, byte>.operator >>>(byte value, int shiftAmount) => (byte)(value >>> (shiftAmount & 7));
 
         //
         // ISpanParsable

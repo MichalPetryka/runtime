@@ -7,6 +7,7 @@ using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,8 +17,8 @@ namespace System.Formats.Tar
     // Writes header attributes of a tar archive entry.
     internal sealed partial class TarHeader
     {
-        private const long Octal12ByteFieldMaxValue = (1L << (3 * 11)) - 1; // Max value of 11 octal digits.
-        private const int Octal8ByteFieldMaxValue = (1 << (3 * 7)) - 1;     // Max value of 7 octal digits.
+        internal const long Octal12ByteFieldMaxValue = (1L << (3 * 11)) - 1; // Max value of 11 octal digits.
+        internal const int Octal8ByteFieldMaxValue = (1 << (3 * 7)) - 1;     // Max value of 7 octal digits.
 
         private static ReadOnlySpan<byte> UstarMagicBytes => "ustar\0"u8;
         private static ReadOnlySpan<byte> UstarVersionBytes => "00"u8;
@@ -28,6 +29,9 @@ namespace System.Formats.Tar
         // Predefined text for the Name field of a GNU long metadata entry. Applies for both LongPath ('L') and LongLink ('K').
         private const string GnuLongMetadataName = "././@LongLink";
         private const string ArgNameEntry = "entry";
+
+        private const int RootUidGid = 0;
+        private const string RootUNameGName = "root";
 
         // Writes the entry in the order required to be able to obtain the seekable data stream size.
         private void WriteWithSeekableDataStream(TarEntryFormat format, Stream archiveStream, Span<byte> buffer)
@@ -354,6 +358,13 @@ namespace System.Formats.Tar
                 await WriteWithSeekableDataStreamAsync(TarEntryFormat.Pax, archiveStream, buffer, cancellationToken).ConfigureAwait(false);
             }
         }
+        // Checks if the linkname string is too long to fit in the regular header field.
+        // .NET strings do not include a null terminator by default, need to add it manually and also consider it for the length.
+        private bool IsLinkNameTooLongForRegularField() => _linkName != null && (Encoding.UTF8.GetByteCount(_linkName) + 1) > FieldLengths.LinkName;
+
+        // Checks if the name string is too long to fit in the regular header field (excluding null char).
+        // .NET strings do not include a null terminator by default, need to add it manually and also consider it for the length.
+        private bool IsNameTooLongForRegularField() => (Encoding.UTF8.GetByteCount(_name)) > FieldLengths.Name;
 
         // Writes the current header as a Gnu entry into the archive stream.
         // Makes sure to add the preceding LongLink and/or LongPath entries if necessary, before the actual entry.
@@ -361,19 +372,19 @@ namespace System.Formats.Tar
         {
             Debug.Assert(archiveStream.CanSeek || _dataStream == null || _dataStream.CanSeek);
 
-            // First, we determine if we need a preceding LongLink, and write it if needed
-            if (_linkName != null && Encoding.UTF8.GetByteCount(_linkName) > FieldLengths.LinkName)
+            if (IsLinkNameTooLongForRegularField())
             {
-                TarHeader longLinkHeader = GetGnuLongMetadataHeader(TarEntryType.LongLink, _linkName);
+                // Linkname is too long for the regular header field, create a longlink entry where the linkname will be stored.
+                TarHeader longLinkHeader = GetGnuLongLinkMetadataHeader();
                 Debug.Assert(longLinkHeader._dataStream != null && longLinkHeader._dataStream.CanSeek); // We generate the long metadata data stream, should always be seekable
                 longLinkHeader.WriteWithSeekableDataStream(TarEntryFormat.Gnu, archiveStream, buffer);
                 buffer.Clear(); // Reset it to reuse it
             }
 
-            // Second, we determine if we need a preceding LongPath, and write it if needed
-            if (Encoding.UTF8.GetByteCount(_name) > FieldLengths.Name)
+            if (IsNameTooLongForRegularField())
             {
-                TarHeader longPathHeader = GetGnuLongMetadataHeader(TarEntryType.LongPath, _name);
+                // Name is too long for the regular header field, create a longpath entry where the name will be stored.
+                TarHeader longPathHeader = GetGnuLongPathMetadataHeader();
                 Debug.Assert(longPathHeader._dataStream != null && longPathHeader._dataStream.CanSeek); // We generate the long metadata data stream, should always be seekable
                 longPathHeader.WriteWithSeekableDataStream(TarEntryFormat.Gnu, archiveStream, buffer);
                 buffer.Clear(); // Reset it to reuse it
@@ -397,19 +408,19 @@ namespace System.Formats.Tar
             Debug.Assert(archiveStream.CanSeek || _dataStream == null || _dataStream.CanSeek);
             cancellationToken.ThrowIfCancellationRequested();
 
-            // First, we determine if we need a preceding LongLink, and write it if needed
-            if (_linkName != null && Encoding.UTF8.GetByteCount(_linkName) > FieldLengths.LinkName)
+            if (IsLinkNameTooLongForRegularField())
             {
-                TarHeader longLinkHeader = GetGnuLongMetadataHeader(TarEntryType.LongLink, _linkName);
+                // Linkname is too long for the regular header field, create a longlink entry where the linkname will be stored.
+                TarHeader longLinkHeader = GetGnuLongLinkMetadataHeader();
                 Debug.Assert(longLinkHeader._dataStream != null && longLinkHeader._dataStream.CanSeek); // We generate the long metadata data stream, should always be seekable
                 await longLinkHeader.WriteWithSeekableDataStreamAsync(TarEntryFormat.Gnu, archiveStream, buffer, cancellationToken).ConfigureAwait(false);
                 buffer.Span.Clear(); // Reset it to reuse it
             }
 
-            // Second, we determine if we need a preceding LongPath, and write it if needed
-            if (Encoding.UTF8.GetByteCount(_name) > FieldLengths.Name)
+            if (IsNameTooLongForRegularField())
             {
-                TarHeader longPathHeader = GetGnuLongMetadataHeader(TarEntryType.LongPath, _name);
+                // Name is too long for the regular header field, create a longpath entry where the name will be stored.
+                TarHeader longPathHeader = GetGnuLongPathMetadataHeader();
                 Debug.Assert(longPathHeader._dataStream != null && longPathHeader._dataStream.CanSeek); // We generate the long metadata data stream, should always be seekable
                 await longPathHeader.WriteWithSeekableDataStreamAsync(TarEntryFormat.Gnu, archiveStream, buffer, cancellationToken).ConfigureAwait(false);
                 buffer.Span.Clear(); // Reset it to reuse it
@@ -426,8 +437,28 @@ namespace System.Formats.Tar
             }
         }
 
+        private static MemoryStream GetLongMetadataStream(string text)
+        {
+            byte[] arr = new byte[Encoding.UTF8.GetByteCount(text) + 1]; // +1 for null terminator
+            Encoding.UTF8.GetBytes(text, arr);
+            return new MemoryStream(arr);
+        }
+
+        private TarHeader GetGnuLongLinkMetadataHeader()
+        {
+            Debug.Assert(_linkName != null);
+            MemoryStream dataStream = GetLongMetadataStream(_linkName);
+            return GetGnuLongMetadataHeader(dataStream, TarEntryType.LongLink);
+        }
+
+        private TarHeader GetGnuLongPathMetadataHeader()
+        {
+            MemoryStream dataStream = GetLongMetadataStream(_name);
+            return GetGnuLongMetadataHeader(dataStream, TarEntryType.LongPath);
+        }
+
         // Creates and returns a GNU long metadata header, with the specified long text written into its data stream (seekable).
-        private static TarHeader GetGnuLongMetadataHeader(TarEntryType entryType, string longText)
+        private static TarHeader GetGnuLongMetadataHeader(MemoryStream dataStream, TarEntryType entryType)
         {
             Debug.Assert(entryType is TarEntryType.LongPath or TarEntryType.LongLink);
 
@@ -435,11 +466,15 @@ namespace System.Formats.Tar
             {
                 _name = GnuLongMetadataName, // Same name for both longpath or longlink
                 _mode = TarHelpers.GetDefaultMode(entryType),
-                _uid = 0,
-                _gid = 0,
-                _mTime = DateTimeOffset.MinValue, // 0
+                _uid = RootUidGid,
+                _gid = RootUidGid,
+                _mTime = DateTimeOffset.UnixEpoch, // Stores as series of 0 characters
                 _typeFlag = entryType,
-                _dataStream = new MemoryStream(Encoding.UTF8.GetBytes(longText))
+                _dataStream = dataStream,
+                _uName = RootUNameGName,
+                _gName = RootUNameGName,
+                _aTime = default, // LongLink/LongPath entries store these as nulls
+                _cTime = default, // LongLink/LongPath entries store these as nulls
             };
         }
 
@@ -541,7 +576,7 @@ namespace System.Formats.Tar
         // 'https://www.freebsd.org/cgi/man.cgi?tar(5)'
         // If the path name is too long to fit in the 100 bytes provided by the standard format,
         // it can be split at any / character with the first portion going into the prefix field.
-        private int WriteUstarName(Span<byte> buffer)
+        private unsafe int WriteUstarName(Span<byte> buffer)
         {
             // We can have a path name as big as 256, prefix + '/' + name,
             // the separator in between can be neglected as the reader will append it when it joins both fields.
@@ -614,22 +649,22 @@ namespace System.Formats.Tar
 
             int checksum = 0;
 
-            if (_mode > 0)
+            if (_mode >= 0)
             {
                 checksum += FormatNumeric(_mode, buffer.Slice(FieldLocations.Mode, FieldLengths.Mode));
             }
 
-            if (_uid > 0)
+            if (_uid >= 0)
             {
                 checksum += FormatNumeric(_uid, buffer.Slice(FieldLocations.Uid, FieldLengths.Uid));
             }
 
-            if (_gid > 0)
+            if (_gid >= 0)
             {
                 checksum += FormatNumeric(_gid, buffer.Slice(FieldLocations.Gid, FieldLengths.Gid));
             }
 
-            if (_dataStream != null && _size >= 0)
+            if (_size >= 0)
             {
                 checksum += FormatNumeric(_size, buffer.Slice(FieldLocations.Size, FieldLengths.Size));
             }
@@ -750,12 +785,12 @@ namespace System.Formats.Tar
         // Saves the gnu-specific fields into the specified spans.
         private int WriteGnuFields(Span<byte> buffer)
         {
-            int checksum = WriteAsTimestamp(_aTime, buffer.Slice(FieldLocations.ATime, FieldLengths.ATime));
-            checksum += WriteAsTimestamp(_cTime, buffer.Slice(FieldLocations.CTime, FieldLengths.CTime));
+            int checksum = 0;
 
-            if (_gnuUnusedBytes != null)
+            if (_typeFlag is not TarEntryType.LongLink and not TarEntryType.LongPath)
             {
-                checksum += WriteLeftAlignedBytesAndGetChecksum(_gnuUnusedBytes, buffer.Slice(FieldLocations.GnuUnused, FieldLengths.AllGnuUnused));
+                checksum += WriteAsTimestamp(_aTime, buffer.Slice(FieldLocations.ATime, FieldLengths.ATime));
+                checksum += WriteAsTimestamp(_cTime, buffer.Slice(FieldLocations.CTime, FieldLengths.CTime));
             }
 
             return checksum;
@@ -772,7 +807,7 @@ namespace System.Formats.Tar
         }
 
         // Calculates the padding for the current entry and writes it after the data.
-        private void WriteEmptyPadding(Stream archiveStream)
+        private unsafe void WriteEmptyPadding(Stream archiveStream)
         {
             int paddingAfterData = TarHelpers.CalculatePadding(_size);
             if (paddingAfterData != 0)
@@ -816,75 +851,85 @@ namespace System.Formats.Tar
             if (paddingAfterData != 0)
             {
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(paddingAfterData);
-                Array.Clear(buffer, 0, paddingAfterData);
+                try
+                {
+                    Array.Clear(buffer, 0, paddingAfterData);
 
-                await archiveStream.WriteAsync(buffer.AsMemory(0, paddingAfterData), cancellationToken).ConfigureAwait(false);
-
-                ArrayPool<byte>.Shared.Return(buffer);
+                    await archiveStream.WriteAsync(buffer.AsMemory(0, paddingAfterData), cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
         }
 
         // Generates a data stream (seekable) containing the extended attribute metadata of the entry it precedes.
         // Returns a null stream if the extended attributes dictionary is empty.
-        private static MemoryStream? GenerateExtendedAttributesDataStream(Dictionary<string, string> extendedAttributes)
+        private static unsafe MemoryStream? GenerateExtendedAttributesDataStream(Dictionary<string, string> extendedAttributes)
         {
             MemoryStream? dataStream = null;
 
             byte[]? buffer = null;
             Span<byte> span = stackalloc byte[512];
 
-            if (extendedAttributes.Count > 0)
+            try
             {
-                dataStream = new MemoryStream();
-
-                foreach ((string attribute, string value) in extendedAttributes)
+                if (extendedAttributes.Count > 0)
                 {
-                    // Generates an extended attribute key value pair string saved into a byte array, following the ISO/IEC 10646-1:2000 standard UTF-8 encoding format.
-                    // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html
+                    dataStream = new MemoryStream();
 
-                    // The format is:
-                    //     "XX attribute=value\n"
-                    // where "XX" is the number of characters in the entry, including those required for the count itself.
-                    // If prepending the length digits increases the number of digits, we need to expand.
-                    int length = 3 + Encoding.UTF8.GetByteCount(attribute) + Encoding.UTF8.GetByteCount(value);
-                    int originalDigitCount = CountDigits(length), newDigitCount;
-                    length += originalDigitCount;
-                    while ((newDigitCount = CountDigits(length)) != originalDigitCount)
+                    foreach ((string attribute, string value) in extendedAttributes)
                     {
-                        length += newDigitCount - originalDigitCount;
-                        originalDigitCount = newDigitCount;
-                    }
-                    Debug.Assert(length == CountDigits(length) + 3 + Encoding.UTF8.GetByteCount(attribute) + Encoding.UTF8.GetByteCount(value));
+                        // Generates an extended attribute key value pair string saved into a byte array, following the ISO/IEC 10646-1:2000 standard UTF-8 encoding format.
+                        // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html
 
-                    // Get a large enough buffer if we don't already have one.
-                    if (span.Length < length)
-                    {
-                        if (buffer is not null)
+                        // The format is:
+                        //     "XX attribute=value\n"
+                        // where "XX" is the number of characters in the entry, including those required for the count itself.
+                        // If prepending the length digits increases the number of digits, we need to expand.
+                        int length = 3 + Encoding.UTF8.GetByteCount(attribute) + Encoding.UTF8.GetByteCount(value);
+                        int originalDigitCount = CountDigits(length), newDigitCount;
+                        length += originalDigitCount;
+                        while ((newDigitCount = CountDigits(length)) != originalDigitCount)
                         {
-                            ArrayPool<byte>.Shared.Return(buffer);
+                            length += newDigitCount - originalDigitCount;
+                            originalDigitCount = newDigitCount;
                         }
-                        span = buffer = ArrayPool<byte>.Shared.Rent(length);
+                        Debug.Assert(length == CountDigits(length) + 3 + Encoding.UTF8.GetByteCount(attribute) + Encoding.UTF8.GetByteCount(value));
+
+                        // Get a large enough buffer if we don't already have one.
+                        if (span.Length < length)
+                        {
+                            if (buffer is not null)
+                            {
+                                ArrayPool<byte>.Shared.Return(buffer);
+                            }
+                            span = buffer = ArrayPool<byte>.Shared.Rent(length);
+                        }
+
+                        // Format the contents.
+                        bool formatted = Utf8Formatter.TryFormat(length, span, out int bytesWritten);
+                        Debug.Assert(formatted);
+                        span[bytesWritten++] = (byte)' ';
+                        bytesWritten += Encoding.UTF8.GetBytes(attribute, span.Slice(bytesWritten));
+                        span[bytesWritten++] = (byte)'=';
+                        bytesWritten += Encoding.UTF8.GetBytes(value, span.Slice(bytesWritten));
+                        span[bytesWritten++] = (byte)'\n';
+
+                        // Write it to the stream.
+                        dataStream.Write(span.Slice(0, bytesWritten));
                     }
 
-                    // Format the contents.
-                    bool formatted = Utf8Formatter.TryFormat(length, span, out int bytesWritten);
-                    Debug.Assert(formatted);
-                    span[bytesWritten++] = (byte)' ';
-                    bytesWritten += Encoding.UTF8.GetBytes(attribute, span.Slice(bytesWritten));
-                    span[bytesWritten++] = (byte)'=';
-                    bytesWritten += Encoding.UTF8.GetBytes(value, span.Slice(bytesWritten));
-                    span[bytesWritten++] = (byte)'\n';
-
-                    // Write it to the stream.
-                    dataStream.Write(span.Slice(0, bytesWritten));
+                    dataStream.Position = 0; // Ensure it gets written into the archive from the beginning
                 }
-
-                dataStream.Position = 0; // Ensure it gets written into the archive from the beginning
             }
-
-            if (buffer is not null)
+            finally
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                if (buffer is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
 
             return dataStream;
@@ -907,81 +952,20 @@ namespace System.Formats.Tar
         // extended attributes. They get collected and saved in that dictionary, with no restrictions.
         private void CollectExtendedAttributesFromStandardFieldsIfNeeded()
         {
-            ExtendedAttributes[PaxEaName] = _name;
-            ExtendedAttributes[PaxEaMTime] = TarHelpers.GetTimestampStringFromDateTimeOffset(_mTime);
+            CollectExtendedAttributesFromStandardFieldsIfNeeded(_ea ??= new Dictionary<string, string>());
+        }
 
-            TryAddStringField(ExtendedAttributes, PaxEaGName, _gName, FieldLengths.GName);
-            TryAddStringField(ExtendedAttributes, PaxEaUName, _uName, FieldLengths.UName);
-
-            if (!string.IsNullOrEmpty(_linkName))
-            {
-                Debug.Assert(_typeFlag is TarEntryType.SymbolicLink or TarEntryType.HardLink);
-                ExtendedAttributes[PaxEaLinkName] = _linkName;
-            }
-
-            if (_size > Octal12ByteFieldMaxValue)
-            {
-                ExtendedAttributes[PaxEaSize] = _size.ToString();
-            }
-            else
-            {
-                ExtendedAttributes.Remove(PaxEaSize);
-            }
-
-            if (_uid > Octal8ByteFieldMaxValue)
-            {
-                ExtendedAttributes[PaxEaUid] = _uid.ToString();
-            }
-            else
-            {
-                ExtendedAttributes.Remove(PaxEaUid);
-            }
-
-            if (_gid > Octal8ByteFieldMaxValue)
-            {
-                ExtendedAttributes[PaxEaGid] = _gid.ToString();
-            }
-            else
-            {
-                ExtendedAttributes.Remove(PaxEaGid);
-            }
-
-            if (_devMajor > Octal8ByteFieldMaxValue)
-            {
-                ExtendedAttributes[PaxEaDevMajor] = _devMajor.ToString();
-            }
-            else
-            {
-                ExtendedAttributes.Remove(PaxEaDevMajor);
-            }
-
-            if (_devMinor > Octal8ByteFieldMaxValue)
-            {
-                ExtendedAttributes[PaxEaDevMinor] = _devMinor.ToString();
-            }
-            else
-            {
-                ExtendedAttributes.Remove(PaxEaDevMinor);
-            }
-
-            // Sets the specified string to the dictionary if it's longer than the specified max byte length; otherwise, remove it.
-            static void TryAddStringField(Dictionary<string, string> extendedAttributes, string key, string? value, int maxLength)
-            {
-                if (string.IsNullOrEmpty(value) || GetUtf8TextLength(value) <= maxLength)
-                {
-                    extendedAttributes.Remove(key);
-                }
-                else
-                {
-                    extendedAttributes[key] = value;
-                }
-            }
+        // At write time, we both add and remove entries to ensure the EA dictionary
+        // is fully normalized. Delegates to the shared helper with removeIfUnneeded: true.
+        private void CollectExtendedAttributesFromStandardFieldsIfNeeded(Dictionary<string, string> ea)
+        {
+            AddOrUpdateStandardFieldExtendedAttributes(ea, removeIfUnneeded: true);
         }
 
         // The checksum accumulator first adds up the byte values of eight space chars, then the final number
         // is written on top of those spaces on the specified span as ascii.
         // At the end, it's saved in the header field and the final value returned.
-        private static int WriteChecksum(int checksum, Span<byte> buffer)
+        private static unsafe int WriteChecksum(int checksum, Span<byte> buffer)
         {
             // The checksum field is also counted towards the total sum
             // but as an array filled with spaces
@@ -998,7 +982,7 @@ namespace System.Formats.Tar
             destination[^2] = (byte)'\0';
 
             int i = destination.Length - 3;
-            int j = converted.Length - 1;
+            int j = converted.Length - 2; // Skip the null terminator in 'converted'
 
             while (i >= 0)
             {
@@ -1054,13 +1038,44 @@ namespace System.Formats.Tar
         private static int Checksum(ReadOnlySpan<byte> bytes)
         {
             int checksum = 0;
-            foreach (byte b in bytes)
-            {
-                checksum += b;
-            }
-            return checksum;
-        }
+            int vectorSize = Vector<byte>.Count;
+            int i = 0;
 
+            if (Vector.IsHardwareAccelerated && bytes.Length >= vectorSize)
+            {
+                // tar header is 512 bytes, which makes the maximum checksum
+                // 512 * 255 = 130560. That does not fit into ushort, but since
+                // the vector will contain multiple ushorts and we don't ever
+                // sum over the entirety of the data, we will (just barely) not
+                // overflow ushort accumulators even on repeated 0xFF data.
+                Debug.Assert(bytes.Length <= 512);
+                Vector<ushort> accumulator = Vector<ushort>.Zero;
+
+                // Process full vectors
+                for (; i <= bytes.Length - vectorSize; i += vectorSize)
+                {
+                    Vector<byte> vector = new Vector<byte>(bytes.Slice(i, vectorSize));
+
+                    // Widen and sum to avoid overflow
+                    Vector.Widen(vector, out Vector<ushort> lower, out Vector<ushort> upper);
+                    accumulator += lower + upper;
+                }
+
+                // Horizontal sum of accumulator, this one might overflow ushort
+                // so we widen again
+                Vector.Widen(accumulator, out Vector<uint> lower32, out Vector<uint> upper32);
+                checksum = (int)Vector.Sum(lower32) + (int)Vector.Sum(upper32);
+            }
+
+            // Process remaining bytes (or entire range if no vectorization)
+            for (; i < bytes.Length; i++)
+            {
+                checksum += bytes[i];
+            }
+
+            return checksum;
+
+        }
         private int FormatNumeric(int value, Span<byte> destination)
         {
             Debug.Assert(destination.Length == 8, "8 byte field expected.");
@@ -1112,12 +1127,13 @@ namespace System.Formats.Tar
         }
 
         // Writes the specified decimal number as a right-aligned octal number and returns its checksum.
-        private static int FormatOctal(long value, Span<byte> destination)
+        private static unsafe int FormatOctal(long value, Span<byte> destination)
         {
             ulong remaining = (ulong)value;
             Span<byte> digits = stackalloc byte[32]; // longer than any possible octal formatting of a ulong
 
             int i = digits.Length - 1;
+
             while (true)
             {
                 digits[i] = (byte)('0' + (remaining % 8));
@@ -1132,6 +1148,12 @@ namespace System.Formats.Tar
         // Writes the specified DateTimeOffset's Unix time seconds, and returns its checksum.
         private int WriteAsTimestamp(DateTimeOffset timestamp, Span<byte> destination)
         {
+            // For 'default' we leave the buffer zero-ed to indicate: "no timestamp".
+            if (timestamp == default)
+            {
+                return 0;
+            }
+
             long unixTimeSeconds = timestamp.ToUnixTimeSeconds();
             return FormatNumeric(unixTimeSeconds, destination);
         }

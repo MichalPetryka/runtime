@@ -347,7 +347,7 @@ namespace System.Net.Sockets
             void IThreadPoolWorkItem.Execute() => AssociatedContext.ProcessAsyncWriteOperation(this);
         }
 
-        private abstract unsafe class SendOperation : WriteOperation
+        private abstract class SendOperation : WriteOperation
         {
             public SocketFlags Flags;
             public int BytesTransferred;
@@ -358,7 +358,7 @@ namespace System.Net.Sockets
 
             public Action<int, Memory<byte>, SocketFlags, SocketError>? Callback { get; set; }
 
-            public override unsafe void InvokeCallback(bool allowPooling) =>
+            public override void InvokeCallback(bool allowPooling) =>
                 Callback!(BytesTransferred, SocketAddress, SocketFlags.None, ErrorCode);
         }
 
@@ -374,7 +374,7 @@ namespace System.Net.Sockets
                 return SocketPal.TryCompleteSendTo(context._socket, Buffer.Span, null, ref bufferIndex, ref Offset, ref Count, Flags, SocketAddress.Span, ref BytesTransferred, out ErrorCode);
             }
 
-            public override unsafe void InvokeCallback(bool allowPooling)
+            public override void InvokeCallback(bool allowPooling)
             {
                 var cb = Callback!;
                 int bt = BytesTransferred;
@@ -668,7 +668,7 @@ namespace System.Net.Sockets
                 return result;
             }
 
-            public override unsafe void InvokeCallback(bool allowPooling)
+            public override void InvokeCallback(bool allowPooling)
             {
                 var cb = Callback!;
                 int bt = BytesTransferred;
@@ -676,8 +676,10 @@ namespace System.Net.Sockets
                 SocketError ec = ErrorCode;
                 Memory<byte> buffer = Buffer;
 
-                if (buffer.Length == 0)
+                if (buffer.Length == 0 || ec != SocketError.Success)
                 {
+                    AssociatedContext._socket.SetBlocking();
+
                     // Invoke callback only when we are completely done.
                     // In case data were provided for Connect we may or may not send them all.
                     // If we did not we will need follow-up with Send operation
@@ -1262,6 +1264,8 @@ namespace System.Net.Sockets
         private SocketAsyncEngine? _asyncEngine;
         private bool IsRegistered => _asyncEngine != null;
         private bool _isHandleNonBlocking = OperatingSystem.IsWasi(); // WASI sockets are always non-blocking, because we don't have another thread which could be blocked
+        /// <summary>An index into <see cref="SocketAsyncEngine"/>'s table of all contexts that are currently <see cref="IsRegistered"/>.</summary>
+        internal int GlobalContextIndex = -1;
 
         private readonly object _registerLock = new object();
 
@@ -1330,7 +1334,10 @@ namespace System.Net.Sockets
             // We don't need to synchronize with Register.
             // This method is called when the handle gets released.
             // The Register method will throw ODE when it tries to use the handle at this point.
-            _asyncEngine?.UnregisterSocket(_socket.DangerousGetHandle(), this);
+            if (IsRegistered)
+            {
+                SocketAsyncEngine.UnregisterSocket(this);
+            }
 
             return aborted;
         }
@@ -1345,8 +1352,10 @@ namespace System.Net.Sockets
             //
             // Our sockets may start as blocking, and later transition to non-blocking, either because the user
             // explicitly requested non-blocking mode, or because we need non-blocking mode to support async
-            // operations.  We never transition back to blocking mode, to avoid problems synchronizing that
-            // transition with the async infrastructure.
+            // operations. After ConnectAsync completes (success or failure), if there is no pending follow-up
+            // async send, we may transition back to blocking mode to optimize subsequent synchronous operations
+            // (see SetHandleBlocking). The socket will be set back to non-blocking when another async operation
+            // is performed.
             //
             // Note that there's no synchronization here, so we may set the non-blocking option multiple times
             // in a race.  This should be fine.
@@ -1363,6 +1372,23 @@ namespace System.Net.Sockets
         }
 
         public bool IsHandleNonBlocking => _isHandleNonBlocking;
+
+        public void SetHandleBlocking()
+        {
+            if (OperatingSystem.IsWasi())
+            {
+                // WASI sockets are always non-blocking
+                return;
+            }
+
+            if (_isHandleNonBlocking)
+            {
+                if (Interop.Sys.Fcntl.SetIsNonBlocking(_socket, 0) == 0)
+                {
+                    _isHandleNonBlocking = false;
+                }
+            }
+        }
 
         private void PerformSyncOperation<TOperation>(ref OperationQueue<TOperation> queue, TOperation operation, int timeout, int observedSequenceNumber)
             where TOperation : AsyncOperation
@@ -1383,7 +1409,7 @@ namespace System.Net.Sockets
                 bool timeoutExpired = false;
                 while (true)
                 {
-                    DateTime waitStart = DateTime.UtcNow;
+                    long waitStart = Stopwatch.GetTimestamp();
 
                     if (!e.Wait(timeout))
                     {
@@ -1406,7 +1432,7 @@ namespace System.Net.Sockets
                     // Adjust timeout and try again.
                     if (timeout > 0)
                     {
-                        timeout -= (DateTime.UtcNow - waitStart).Milliseconds;
+                        timeout -= (int)Stopwatch.GetElapsedTime(waitStart).TotalMilliseconds;
 
                         if (timeout <= 0)
                         {
@@ -1531,7 +1557,7 @@ namespace System.Net.Sockets
             return operation.ErrorCode;
         }
 
-        public SocketError ConnectAsync(Memory<byte> socketAddress, Action<int, Memory<byte>, SocketFlags, SocketError> callback, Memory<byte> buffer, out int sentBytes)
+        public SocketError ConnectAsync(Memory<byte> socketAddress, Action<int, Memory<byte>, SocketFlags, SocketError> callback, Memory<byte> buffer, out int sentBytes, CancellationToken cancellationToken)
         {
             Debug.Assert(socketAddress.Length > 0, $"Unexpected socketAddressLen: {socketAddress.Length}");
             Debug.Assert(callback != null, "Expected non-null callback");
@@ -1544,7 +1570,7 @@ namespace System.Net.Sockets
             SocketError errorCode;
             int observedSequenceNumber;
             _sendQueue.IsReady(this, out observedSequenceNumber);
-#if SYSTEM_NET_SOCKETS_APPLE_PLATFROM
+#if SYSTEM_NET_SOCKETS_APPLE_PLATFORM
             if (SocketPal.TryStartConnect(_socket, socketAddress, out errorCode, buffer.Span, _socket.TfoEnabled, out sentBytes))
 #else
             if (SocketPal.TryStartConnect(_socket, socketAddress, out errorCode, buffer.Span, false, out sentBytes)) // In Linux, we can figure it out as needed inside PAL.
@@ -1558,6 +1584,11 @@ namespace System.Net.Sockets
                 {
                     errorCode = SendToAsync(buffer.Slice(sentBytes), 0, remains, SocketFlags.None, Memory<byte>.Empty, ref sentBytes, callback!, default);
                 }
+
+                if (remains == 0 || errorCode != SocketError.IOPending)
+                {
+                    _socket.SetBlocking();
+                }
                 return errorCode;
             }
 
@@ -1569,12 +1600,18 @@ namespace System.Net.Sockets
                 BytesTransferred = sentBytes,
             };
 
-            if (!_sendQueue.StartAsyncOperation(this, operation, observedSequenceNumber))
+            if (!_sendQueue.StartAsyncOperation(this, operation, observedSequenceNumber, cancellationToken))
             {
                 if (operation.ErrorCode == SocketError.Success)
                 {
                     sentBytes += operation.BytesTransferred;
                 }
+
+                if (buffer.Length == 0 || operation.ErrorCode != SocketError.Success)
+                {
+                    _socket.SetBlocking();
+                }
+
                 return operation.ErrorCode;
             }
 
@@ -1596,7 +1633,7 @@ namespace System.Net.Sockets
             return ReceiveFromAsync(buffer, flags, Memory<byte>.Empty, out int _, out bytesReceived, out receivedFlags, callback, cancellationToken);
         }
 
-        public unsafe SocketError ReceiveFrom(Memory<byte> buffer, ref SocketFlags flags, Memory<byte> socketAddress, out int socketAddressLen, int timeout, out int bytesReceived)
+        public SocketError ReceiveFrom(Memory<byte> buffer, ref SocketFlags flags, Memory<byte> socketAddress, out int socketAddressLen, int timeout, out int bytesReceived)
         {
             if (!Socket.OSSupportsThreads) throw new PlatformNotSupportedException();
 
@@ -1741,7 +1778,7 @@ namespace System.Net.Sockets
             return ReceiveFromAsync(buffers, flags, Memory<byte>.Empty, out int _, out bytesReceived, out receivedFlags, callback);
         }
 
-        public unsafe SocketError ReceiveFrom(IList<ArraySegment<byte>> buffers, ref SocketFlags flags, Memory<byte> socketAddress, out int socketAddressLen, int timeout, out int bytesReceived)
+        public SocketError ReceiveFrom(IList<ArraySegment<byte>> buffers, ref SocketFlags flags, Memory<byte> socketAddress, out int socketAddressLen, int timeout, out int bytesReceived)
         {
             if (!Socket.OSSupportsThreads) throw new PlatformNotSupportedException();
 
@@ -2242,7 +2279,7 @@ namespace System.Net.Sockets
         }
 
         // Called on ThreadPool thread.
-        public unsafe void HandleEvents(Interop.Sys.SocketEvents events)
+        public void HandleEvents(Interop.Sys.SocketEvents events)
         {
             Debug.Assert((events & Interop.Sys.SocketEvents.Error) == 0);
 

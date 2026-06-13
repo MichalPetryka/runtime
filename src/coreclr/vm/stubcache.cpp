@@ -75,7 +75,7 @@ StubCacheBase::~StubCacheBase()
 //    The caller is responsible for DecRef'ing the returned stub in
 //    order to avoid leaks.
 //---------------------------------------------------------
-Stub *StubCacheBase::Canonicalize(const BYTE * pRawStub)
+Stub *StubCacheBase::Canonicalize(const BYTE * pRawStub, const char *stubType)
 {
     CONTRACT (Stub*)
     {
@@ -86,6 +86,7 @@ Stub *StubCacheBase::Canonicalize(const BYTE * pRawStub)
 
     STUBHASHENTRY *phe = NULL;
 
+    StubHolder<Stub> pstub;
     {
         CrstHolder ch(&m_crst);
 
@@ -93,15 +94,13 @@ Stub *StubCacheBase::Canonicalize(const BYTE * pRawStub)
         phe = (STUBHASHENTRY*)Find((LPVOID)pRawStub);
         if (phe)
         {
-            StubHolder<Stub> pstub;
             pstub = phe->m_pStub;
 
             ExecutableWriterHolder<Stub> stubWriterHolder(pstub, sizeof(Stub));
             // IncRef as we're returning a reference to our caller.
             stubWriterHolder.GetRW()->IncRef();
 
-            pstub.SuppressRelease();
-            RETURN pstub;
+            RETURN pstub.Detach();
         }
     }
 
@@ -114,8 +113,7 @@ Stub *StubCacheBase::Canonicalize(const BYTE * pRawStub)
     // and link up the stub.
     CodeLabel *plabel = psl->EmitNewCodeLabel();
     psl->EmitBytes(pRawStub, Length(pRawStub));
-    StubHolder<Stub> pstub;
-    pstub = psl->Link(m_heap, linkFlags);
+    pstub = psl->Link(m_heap, linkFlags, stubType);
     UINT32 offset = psl->GetLabelOffset(plabel);
 
     if (offset > 0xffff)
@@ -162,8 +160,7 @@ Stub *StubCacheBase::Canonicalize(const BYTE * pRawStub)
         COMPlusThrowOM();
     }
 
-    pstub.SuppressRelease();
-    RETURN pstub;
+    RETURN pstub.Detach();
 }
 
 

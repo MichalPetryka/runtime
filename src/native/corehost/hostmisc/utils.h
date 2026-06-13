@@ -6,9 +6,12 @@
 
 #include "pal.h"
 #include "trace.h"
-#include <type_traits>
 #include <runtime_version.h>
 #include <minipal/utils.h>
+
+#ifdef __cplusplus
+#include <type_traits>
+#endif
 
 #define DOTNET_CORE_DOWNLOAD_URL _X("https://aka.ms/dotnet/download")
 #define DOTNET_CORE_APPLAUNCH_URL _X("https://aka.ms/dotnet-core-applaunch")
@@ -47,6 +50,8 @@
 
 #define HOST_VERSION _QUOTE(RuntimeProductVersion)
 
+#ifdef __cplusplus
+
 namespace utils
 {
     template<size_t L>
@@ -69,6 +74,15 @@ namespace utils
     {
         return starts_with(value, prefix, L - 1, match_case);
     }
+
+    template <typename... Args>
+    pal::string_t format_string(const pal::char_t* format, Args&&... args)
+    {
+        int len = pal::strlen_printf(format, std::forward<Args>(args)...) + 1;
+        std::vector<pal::char_t> buffer(len);
+        pal::str_printf(&buffer[0], len, format, std::forward<Args>(args)...);
+        return pal::string_t(buffer.data(), buffer.size() - 1);
+    }
 }
 
 pal::string_t strip_executable_ext(const pal::string_t& filename);
@@ -76,7 +90,11 @@ pal::string_t get_directory(const pal::string_t& path);
 pal::string_t strip_file_ext(const pal::string_t& path);
 pal::string_t get_filename(const pal::string_t& path);
 pal::string_t get_filename_without_ext(const pal::string_t& path);
+
+// Concatenate path1 and path2 into path1, ensuring there is a directory separator.
+// This does not check for rooted paths or make any attempt to root the returned path.
 void append_path(pal::string_t* path1, const pal::char_t* path2);
+
 bool file_exists_in_dir(const pal::string_t& dir, const pal::char_t* file_name, pal::string_t* out_file_path);
 bool coreclr_exists_in_dir(const pal::string_t& candidate);
 void remove_trailing_dir_separator(pal::string_t* dir);
@@ -91,7 +109,7 @@ pal::string_t get_runtime_id();
 bool try_get_runtime_id_from_env(pal::string_t& out_rid);
 
 bool multilevel_lookup_enabled();
-void get_framework_and_sdk_locations(const pal::string_t& dotnet_dir, const bool disable_multilevel_lookup, std::vector<pal::string_t>* locations);
+void get_framework_locations(const pal::string_t& dotnet_dir, const bool disable_multilevel_lookup, std::vector<pal::string_t>* locations);
 bool get_file_path_from_env(const pal::char_t* env_key, pal::string_t* recv);
 size_t index_of_non_numeric(const pal::string_t& str, size_t i);
 bool try_stou(const pal::string_t& str, unsigned* num);
@@ -184,5 +202,24 @@ size_t to_size_t_dbgchecked(T value)
     assert(static_cast<T>(result) == value);
     return result;
 }
+
+#endif // __cplusplus
+
+// ============================================================================
+// C-compatible declarations
+// ============================================================================
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Writes the trailing path component (i.e. text after the last DIR_SEPARATOR)
+// of `path` into `out_name`. Returns false if the result does not fit in the
+// caller-supplied buffer (out_name is set to empty).
+bool utils_get_filename(const pal_char_t* path, pal_char_t* out_name, size_t out_name_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

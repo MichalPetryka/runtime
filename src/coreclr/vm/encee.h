@@ -175,6 +175,23 @@ private:
 
     // Linked list of EnCFieldDescs for all the added static fields
     PTR_EnCAddedFieldElement m_pAddedStaticFields;
+
+    friend struct ::cdac_data<EnCEEClassData>;
+};
+
+template<>
+struct cdac_data<EnCEEClassData>
+{
+    static constexpr size_t MethodTable = offsetof(EnCEEClassData, m_pMT);
+    static constexpr size_t AddedInstanceFields = offsetof(EnCEEClassData, m_pAddedInstanceFields);
+    static constexpr size_t AddedStaticFields = offsetof(EnCEEClassData, m_pAddedStaticFields);
+};
+
+template<>
+struct cdac_data<EnCAddedFieldElement>
+{
+    static constexpr size_t Next = offsetof(EnCAddedFieldElement, m_next);
+    static constexpr size_t FieldDesc = offsetof(EnCAddedFieldElement, m_fieldDesc);
 };
 
 //---------------------------------------------------------------------------------------
@@ -229,6 +246,7 @@ public:
                             DWORD cbIL,
                             BYTE *pIL);
 
+private:
     // Called when a method has been modified (new IL)
     HRESULT UpdateMethod(MethodDesc *pMethod);
 
@@ -241,6 +259,7 @@ public:
     // JIT the new version of a function for EnC
     PCODE JitUpdatedFunction(MethodDesc *pMD, T_CONTEXT *pContext);
 
+public:
     // Remap execution to the latest version of an edited method
     HRESULT ResumeInUpdatedFunction(MethodDesc *pMD,
                                     void *oldDebuggerFuncHandle,

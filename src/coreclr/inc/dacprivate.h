@@ -65,6 +65,12 @@ enum
     DACSTACKPRIV_REQUEST_FRAME_DATA = 0xf0000000
 };
 
+// Private requests for the cDAC stress harness.
+enum
+{
+    DACSTRESSPRIV_REQUEST_FLUSH_TARGET_STATE = 0xf2000000
+};
+
 enum DacpObjectType { OBJ_STRING=0,OBJ_FREE,OBJ_OBJECT,OBJ_ARRAY,OBJ_OTHER };
 struct MSLAYOUT DacpObjectData
 {
@@ -226,9 +232,13 @@ struct MSLAYOUT DacpThreadLocalModuleData
     CLRDATA_ADDRESS pNonGCStaticDataStart = 0;
 };
 
-
 struct MSLAYOUT DacpModuleData
 {
+    enum TransientFlags
+    {
+        IsEditAndContinue = 0x00000208, // Flags for .NET Framework (0x00000200) and .NET Core (0x00000008)
+    };
+
     CLRDATA_ADDRESS Address = 0;
     CLRDATA_ADDRESS PEAssembly = 0; // Actually the module address in .NET 9+
     CLRDATA_ADDRESS ilBase = 0;
@@ -623,7 +633,7 @@ struct MSLAYOUT DacpTieredVersionData
 };
 
 // for JITType
-enum JITTypes {TYPE_UNKNOWN=0,TYPE_JIT,TYPE_PJIT};
+enum JITTypes {TYPE_UNKNOWN=0,TYPE_JIT,TYPE_PJIT,TYPE_INTERPRETER};
 
 struct MSLAYOUT DacpCodeHeaderData
 {
@@ -967,7 +977,7 @@ struct MSLAYOUT DACEHInfo
     CLRDATA_ADDRESS tryEndOffset = 0;
     CLRDATA_ADDRESS handlerStartOffset = 0;
     CLRDATA_ADDRESS handlerEndOffset = 0;
-    BOOL isDuplicateClause = FALSE;
+    BOOL isDuplicateClause = FALSE;     // unused
     CLRDATA_ADDRESS filterOffset = 0;   // valid when clauseType is EHFilter
     BOOL isCatchAllHandler = FALSE;     // valid when clauseType is EHTyped
     CLRDATA_ADDRESS moduleAddr = 0;     // when == 0 mtCatch contains a MethodTable, when != 0 tokCatch contains a type token
@@ -1039,8 +1049,6 @@ struct MSLAYOUT DacpJitCodeHeapInfo
 
     DacpJitCodeHeapInfo() : codeHeapType(0), LoaderHeap(0) {}
 };
-
-#include "static_assert.h"
 
 /* DAC datastructures are frozen as of dev11 shipping.  Do NOT add fields, remove fields, or change the fields of
  * these structs in any way.  The correct way to get new data out of the runtime is to create a new struct and
