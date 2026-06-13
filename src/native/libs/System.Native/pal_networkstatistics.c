@@ -18,6 +18,7 @@
 #if HAVE_NETINET_TCP_VAR_H
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wreserved-id-macro"
+#pragma clang diagnostic ignored "-Wunused-macros"
 #define _WANT_INPCB
 #define _WANT_TCPCB
 #pragma clang diagnostic pop
@@ -57,6 +58,10 @@
 #include <netinet/ip_var.h>
 #elif HAVE_IOS_NETINET_IP_VAR_H
 #include "ios/netinet/ip_var.h"
+#endif
+#ifdef __FreeBSD__
+#include <sys/callout.h>
+#include <sys/osd.h>
 #endif
 #include <netinet/tcp_var.h>
 #include <netinet/tcp.h>
@@ -374,7 +379,7 @@ int32_t SystemNative_GetActiveTcpConnectionInfos(NativeTcpConnectionInformation*
         free(buffer);
         size_t tmpEstimatedSize;
         if (!multiply_s(estimatedSize, (size_t)2, &tmpEstimatedSize) ||
-            (buffer = (uint8_t*)malloc(estimatedSize * sizeof(uint8_t))) == NULL)
+            (buffer = (uint8_t*)malloc(tmpEstimatedSize * sizeof(uint8_t))) == NULL)
         {
             errno = ENOMEM;
             return -1;
@@ -488,7 +493,7 @@ int32_t SystemNative_GetActiveUdpListeners(IPEndPointInfo* infos, int32_t* infoC
         free(buffer);
         size_t tmpEstimatedSize;
         if (!multiply_s(estimatedSize, (size_t)2, &tmpEstimatedSize) ||
-            (buffer = (uint8_t*)malloc(estimatedSize * sizeof(uint8_t))) == NULL)
+            (buffer = (uint8_t*)malloc(tmpEstimatedSize * sizeof(uint8_t))) == NULL)
         {
             errno = ENOMEM;
             return -1;

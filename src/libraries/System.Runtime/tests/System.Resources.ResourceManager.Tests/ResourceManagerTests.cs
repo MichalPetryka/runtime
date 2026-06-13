@@ -112,7 +112,7 @@ namespace System.Resources.Tests
 
         static int ResourcesAfAZEvents = 0;
 
-#if NETCOREAPP
+#if NET
         static System.Reflection.Assembly AssemblyResolvingEventHandler(System.Runtime.Loader.AssemblyLoadContext alc, System.Reflection.AssemblyName name)
         {
             if (name.FullName.StartsWith("System.Resources.ResourceManager.Tests.resources"))
@@ -138,7 +138,7 @@ namespace System.Resources.Tests
             {
                 if (name.Contains("Culture=af-ZA"))
                 {
-#if NETCOREAPP
+#if NET
                     Assert.Equal(1, ResourcesAfAZEvents);
 #else
                     Assert.Equal(0, ResourcesAfAZEvents);
@@ -162,7 +162,7 @@ namespace System.Resources.Tests
 
         private static void Remote_ExpectEvents()
         {
-#if NETCOREAPP
+#if NET
             System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += AssemblyResolvingEventHandler;
 #endif
             AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(AssemblyResolveEventHandler);
@@ -176,7 +176,7 @@ namespace System.Resources.Tests
             string actual = resourceManager.GetString("One", culture);
             Assert.Equal("Value-One", actual);
 
-#if NETCOREAPP
+#if NET
             Assert.Equal(2, ResourcesAfAZEvents);
 #else
             Assert.Equal(1, ResourcesAfAZEvents);
@@ -331,7 +331,7 @@ namespace System.Resources.Tests
             yield return new object[] { "Icon", new Icon("icon.ico") };
         }
 
-        [ConditionalTheory(nameof(IsDrawingSupportedAndAllowsCustomResourceTypes))]
+        [ConditionalTheory(typeof(ResourceManagerTests), nameof(IsDrawingSupportedAndAllowsCustomResourceTypes))]
         [ActiveIssue("https://github.com/dotnet/runtime/issues/34008", TestPlatforms.Linux | TestPlatforms.Windows, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.Mono)]
         [MemberData(nameof(EnglishImageResourceData))]
         public static void GetObject_Images(string key, object expectedValue)
@@ -341,7 +341,7 @@ namespace System.Resources.Tests
             Assert.Equal(GetImageData(expectedValue), GetImageData(manager.GetObject(key, new CultureInfo("en-US"))));
         }
 
-        [ConditionalTheory(nameof(IsDrawingSupportedAndAllowsCustomResourceTypes))]
+        [ConditionalTheory(typeof(ResourceManagerTests), nameof(IsDrawingSupportedAndAllowsCustomResourceTypes))]
         [ActiveIssue("https://github.com/dotnet/runtime/issues/34008", TestPlatforms.Linux | TestPlatforms.Windows, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.Mono)]
         [MemberData(nameof(EnglishImageResourceData))]
         public static void GetObject_Images_ResourceSet(string key, object expectedValue)
@@ -392,9 +392,9 @@ namespace System.Resources.Tests
             Assert.Equal(expectedValue, set.GetObject(key.ToLower(), true));
         }
 
-        public static bool IsDrawingSupportedAndAllowsCustomResourceTypes => PlatformDetection.IsDrawingSupported && AllowsCustomResourceTypes;
+        public static bool IsDrawingSupportedAndAllowsCustomResourceTypes => PlatformDetection.IsDrawingSupported && AllowsCustomResourceTypes && PlatformDetection.IsBinaryFormatterSupported;
 
-        [ConditionalTheory(nameof(IsDrawingSupportedAndAllowsCustomResourceTypes))]
+        [ConditionalTheory(typeof(ResourceManagerTests), nameof(IsDrawingSupportedAndAllowsCustomResourceTypes))]
         [ActiveIssue("https://github.com/dotnet/runtime/issues/34008", TestPlatforms.Linux | TestPlatforms.Windows, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.Mono)]
         [MemberData(nameof(EnglishImageResourceData))]
         public static void GetResourceSet_Images(string key, object expectedValue)

@@ -48,9 +48,21 @@ extern void trace_verbose_printf(const char* format, ...);
 #include <mscoree.h>
 typedef int T_CONTEXT;
 #include <dacprivate.h>
-#include <arrayholder.h>
-#include <releaseholder.h>
+
+#ifndef _ASSERTE
+#define _ASSERTE(expr) assert(expr)
+#define UNDEF__ASSERTE
+#endif // _ASSERTE
+
+#include <holder.h>
+
+#ifdef UNDEF__ASSERTE
+#undef _ASSERTE
+#undef UNDEF__ASSERTE
+#endif // UNDEF__ASSERTE
+
 #ifdef HOST_UNIX
+#include <minipal/strings.h>
 #include <minipal/utf8.h>
 #include <dn-u16.h>
 #include <dumpcommon.h>
@@ -72,7 +84,6 @@ typedef int T_CONTEXT;
 #include <dirent.h>
 #include <fcntl.h>
 #include <dlfcn.h>
-#include <cxxabi.h>
 #ifdef __APPLE__
 #include <ELF.h>
 #else
@@ -150,6 +161,9 @@ extern MINIDUMP_TYPE GetMiniDumpType(DumpType dumpType);
 
 #ifdef HOST_WINDOWS
 extern std::string GetLastErrorString();
+extern DWORD GetTempPathWrapper(IN DWORD nBufferLength, OUT LPSTR lpBuffer);
+#else
+#define GetTempPathWrapper GetTempPathA
 #endif
 extern void printf_status(const char* format, ...);
 extern void printf_error(const char* format, ...);

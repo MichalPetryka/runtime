@@ -230,6 +230,12 @@ namespace System.Text.Json.Tests
 
                 written = WriteUtf8StringHelper(writerOptions, Array.Empty<byte>());
                 Assert.Equal(-1, written.Span.IndexOf((byte)'\\'));
+
+                written = WriteStringSegmentHelper(writerOptions, Array.Empty<char>());
+                Assert.Equal(-1, written.Span.IndexOf((byte)'\\'));
+
+                written = WriteUtf8StringSegmentHelper(writerOptions, Array.Empty<byte>());
+                Assert.Equal(-1, written.Span.IndexOf((byte)'\\'));
             }
 
             var random = new Random(42);
@@ -263,6 +269,21 @@ namespace System.Text.Json.Tests
                     written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                     escapedIndex = written.Span.IndexOf((byte)'\\');
                     Assert.Equal(requiresEscaping ? (i + 1) : -1, escapedIndex);  // Account for the start quote
+
+                    if (dataLength < 10)
+                    {
+                        SplitStringDataHelper(newStr.AsSpan(), writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(requiresEscaping ? (i + 1) : -1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf16);
+
+                        SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(requiresEscaping ? (i + 1) : -1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf8);
+                    }
                 }
 
                 if (dataLength != 0)
@@ -279,6 +300,21 @@ namespace System.Text.Json.Tests
                     written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                     escapedIndex = written.Span.IndexOf((byte)'\\');
                     Assert.Equal(requiresEscaping ? 1 : -1, escapedIndex);  // Account for the start quote
+
+                    if (dataLength < 10)
+                    {
+                        SplitStringDataHelper(changed, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(requiresEscaping ? 1 : -1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf16);
+
+                        SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(requiresEscaping ? 1 : -1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf8);
+                    }
                 }
             }
         }
@@ -288,82 +324,82 @@ namespace System.Text.Json.Tests
             get
             {
                 return new List<object[]>
-                {
-                    new object[] { 'a', null, false },              // ASCII not escaped
-                    new object[] { '\u001F', null, true },          // control character within single byte range
-                    new object[] { '\u2000', null, true },          // space character outside single byte range
-                    new object[] { '\u00A2', null, true },          // non-ASCII but < 255
-                    new object[] { '\uA686', null, true },          // non-ASCII above short.MaxValue
-                    new object[] { '\u6C49', null, true },          // non-ASCII from chinese alphabet - multibyte
-                    new object[] { '"', null, true },               // ASCII but must always be escaped in JSON
-                    new object[] { '\\', null, true },              // ASCII but must always be escaped in JSON
-                    new object[] { '<', null, true },               // ASCII but escaped by default
-                    new object[] { '>', null, true },               // ASCII but escaped by default
-                    new object[] { '&', null, true },               // ASCII but escaped by default
-                    new object[] { '`', null, true },               // ASCII but escaped by default
-                    new object[] { '\'', null, true },              // ASCII but escaped by default
-                    new object[] { '+', null, true },               // ASCII but escaped by default
+            {
+                new object[] { 'a', null, false },              // ASCII not escaped
+                new object[] { '\u001F', null, true },          // control character within single byte range
+                new object[] { '\u2000', null, true },          // space character outside single byte range
+                new object[] { '\u00A2', null, true },          // non-ASCII but < 255
+                new object[] { '\uA686', null, true },          // non-ASCII above short.MaxValue
+                new object[] { '\u6C49', null, true },          // non-ASCII from chinese alphabet - multibyte
+                new object[] { '"', null, true },               // ASCII but must always be escaped in JSON
+                new object[] { '\\', null, true },              // ASCII but must always be escaped in JSON
+                new object[] { '<', null, true },               // ASCII but escaped by default
+                new object[] { '>', null, true },               // ASCII but escaped by default
+                new object[] { '&', null, true },               // ASCII but escaped by default
+                new object[] { '`', null, true },               // ASCII but escaped by default
+                new object[] { '\'', null, true },              // ASCII but escaped by default
+                new object[] { '+', null, true },               // ASCII but escaped by default
 
-                    new object[] { 'a', JavaScriptEncoder.Default, false },
-                    new object[] { '\u001F', JavaScriptEncoder.Default, true },
-                    new object[] { '\u2000', JavaScriptEncoder.Default, true },
-                    new object[] { '\u00A2', JavaScriptEncoder.Default, true },
-                    new object[] { '\uA686', JavaScriptEncoder.Default, true },
-                    new object[] { '\u6C49', JavaScriptEncoder.Default, true },
-                    new object[] { '"', JavaScriptEncoder.Default, true },
-                    new object[] { '\\', JavaScriptEncoder.Default, true },
-                    new object[] { '<', JavaScriptEncoder.Default, true },
-                    new object[] { '>', JavaScriptEncoder.Default, true },
-                    new object[] { '&', JavaScriptEncoder.Default, true },
-                    new object[] { '`', JavaScriptEncoder.Default, true },
-                    new object[] { '\'', JavaScriptEncoder.Default, true },
-                    new object[] { '+', JavaScriptEncoder.Default, true },
+                new object[] { 'a', JavaScriptEncoder.Default, false },
+                new object[] { '\u001F', JavaScriptEncoder.Default, true },
+                new object[] { '\u2000', JavaScriptEncoder.Default, true },
+                new object[] { '\u00A2', JavaScriptEncoder.Default, true },
+                new object[] { '\uA686', JavaScriptEncoder.Default, true },
+                new object[] { '\u6C49', JavaScriptEncoder.Default, true },
+                new object[] { '"', JavaScriptEncoder.Default, true },
+                new object[] { '\\', JavaScriptEncoder.Default, true },
+                new object[] { '<', JavaScriptEncoder.Default, true },
+                new object[] { '>', JavaScriptEncoder.Default, true },
+                new object[] { '&', JavaScriptEncoder.Default, true },
+                new object[] { '`', JavaScriptEncoder.Default, true },
+                new object[] { '\'', JavaScriptEncoder.Default, true },
+                new object[] { '+', JavaScriptEncoder.Default, true },
 
-                    new object[] { 'a', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), false },
-                    new object[] { '\u001F', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '\u2000', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '\u00A2', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '\uA686', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '\u6C49', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '"', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '\\', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '<', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '>', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '&', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '`', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '\'', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
-                    new object[] { '+', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { 'a', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), false },
+                new object[] { '\u001F', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '\u2000', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '\u00A2', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '\uA686', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '\u6C49', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '"', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '\\', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '<', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '>', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '&', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '`', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '\'', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
+                new object[] { '+', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin), true },
 
-                    new object[] { 'a', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '\u001F', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\u2000', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\u00A2', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '\uA686', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '\u6C49', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '"', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\\', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '<', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '>', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '&', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '`', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\'', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '+', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { 'a', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '\u001F', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\u2000', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\u00A2', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '\uA686', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '\u6C49', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '"', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\\', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '<', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '>', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '&', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '`', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\'', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '+', JavaScriptEncoder.Create(UnicodeRanges.All), true },
 
-                    new object[] { 'a', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\u001F', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '\u2000', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '\u00A2', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\uA686', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\u6C49', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '"', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '\\', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '<', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '>', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '&', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '`', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\'', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '+', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                };
+                new object[] { 'a', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\u001F', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '\u2000', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '\u00A2', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\uA686', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\u6C49', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '"', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '\\', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '<', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '>', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '&', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '`', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\'', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '+', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+            };
             }
         }
 
@@ -389,6 +425,19 @@ namespace System.Text.Json.Tests
                 written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                 Assert.Equal(-1, written.Span.IndexOf((byte)'\\'));
 
+                if (dataLength < 10)
+                {
+                    SplitStringDataHelper(str, writerOptions, output =>
+                    {
+                        Assert.Equal(-1, output.WrittenSpan.IndexOf((byte)'\\'));
+                    }, StringValueEncodingType.Utf16);
+
+                    SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                    {
+                        Assert.Equal(-1, output.WrittenSpan.IndexOf((byte)'\\'));
+                    }, StringValueEncodingType.Utf8);
+                }
+
                 for (int i = 0; i < dataLength; i++)
                 {
                     string source = baseStr.Insert(i, new string(replacementChar, 1));
@@ -403,6 +452,23 @@ namespace System.Text.Json.Tests
                     escapedIndex = written.Span.IndexOf((byte)'\\');
                     // Each CJK character expands to 3 utf-8 bytes.
                     Assert.Equal(requiresEscaping ? ((i * 3) + 1) : -1, escapedIndex);  // Account for the start quote
+
+                    if (dataLength < 10)
+                    {
+                        SplitStringDataHelper(source.AsSpan(), writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            // Each CJK character expands to 3 utf-8 bytes.
+                            Assert.Equal(requiresEscaping ? ((i * 3) + 1) : -1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf16);
+
+                        SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            // Each CJK character expands to 3 utf-8 bytes.
+                            Assert.Equal(requiresEscaping ? ((i * 3) + 1) : -1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf8);
+                    }
                 }
             }
         }
@@ -412,37 +478,37 @@ namespace System.Text.Json.Tests
             get
             {
                 return new List<object[]>
-                {
-                    new object[] { 'a', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '\u001F', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\u2000', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\u00A2', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '\uA686', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '\u6C49', JavaScriptEncoder.Create(UnicodeRanges.All), false },
-                    new object[] { '"', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\\', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '<', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '>', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '&', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '`', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '\'', JavaScriptEncoder.Create(UnicodeRanges.All), true },
-                    new object[] { '+', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+            {
+                new object[] { 'a', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '\u001F', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\u2000', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\u00A2', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '\uA686', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '\u6C49', JavaScriptEncoder.Create(UnicodeRanges.All), false },
+                new object[] { '"', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\\', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '<', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '>', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '&', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '`', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '\'', JavaScriptEncoder.Create(UnicodeRanges.All), true },
+                new object[] { '+', JavaScriptEncoder.Create(UnicodeRanges.All), true },
 
-                    new object[] { 'a', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\u001F', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '\u2000', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '\u00A2', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\uA686', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\u6C49', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '"', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '\\', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
-                    new object[] { '<', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '>', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '&', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '`', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '\'', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                    new object[] { '+', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
-                };
+                new object[] { 'a', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\u001F', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '\u2000', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '\u00A2', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\uA686', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\u6C49', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '"', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '\\', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, true },
+                new object[] { '<', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '>', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '&', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '`', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '\'', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+                new object[] { '+', JavaScriptEncoder.UnsafeRelaxedJsonEscaping, false },
+            };
             }
         }
 
@@ -470,6 +536,19 @@ namespace System.Text.Json.Tests
                 written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                 Assert.Equal(-1, written.Span.IndexOf((byte)'\\'));
 
+                if (dataLength < 10)
+                {
+                    SplitStringDataHelper(str, writerOptions, output =>
+                    {
+                        Assert.Equal(-1, output.WrittenSpan.IndexOf((byte)'\\'));
+                    }, StringValueEncodingType.Utf16);
+
+                    SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                    {
+                        Assert.Equal(-1, output.WrittenSpan.IndexOf((byte)'\\'));
+                    }, StringValueEncodingType.Utf8);
+                }
+
                 for (int i = 0; i < dataLength - 1; i++)
                 {
                     char[] changed = baseStr.ToCharArray();
@@ -485,6 +564,21 @@ namespace System.Text.Json.Tests
                     written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                     escapedIndex = written.Span.IndexOf((byte)'\\');
                     Assert.Equal(i + 1, escapedIndex);  // Account for the start quote
+
+                    if (dataLength < 10)
+                    {
+                        SplitStringDataHelper(changed, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(i + 1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf16);
+
+                        SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(i + 1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf8);
+                    }
                 }
 
                 {
@@ -506,6 +600,21 @@ namespace System.Text.Json.Tests
                     written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                     escapedIndex = written.Span.IndexOf((byte)'\\');
                     Assert.Equal(1, escapedIndex);  // Account for the start quote
+
+                    if (dataLength < 10)
+                    {
+                        SplitStringDataHelper(changed, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf16);
+
+                        SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                        {
+                            escapedIndex = output.WrittenSpan.IndexOf((byte)'\\');
+                            Assert.Equal(1, escapedIndex);  // Account for the start quote
+                        }, StringValueEncodingType.Utf8);
+                    }
                 }
             }
         }
@@ -515,13 +624,13 @@ namespace System.Text.Json.Tests
             get
             {
                 return new List<object[]>
-                {
-                    new object[] { null },
-                    new object[] { JavaScriptEncoder.Default },
-                    new object[] { JavaScriptEncoder.Create(UnicodeRanges.BasicLatin) },
-                    new object[] { JavaScriptEncoder.Create(UnicodeRanges.All) },
-                    new object[] { JavaScriptEncoder.UnsafeRelaxedJsonEscaping },
-                };
+            {
+                new object[] { null },
+                new object[] { JavaScriptEncoder.Default },
+                new object[] { JavaScriptEncoder.Create(UnicodeRanges.BasicLatin) },
+                new object[] { JavaScriptEncoder.Create(UnicodeRanges.All) },
+                new object[] { JavaScriptEncoder.UnsafeRelaxedJsonEscaping },
+            };
             }
         }
 
@@ -555,6 +664,19 @@ namespace System.Text.Json.Tests
 
                     written = WriteUtf8StringHelper(writerOptions, sourceUtf8);
                     Assert.True(BeginsWithReplacementCharacter(written.Span.Slice(i + 1))); // +1 to account for starting quote
+
+                    if (dataLength < 10)
+                    {
+                        SplitStringDataHelper(changed, writerOptions, output =>
+                        {
+                            Assert.True(BeginsWithReplacementCharacter(output.WrittenSpan.Slice(i + 1))); // +1 to account for starting quote
+                        }, StringValueEncodingType.Utf16);
+
+                        SplitStringDataHelper(sourceUtf8, writerOptions, output =>
+                        {
+                            Assert.True(BeginsWithReplacementCharacter(output.WrittenSpan.Slice(i + 1))); // +1 to account for starting quote
+                        }, StringValueEncodingType.Utf8);
+                    }
                 }
             }
 
@@ -586,19 +708,19 @@ namespace System.Text.Json.Tests
             get
             {
                 return new List<object[]>
-                {
-                    new object[] { '\uD801', JavaScriptEncoder.Default },         // Invalid, high surrogate alone
-                    new object[] { '\uDC01', JavaScriptEncoder.Default },         // Invalid, low surrogate alone
+            {
+                new object[] { '\uD801', JavaScriptEncoder.Default },         // Invalid, high surrogate alone
+                new object[] { '\uDC01', JavaScriptEncoder.Default },         // Invalid, low surrogate alone
 
-                    new object[] { '\uD801', JavaScriptEncoder.UnsafeRelaxedJsonEscaping },
-                    new object[] { '\uDC01', JavaScriptEncoder.UnsafeRelaxedJsonEscaping },
+                new object[] { '\uD801', JavaScriptEncoder.UnsafeRelaxedJsonEscaping },
+                new object[] { '\uDC01', JavaScriptEncoder.UnsafeRelaxedJsonEscaping },
 
-                    new object[] { '\uD801', JavaScriptEncoder.Create(UnicodeRanges.All) },
-                    new object[] { '\uDC01', JavaScriptEncoder.Create(UnicodeRanges.All) },
+                new object[] { '\uD801', JavaScriptEncoder.Create(UnicodeRanges.All) },
+                new object[] { '\uDC01', JavaScriptEncoder.Create(UnicodeRanges.All) },
 
-                    new object[] { '\uD801', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin) },
-                    new object[] { '\uDC01', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin) },
-                };
+                new object[] { '\uD801', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin) },
+                new object[] { '\uDC01', JavaScriptEncoder.Create(UnicodeRanges.BasicLatin) },
+            };
             }
         }
 
@@ -618,6 +740,26 @@ namespace System.Text.Json.Tests
             using (var writer = new Utf8JsonWriter(output, writerOptions))
             {
                 writer.WriteStringValue(utf8str);
+            }
+            return output.WrittenMemory;
+        }
+
+        private static ReadOnlyMemory<byte> WriteStringSegmentHelper(JsonWriterOptions writerOptions, ReadOnlySpan<char> str)
+        {
+            var output = new ArrayBufferWriter<byte>();
+            using (var writer = new Utf8JsonWriter(output, writerOptions))
+            {
+                writer.WriteStringValueSegment(str, true);
+            }
+            return output.WrittenMemory;
+        }
+
+        private static ReadOnlyMemory<byte> WriteUtf8StringSegmentHelper(JsonWriterOptions writerOptions, ReadOnlySpan<byte> utf8str)
+        {
+            var output = new ArrayBufferWriter<byte>();
+            using (var writer = new Utf8JsonWriter(output, writerOptions))
+            {
+                writer.WriteStringValueSegment(utf8str, true);
             }
             return output.WrittenMemory;
         }
@@ -1038,18 +1180,190 @@ namespace System.Text.Json.Tests
 
             Assert.Throws<ArgumentNullException>(() => writeToStream.Reset((Stream)null));
             Assert.Throws<ArgumentNullException>(() => writeToStream.Reset((IBufferWriter<byte>)null));
+            Assert.Throws<ArgumentNullException>(() => writeToStream.Reset((Stream)null, options));
+            Assert.Throws<ArgumentNullException>(() => writeToStream.Reset((IBufferWriter<byte>)null, options));
 
             stream.Dispose();
 
             Assert.Throws<ArgumentException>(() => writeToStream.Reset(stream));
+            Assert.Throws<ArgumentException>(() => writeToStream.Reset(stream, options));
 
             var output = new FixedSizedBufferWriter(256);
             using var writeToIBW = new Utf8JsonWriter(output, options);
 
             Assert.Throws<ArgumentNullException>(() => writeToIBW.Reset((Stream)null));
             Assert.Throws<ArgumentNullException>(() => writeToIBW.Reset((IBufferWriter<byte>)null));
+            Assert.Throws<ArgumentNullException>(() => writeToIBW.Reset((Stream)null, options));
+            Assert.Throws<ArgumentNullException>(() => writeToIBW.Reset((IBufferWriter<byte>)null, options));
 
             Assert.Throws<ArgumentException>(() => writeToIBW.Reset(stream));
+            Assert.Throws<ArgumentException>(() => writeToIBW.Reset(stream, options));
+        }
+
+        [Fact]
+        public static void JsonSerializerCacheNotPoisonedByDisposedWriter()
+        {
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new DisposingInt32Converter());
+
+            Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(1, options));
+            Assert.Equal("2", JsonSerializer.Serialize(2));
+        }
+
+        [Theory]
+        [MemberData(nameof(JsonOptions_TestData))]
+        public void ResetWithNewOptions(JsonWriterOptions options)
+        {
+            var newOptions = new JsonWriterOptions
+            {
+                Indented = !options.Indented,
+                SkipValidation = !options.SkipValidation,
+                MaxDepth = 500,
+                IndentCharacter = '\t',
+                IndentSize = 4,
+            };
+
+            var stream = new MemoryStream();
+            using var writeToStream = new Utf8JsonWriter(stream, options);
+            writeToStream.WriteNumberValue(1);
+            writeToStream.Flush();
+
+            Assert.True(writeToStream.BytesCommitted != 0);
+
+            writeToStream.Reset(stream, newOptions);
+            Assert.Equal(0, writeToStream.BytesCommitted);
+            Assert.Equal(0, writeToStream.BytesPending);
+            Assert.Equal(0, writeToStream.CurrentDepth);
+            Assert.Equal(newOptions.Indented, writeToStream.Options.Indented);
+            Assert.Equal(newOptions.SkipValidation, writeToStream.Options.SkipValidation);
+            Assert.Equal(500, writeToStream.Options.MaxDepth);
+            Assert.Equal('\t', writeToStream.Options.IndentCharacter);
+            Assert.Equal(4, writeToStream.Options.IndentSize);
+
+            long previousWritten = stream.Position;
+            writeToStream.Flush();
+            Assert.Equal(previousWritten, stream.Position);
+
+            writeToStream.WriteNumberValue(1);
+            writeToStream.Flush();
+
+            Assert.NotEqual(previousWritten, stream.Position);
+
+            var output = new FixedSizedBufferWriter(257);
+            using var writeToIBW = new Utf8JsonWriter(output, options);
+            writeToIBW.WriteNumberValue(1);
+            writeToIBW.Flush();
+
+            Assert.True(writeToIBW.BytesCommitted != 0);
+
+            writeToIBW.Reset(output, newOptions);
+            Assert.Equal(0, writeToIBW.BytesCommitted);
+            Assert.Equal(0, writeToIBW.BytesPending);
+            Assert.Equal(0, writeToIBW.CurrentDepth);
+            Assert.Equal(newOptions.Indented, writeToIBW.Options.Indented);
+            Assert.Equal(newOptions.SkipValidation, writeToIBW.Options.SkipValidation);
+            Assert.Equal(500, writeToIBW.Options.MaxDepth);
+            Assert.Equal('\t', writeToIBW.Options.IndentCharacter);
+            Assert.Equal(4, writeToIBW.Options.IndentSize);
+
+            previousWritten = output.FormattedCount;
+            writeToIBW.Flush();
+            Assert.Equal(previousWritten, output.FormattedCount);
+
+            writeToIBW.WriteNumberValue(1);
+            writeToIBW.Flush();
+
+            Assert.NotEqual(previousWritten, output.FormattedCount);
+        }
+
+        private sealed class DisposingInt32Converter : System.Text.Json.Serialization.JsonConverter<int>
+        {
+            public override int Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+                throw new NotSupportedException();
+
+            public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options)
+            {
+                writer.Dispose();
+                throw new InvalidOperationException();
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(JsonOptions_TestData))]
+        public void ResetChangeOutputModeWithNewOptions(JsonWriterOptions options)
+        {
+            var newOptions = new JsonWriterOptions
+            {
+                Indented = !options.Indented,
+                SkipValidation = !options.SkipValidation,
+            };
+
+            var stream = new MemoryStream();
+            using var writeToStream = new Utf8JsonWriter(stream, options);
+            writeToStream.WriteNumberValue(1);
+            writeToStream.Flush();
+
+            Assert.True(writeToStream.BytesCommitted != 0);
+
+            var output = new FixedSizedBufferWriter(256);
+            writeToStream.Reset(output, newOptions);
+            Assert.Equal(0, writeToStream.BytesCommitted);
+            Assert.Equal(0, writeToStream.BytesPending);
+            Assert.Equal(0, writeToStream.CurrentDepth);
+            Assert.Equal(newOptions.Indented, writeToStream.Options.Indented);
+            Assert.Equal(newOptions.SkipValidation, writeToStream.Options.SkipValidation);
+
+            writeToStream.WriteNumberValue(1);
+            writeToStream.Flush();
+            Assert.True(writeToStream.BytesCommitted != 0);
+            Assert.True(output.FormattedCount != 0);
+
+            output = new FixedSizedBufferWriter(256);
+            using var writeToIBW = new Utf8JsonWriter(output, options);
+            writeToIBW.WriteNumberValue(1);
+            writeToIBW.Flush();
+
+            Assert.True(writeToIBW.BytesCommitted != 0);
+
+            stream = new MemoryStream();
+            writeToIBW.Reset(stream, newOptions);
+            Assert.Equal(0, writeToIBW.BytesCommitted);
+            Assert.Equal(0, writeToIBW.BytesPending);
+            Assert.Equal(0, writeToIBW.CurrentDepth);
+            Assert.Equal(newOptions.Indented, writeToIBW.Options.Indented);
+            Assert.Equal(newOptions.SkipValidation, writeToIBW.Options.SkipValidation);
+
+            writeToIBW.WriteNumberValue(1);
+            writeToIBW.Flush();
+            Assert.True(writeToIBW.BytesCommitted != 0);
+            Assert.True(stream.Position != 0);
+        }
+
+        [Fact]
+        public void ResetWithNewOptions_ProducesExpectedOutput()
+        {
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, new JsonWriterOptions { Indented = false });
+
+            writer.WriteStartObject();
+            writer.WriteNumber("x", 1);
+            writer.WriteEndObject();
+            writer.Flush();
+
+            string compact = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Equal("""{"x":1}""", compact);
+
+            output.Clear();
+            writer.Reset(output, new JsonWriterOptions { Indented = true });
+
+            writer.WriteStartObject();
+            writer.WriteNumber("x", 1);
+            writer.WriteEndObject();
+            writer.Flush();
+
+            string indented = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("\n", indented);
+            Assert.Contains("\"x\": 1", indented);
         }
 
         [Theory]
@@ -1239,6 +1553,7 @@ namespace System.Text.Json.Tests
 
             var stream = new MemoryStream();
             Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(stream));
+            Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(stream, options));
 
             using var writeToStream = new Utf8JsonWriter(stream, options);
             writeToStream.WriteStartObject();
@@ -1256,6 +1571,7 @@ namespace System.Text.Json.Tests
             Assert.Throws<ObjectDisposedException>(() => writeToStream.Reset());
 
             Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(output));
+            Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(output, options));
         }
 
         [Theory]
@@ -1281,6 +1597,7 @@ namespace System.Text.Json.Tests
 
             var stream = new MemoryStream();
             Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(stream));
+            Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(stream, options));
 
             using var writeToStream = new Utf8JsonWriter(stream, options);
             writeToStream.WriteStartObject();
@@ -1298,6 +1615,7 @@ namespace System.Text.Json.Tests
             Assert.Throws<ObjectDisposedException>(() => writeToStream.Reset());
 
             Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(output));
+            Assert.Throws<ObjectDisposedException>(() => jsonUtf8.Reset(output, options));
         }
 
         [Theory]
@@ -1442,7 +1760,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         [Theory]
@@ -1653,6 +1971,7 @@ namespace System.Text.Json.Tests
             }
         }
 
+        private const JsonValueKind JsonValueKindStringSegment = (JsonValueKind)(1 << 7);
         public static IEnumerable<object[]> InvalidJsonDueToWritingMultipleValues_TestData() =>
             JsonOptionsWith([
                 JsonValueKind.Array,
@@ -1662,6 +1981,7 @@ namespace System.Text.Json.Tests
                 JsonValueKind.True,
                 JsonValueKind.False,
                 JsonValueKind.Null,
+                JsonValueKindStringSegment
             ]);
 
         [Theory]
@@ -1716,6 +2036,42 @@ namespace System.Text.Json.Tests
             {
                 WritePreamble(jsonUtf8, kind);
                 ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValue("foo"), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo".AsSpan(), true), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo".AsSpan(), false), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo"u8, true), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo"u8, false), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteBase64StringSegment("foo"u8, true), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteBase64StringSegment("foo"u8, false), options.SkipValidation);
             }
 
             using (var jsonUtf8 = new Utf8JsonWriter(output, options))
@@ -1831,6 +2187,42 @@ namespace System.Text.Json.Tests
             using (var jsonUtf8 = new Utf8JsonWriter(output, options))
             {
                 WritePreamble(jsonUtf8, kind, addComments: true);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo".AsSpan(), true), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind, addComments: true);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo".AsSpan(), false), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind, addComments: true);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo"u8, true), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind, addComments: true);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteStringValueSegment("foo"u8, false), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind, addComments: true);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteBase64StringSegment("foo"u8, true), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind, addComments: true);
+                ValidateAction(jsonUtf8, () => jsonUtf8.WriteBase64StringSegment("foo"u8, false), options.SkipValidation);
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                WritePreamble(jsonUtf8, kind, addComments: true);
                 ValidateAction(jsonUtf8, () => jsonUtf8.WriteNumber("key", 123), options.SkipValidation);
             }
 
@@ -1917,6 +2309,10 @@ namespace System.Text.Json.Tests
                     break;
                 case JsonValueKind.Null:
                     writer.WriteNullValue();
+                    break;
+                case JsonValueKindStringSegment:
+                    writer.WriteStringValueSegment("foo".ToCharArray(), false);
+                    writer.WriteStringValueSegment("bar".ToCharArray(), true);
                     break;
                 default:
                     Debug.Fail($"Invalid JsonValueKind passed in '{kind}'.");
@@ -2042,11 +2438,39 @@ namespace System.Text.Json.Tests
                 jsonUtf8.WriteStartObject();
                 if (options.SkipValidation)
                 {
-                    jsonUtf8.WriteStringValue("key");
+                    jsonUtf8.WriteStringValue("value");
                 }
                 else
                 {
                     Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteStringValue("key"));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStartObject();
+                if (options.SkipValidation)
+                {
+                    jsonUtf8.WriteStringValueSegment(['a', 'b'], true);
+                    jsonUtf8.WriteStringValueSegment(['a', 'b'], false);
+                    jsonUtf8.WriteStringValueSegment(['a', 'b'], true);
+
+                    jsonUtf8.WriteStringValueSegment([65, 66], true);
+                    jsonUtf8.WriteStringValueSegment([65, 66], false);
+                    jsonUtf8.WriteStringValueSegment([65, 66], true);
+
+                    jsonUtf8.WriteBase64StringSegment([65, 66], true);
+                    jsonUtf8.WriteBase64StringSegment([65, 66], false);
+                    jsonUtf8.WriteBase64StringSegment([65, 66], true);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteStringValueSegment(['a', 'b'], true));
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteStringValueSegment(['a', 'b'], false));
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteStringValueSegment([65, 66], true));
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteStringValueSegment([65, 66], false));
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteBase64StringSegment([65, 66], true));
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WriteBase64StringSegment([65, 66], false));
                 }
             }
 
@@ -2586,6 +3010,165 @@ namespace System.Text.Json.Tests
                     Assert.Throws<InvalidOperationException>(() => jsonUtf8.WritePropertyName("test name"));
                 }
             }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStringValueSegment("a".AsSpan(), true);
+                if (options.SkipValidation)
+                {
+                    jsonUtf8.WritePropertyName("test name");
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WritePropertyName("test name"));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStringValueSegment("a"u8, true);
+                if (options.SkipValidation)
+                {
+                    jsonUtf8.WritePropertyName("test name");
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WritePropertyName("test name"));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteBase64StringSegment("a"u8, true);
+                if (options.SkipValidation)
+                {
+                    jsonUtf8.WritePropertyName("test name");
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => jsonUtf8.WritePropertyName("test name"));
+                }
+            }
+        }
+
+        // Name is present in the test data to make it easier to identify the test case
+        public static IEnumerable<object[]> InvalidJsonStringValueSegment_TestData =>
+            from write in new (string methodName, Action<Utf8JsonWriter> method)[] {
+                (nameof(Utf8JsonWriter.WriteStartObject), writer => writer.WriteStartObject()),
+                (nameof(Utf8JsonWriter.WriteEndObject), writer => writer.WriteEndObject()),
+                (nameof(Utf8JsonWriter.WriteStartArray), writer => writer.WriteStartArray()),
+                (nameof(Utf8JsonWriter.WriteEndArray), writer => writer.WriteEndArray()),
+                (nameof(Utf8JsonWriter.WriteBooleanValue), writer => writer.WriteBooleanValue(true)),
+                (nameof(Utf8JsonWriter.WriteBoolean), writer => writer.WriteBoolean("foo", true)),
+                (nameof(Utf8JsonWriter.WriteCommentValue), writer => writer.WriteCommentValue("comment")),
+                (nameof(Utf8JsonWriter.WriteNullValue), writer => writer.WriteNullValue()),
+                (nameof(Utf8JsonWriter.WriteStringValue), writer => writer.WriteStringValue("foo")),
+                (nameof(Utf8JsonWriter.WritePropertyName), writer => writer.WritePropertyName("foo")),
+            }
+            from option in new [] { new JsonWriterOptions { SkipValidation = true }, new JsonWriterOptions { SkipValidation = false } }
+            select new object[] { write.methodName, write.method, option };
+
+        [Theory]
+        [MemberData(nameof(InvalidJsonStringValueSegment_TestData))]
+        public void InvalidJsonStringValueSegment(string _, Action<Utf8JsonWriter> write, JsonWriterOptions options)
+        {
+            var output = new ArrayBufferWriter<byte>(1024);
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStringValueSegment("foo"u8, isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteBase64StringSegment("foo"u8, isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStringValueSegment("foo".ToCharArray(), isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStartArray();
+                jsonUtf8.WriteStringValueSegment("foo"u8, isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStartArray();
+                jsonUtf8.WriteStringValueSegment("foo".ToCharArray(), isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStartObject();
+                jsonUtf8.WritePropertyName("prop");
+                jsonUtf8.WriteStringValueSegment("foo"u8, isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
+
+            using (var jsonUtf8 = new Utf8JsonWriter(output, options))
+            {
+                jsonUtf8.WriteStartObject();
+                jsonUtf8.WritePropertyName("prop");
+                jsonUtf8.WriteStringValueSegment("foo".ToCharArray(), isFinalSegment: false);
+                if (options.SkipValidation)
+                {
+                    write(jsonUtf8);
+                }
+                else
+                {
+                    Assert.Throws<InvalidOperationException>(() => write(jsonUtf8));
+                }
+            }
         }
 
         [Theory]
@@ -2683,12 +3266,12 @@ namespace System.Text.Json.Tests
             for (int i = 0; i < 100; i++)
             {
                 if (options.Indented)
-                    sb.Append(Environment.NewLine);
+                    sb.Append(options.NewLine);
                 sb.Append("]");
             }
             sb.Append(",");
             if (options.Indented)
-                sb.Append(Environment.NewLine);
+                sb.Append(options.NewLine);
             sb.Append("[]");
 
             JsonTestHelper.AssertContents(sb.ToString(), output);
@@ -2722,7 +3305,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            string expectedStr = HandleIndent(stringWriter.ToString(), options);
+            string expectedStr = HandleFormatting(stringWriter.ToString(), options);
 
             using var jsonUtf8 = new Utf8JsonWriter(output, options);
             jsonUtf8.WriteStartObject();
@@ -2872,7 +3455,7 @@ namespace System.Text.Json.Tests
                 key.AsSpan().Fill((byte)'a');
                 keyChars.AsSpan().Fill('a');
 
-                    var output = new ArrayBufferWriter<byte>(1024);
+                var output = new ArrayBufferWriter<byte>(1024);
 
                 using (var jsonUtf8 = new Utf8JsonWriter(output, options))
                 {
@@ -2943,7 +3526,7 @@ namespace System.Text.Json.Tests
                 byte[] value = new byte[200_000_000];
                 value.AsSpan().Fill((byte)'a');
 
-                    var output = new ArrayBufferWriter<byte>(value.Length);
+                var output = new ArrayBufferWriter<byte>(value.Length);
 
                 using (var jsonUtf8 = new Utf8JsonWriter(output, options))
                 {
@@ -3007,7 +3590,7 @@ namespace System.Text.Json.Tests
             }
         }
 
-        // NOTE: WritingTooLargeProperty test is constrained to run on Windows and MacOSX because it causes
+        // NOTE: WritingHugeBase64Bytes test is constrained to run on Windows and MacOSX because it causes
         //       problems on Linux due to the way deferred memory allocation works. On Linux, the allocation can
         //       succeed even if there is not enough memory but then the test may get killed by the OOM killer at the
         //       time the memory is accessed which triggers the full memory allocation.
@@ -3069,7 +3652,7 @@ namespace System.Text.Json.Tests
         }
 
         // https://github.com/dotnet/runtime/issues/30746
-        [Theory]
+        [Theory, OuterLoop("Very long running test")]
         [MemberData(nameof(JsonOptions_TestData))]
         [SkipOnCoreClr("https://github.com/dotnet/runtime/issues/45464", ~RuntimeConfiguration.Release)]
         public void Writing3MBBase64Bytes(JsonWriterOptions options)
@@ -3082,7 +3665,7 @@ namespace System.Text.Json.Tests
             Base64.EncodeToUtf8(value, base64StringUtf8, out _, out int bytesWritten);
             string expectedValue = Encoding.UTF8.GetString(base64StringUtf8.AsSpan(0, bytesWritten).ToArray());
 
-            string expectedJson = options.Indented ? $"{{{Environment.NewLine}{GetIndentText(options)}\"foo\": \"{expectedValue}\"{Environment.NewLine}}}" : $"{{\"foo\":\"{expectedValue}\"}}";
+            string expectedJson = options.Indented ? $"{{{options.NewLine}{GetIndentText(options)}\"foo\": \"{expectedValue}\"{options.NewLine}}}" : $"{{\"foo\":\"{expectedValue}\"}}";
 
             var output = new ArrayBufferWriter<byte>(1024);
 
@@ -3160,7 +3743,7 @@ namespace System.Text.Json.Tests
             ReadOnlySpan<byte> utf8PropertyName = "message"u8;
             ReadOnlySpan<byte> utf8Value = "Hello, World!"u8;
 
-            
+
             for (int i = 0; i < 32; i++)
             {
                 var output = new ArrayBufferWriter<byte>(32);
@@ -3346,7 +3929,7 @@ namespace System.Text.Json.Tests
             string propertyName = "mess><age";
             string value = "Hello,>< World!";
             string expectedStr = GetHelloWorldExpectedString(options, propertyName, value);
-            
+
             ReadOnlySpan<char> propertyNameSpan = propertyName.AsSpan();
             ReadOnlySpan<char> valueSpan = value.AsSpan();
             ReadOnlySpan<byte> propertyNameSpanUtf8 = Encoding.UTF8.GetBytes(propertyName);
@@ -3545,7 +4128,6 @@ namespace System.Text.Json.Tests
         [MemberData(nameof(JsonOptions_TestData))]
         public void WritePartialHelloWorld(JsonWriterOptions options)
         {
-            
             var output = new ArrayBufferWriter<byte>(10);
             using var jsonUtf8 = new Utf8JsonWriter(output, options);
 
@@ -3558,14 +4140,14 @@ namespace System.Text.Json.Tests
 
             Assert.Equal(0, jsonUtf8.BytesCommitted);
             if (options.Indented)
-                Assert.Equal(26 + options.IndentSize + Environment.NewLine.Length + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
+                Assert.Equal(26 + options.IndentSize + options.NewLine.Length + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
             else
                 Assert.Equal(26, jsonUtf8.BytesPending);
 
             jsonUtf8.Flush();
 
             if (options.Indented)
-                Assert.Equal(26 + options.IndentSize + Environment.NewLine.Length + 1, jsonUtf8.BytesCommitted); // new lines, indentation, white space
+                Assert.Equal(26 + options.IndentSize + options.NewLine.Length + 1, jsonUtf8.BytesCommitted); // new lines, indentation, white space
             else
                 Assert.Equal(26, jsonUtf8.BytesCommitted);
 
@@ -3575,19 +4157,19 @@ namespace System.Text.Json.Tests
             jsonUtf8.WriteEndObject();
 
             if (options.Indented)
-                Assert.Equal(26 + options.IndentSize + Environment.NewLine.Length + 1, jsonUtf8.BytesCommitted);
+                Assert.Equal(26 + options.IndentSize + options.NewLine.Length + 1, jsonUtf8.BytesCommitted);
             else
                 Assert.Equal(26, jsonUtf8.BytesCommitted);
 
             if (options.Indented)
-                Assert.Equal(27 + options.IndentSize + (2 * Environment.NewLine.Length) + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
+                Assert.Equal(27 + options.IndentSize + (2 * options.NewLine.Length) + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
             else
                 Assert.Equal(27, jsonUtf8.BytesPending);
 
             jsonUtf8.Flush();
 
             if (options.Indented)
-                Assert.Equal(53 + (2 * options.IndentSize) + (3 * Environment.NewLine.Length) + (1 * 2), jsonUtf8.BytesCommitted); // new lines, indentation, white space
+                Assert.Equal(53 + (2 * options.IndentSize) + (3 * options.NewLine.Length) + (1 * 2), jsonUtf8.BytesCommitted); // new lines, indentation, white space
             else
                 Assert.Equal(53, jsonUtf8.BytesCommitted);
 
@@ -3675,14 +4257,14 @@ namespace System.Text.Json.Tests
 
             Assert.Equal(0, jsonUtf8.BytesCommitted);
             if (options.Indented)
-                Assert.Equal(17 + options.IndentSize + Environment.NewLine.Length + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
+                Assert.Equal(17 + options.IndentSize + options.NewLine.Length + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
             else
                 Assert.Equal(17, jsonUtf8.BytesPending);
 
             jsonUtf8.Flush();
 
             if (options.Indented)
-                Assert.Equal(17 + options.IndentSize + Environment.NewLine.Length + 1, jsonUtf8.BytesCommitted); // new lines, indentation, white space
+                Assert.Equal(17 + options.IndentSize + options.NewLine.Length + 1, jsonUtf8.BytesCommitted); // new lines, indentation, white space
             else
                 Assert.Equal(17, jsonUtf8.BytesCommitted);
 
@@ -3692,19 +4274,19 @@ namespace System.Text.Json.Tests
             jsonUtf8.WriteEndObject();
 
             if (options.Indented)
-                Assert.Equal(17 + options.IndentSize + Environment.NewLine.Length + 1, jsonUtf8.BytesCommitted);
+                Assert.Equal(17 + options.IndentSize + options.NewLine.Length + 1, jsonUtf8.BytesCommitted);
             else
                 Assert.Equal(17, jsonUtf8.BytesCommitted);
 
             if (options.Indented)
-                Assert.Equal(18 + options.IndentSize + (2 * Environment.NewLine.Length) + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
+                Assert.Equal(18 + options.IndentSize + (2 * options.NewLine.Length) + 1, jsonUtf8.BytesPending); // new lines, indentation, white space
             else
                 Assert.Equal(18, jsonUtf8.BytesPending);
 
             jsonUtf8.Flush();
 
             if (options.Indented)
-                Assert.Equal(35 + (2 * options.IndentSize) + (3 * Environment.NewLine.Length) + (1 * 2), jsonUtf8.BytesCommitted); // new lines, indentation, white space
+                Assert.Equal(35 + (2 * options.IndentSize) + (3 * options.NewLine.Length) + (1 * 2), jsonUtf8.BytesCommitted); // new lines, indentation, white space
             else
                 Assert.Equal(35, jsonUtf8.BytesCommitted);
 
@@ -3745,7 +4327,7 @@ namespace System.Text.Json.Tests
         public void WriteInvalidBase64(JsonWriterOptions options)
         {
             {
-                    var output = new ArrayBufferWriter<byte>(10);
+                var output = new ArrayBufferWriter<byte>(10);
                 using var jsonUtf8 = new Utf8JsonWriter(output, options);
 
                 jsonUtf8.WriteStartObject();
@@ -3770,7 +4352,7 @@ namespace System.Text.Json.Tests
                 }
             }
             {
-                    var output = new ArrayBufferWriter<byte>(10);
+                var output = new ArrayBufferWriter<byte>(10);
                 using var jsonUtf8 = new Utf8JsonWriter(output, options);
 
                 jsonUtf8.WriteStartArray();
@@ -4078,7 +4660,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         [Theory]
@@ -4421,6 +5003,7 @@ namespace System.Text.Json.Tests
 
         [Theory]
         [MemberData(nameof(JsonOptions_TestData))]
+        [OuterLoop("Too slow", typeof(PlatformDetection), nameof(PlatformDetection.IsMonoRuntime))]
         public void EscapeCharacters(JsonWriterOptions options)
         {
             // Do not include surrogate pairs.
@@ -5303,6 +5886,7 @@ namespace System.Text.Json.Tests
         [Theory]
         [SkipOnTargetFramework(TargetFrameworkMonikers.NetFramework)]
         [MemberData(nameof(WriteValue_TestData))]
+        [OuterLoop("Too slow", typeof(PlatformDetection), nameof(PlatformDetection.IsMonoRuntime))]
         public void WriteNumbers(JsonWriterOptions options, string keyString)
         {
             var random = new Random(42);
@@ -6970,7 +7554,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetBase64ExpectedString(JsonWriterOptions options, string propertyName, byte[] value)
@@ -6998,7 +7582,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetCommentInArrayExpectedString(JsonWriterOptions options, string comment)
@@ -7032,7 +7616,7 @@ namespace System.Text.Json.Tests
             json.WriteComment(comment);
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetCommentInObjectExpectedString(JsonWriterOptions options, string comment)
@@ -7098,7 +7682,7 @@ namespace System.Text.Json.Tests
             json.WriteComment(comment);
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetStringsExpectedString(JsonWriterOptions options, string value)
@@ -7118,7 +7702,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetEscapedExpectedString(JsonWriterOptions options, string propertyName, string value, StringEscapeHandling escaping, bool escape = true)
@@ -7136,7 +7720,7 @@ namespace System.Text.Json.Tests
                 json.WriteEnd();
 
                 json.Flush();
-                return HandleIndent(stringWriter.ToString(), options);
+                return HandleFormatting(stringWriter.ToString(), options);
             }
         }
 
@@ -7160,7 +7744,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetStartEndExpectedString(JsonWriterOptions options)
@@ -7180,7 +7764,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetStartEndWithPropertyArrayExpectedString(JsonWriterOptions options)
@@ -7201,7 +7785,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetStartEndWithPropertyArrayExpectedString(string key, JsonWriterOptions options, bool escape = false)
@@ -7223,7 +7807,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetStartEndWithPropertyObjectExpectedString(JsonWriterOptions options)
@@ -7244,7 +7828,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetStartEndWithPropertyObjectExpectedString(string key, JsonWriterOptions options, bool escape = false)
@@ -7266,7 +7850,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetArrayWithPropertyExpectedString(JsonWriterOptions options)
@@ -7286,7 +7870,7 @@ namespace System.Text.Json.Tests
             json.WriteEndObject();
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetBooleanExpectedString(JsonWriterOptions options, string keyString, bool value, bool escape = false)
@@ -7316,7 +7900,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetNullExpectedString(JsonWriterOptions options, string keyString, bool escape = false)
@@ -7346,7 +7930,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetPropertyExpectedString<T>(JsonWriterOptions options, T value)
@@ -7366,7 +7950,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(sb.ToString(), options);
+            return HandleFormatting(sb.ToString(), options);
         }
 
         private static string GetNumbersExpectedString(JsonWriterOptions options, string keyString, int[] ints, uint[] uints, long[] longs, ulong[] ulongs, float[] floats, double[] doubles, decimal[] decimals, bool escape = false)
@@ -7432,7 +8016,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetExpectedString_RelaxedEscaping(bool prettyPrint, string keyString)
@@ -7492,7 +8076,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetNumbersExpectedString<T>(JsonWriterOptions options, int numberOfElements, T value)
@@ -7514,7 +8098,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(sb.ToString(), options);
+            return HandleFormatting(sb.ToString(), options);
         }
 
         private static string GetDatesExpectedString(JsonWriterOptions options, string keyString, DateTime[] dates, bool escape = false)
@@ -7546,7 +8130,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static string GetDatesExpectedString(JsonWriterOptions options, string keyString, DateTimeOffset[] dates, bool escape = false)
@@ -7578,7 +8162,7 @@ namespace System.Text.Json.Tests
 
             json.Flush();
 
-            return HandleIndent(Encoding.UTF8.GetString(ms.ToArray()), options);
+            return HandleFormatting(Encoding.UTF8.GetString(ms.ToArray()), options);
         }
 
         private static void CompensateWhitespaces(bool prettyPrint, JsonTextWriter json, TextWriter streamWriter, int whitespaceCount = 1)
@@ -7599,9 +8183,16 @@ namespace System.Text.Json.Tests
             }
         }
 
-        private static string HandleIndent(string text, JsonWriterOptions options)
+        private static string HandleFormatting(string text, JsonWriterOptions options)
         {
-            return text.Replace("  ", GetIndentText(options));
+            var normalized = text.Replace("  ", GetIndentText(options));
+
+            if (options.NewLine != Environment.NewLine)
+            {
+                normalized = normalized.Replace(Environment.NewLine, options.NewLine);
+            }
+
+            return normalized;
         }
 
         private static string GetIndentText(JsonWriterOptions options) => new(options.IndentCharacter, options.IndentSize);
@@ -7627,14 +8218,16 @@ namespace System.Text.Json.Tests
             return from indented in new[] { true, false }
                    from skipValidation in new[] { true, false }
                    from indentCharacter in indented ? new char?[] { null, ' ', '\t' } : []
-                   from indentSize in indented ? new int?[] { null, 0, 1, 2, 127 } : []
-                   select CreateOptions(indented, indentCharacter, indentSize, skipValidation);
+                   from indentSize in indented ? new int?[] { null, 0, 1, 2, 3 } : []
+                   from newLine in indented ? new string?[] { null, "\n", "\r\n" } : []
+                   select CreateOptions(indented, indentCharacter, indentSize, skipValidation, newLine);
 
-            static JsonWriterOptions CreateOptions(bool indented, char? indentCharacter, int? indentSize, bool skipValidation)
+            static JsonWriterOptions CreateOptions(bool indented, char? indentCharacter, int? indentSize, bool skipValidation, string? newLine)
             {
                 var options = new JsonWriterOptions { Indented = indented, SkipValidation = skipValidation };
                 if (indentCharacter is not null) options.IndentCharacter = (char)indentCharacter;
                 if (indentSize is not null) options.IndentSize = (int)indentSize;
+                if (newLine is not null) options.NewLine = newLine;
                 return options;
             }
         }
@@ -7650,6 +8243,290 @@ namespace System.Text.Json.Tests
             from anotherValue in anothers
             select new object[] { options, inputValue, anotherValue };
 
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.Is64BitProcess))]
+        [OuterLoop]
+        public static void WritePropertyWithExtremelyLongName_ThrowsArgumentException()
+        {
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output);
+            
+            writer.WriteStartObject();
+            
+            string longName = new string('a', 170_000_000);
+            
+            Assert.Throws<ArgumentException>(() => writer.WritePropertyName(longName.AsSpan()));
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.Is64BitProcess))]
+        [OuterLoop]
+        public static void WriteValueWithExtremelyLongValue_ThrowsArgumentException()
+        {
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output);
+            
+            writer.WriteStartArray();
+            
+            string longValue = new string('a', 170_000_000);
+            
+            Assert.Throws<ArgumentException>(() => writer.WriteStringValue(longValue.AsSpan()));
+        }
+
+        // NOTE: WriteExtremelyLargeEscapedStringValue_Minimized test is constrained to run on Windows and MacOSX because it causes
+        //       problems on Linux due to the way deferred memory allocation works. On Linux, the allocation can
+        //       succeed even if there is not enough memory but then the test may get killed by the OOM killer at the
+        //       time the memory is accessed which triggers the full memory allocation.
+        [PlatformSpecific(TestPlatforms.Windows | TestPlatforms.OSX)]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.Is64BitProcess))]
+        [OuterLoop]
+        public static void WriteExtremelyLargeEscapedStringValue_Minimized()
+        {
+            const char InputCharacter = '\u007F';
+            const int EscapedCharacterByteLength = 6;
+
+            try
+            {
+                char[] value = new char[MaxUnescapedTokenSize];
+                value.AsSpan().Fill(InputCharacter);
+
+                int expectedByteLength = 2 + MaxUnescapedTokenSize * EscapedCharacterByteLength;
+                var output = new ArrayBufferWriter<byte>(expectedByteLength);
+                using var writer = new Utf8JsonWriter(output);
+                writer.WriteStringValue(value.AsSpan());
+                writer.Flush();
+
+                ReadOnlySpan<byte> written = output.WrittenSpan;
+                Assert.Equal(expectedByteLength, written.Length);
+                Assert.Equal((byte)'"', written[0]);
+                Assert.Equal((byte)'"', written[^1]);
+            }
+            catch (OutOfMemoryException)
+            {
+                throw new SkipTestException("Out of memory allocating large objects");
+            }
+        }
+
+        // NOTE: WriteExtremelyLargeEscapedStringValue_Indented test is constrained to run on Windows and MacOSX because it causes
+        //       problems on Linux due to the way deferred memory allocation works. On Linux, the allocation can
+        //       succeed even if there is not enough memory but then the test may get killed by the OOM killer at the
+        //       time the memory is accessed which triggers the full memory allocation.
+        [PlatformSpecific(TestPlatforms.Windows | TestPlatforms.OSX)]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.Is64BitProcess))]
+        [OuterLoop]
+        public static void WriteExtremelyLargeEscapedStringValue_Indented()
+        {
+            const char InputCharacter = '\u007F';
+            const int EscapedCharacterByteLength = 6;
+            const int IndentSize = 127;
+            const string NewLine = "\n";
+
+            try
+            {
+                char[] value = new char[MaxUnescapedTokenSize];
+                value.AsSpan().Fill(InputCharacter);
+
+                int escapedStrByteLength = 2 + MaxUnescapedTokenSize * EscapedCharacterByteLength;
+                int expectedByteLength = 1 + NewLine.Length + IndentSize + escapedStrByteLength + NewLine.Length + 1;
+
+                var options = new JsonWriterOptions { Indented = true, IndentSize = IndentSize, NewLine = NewLine };
+                var output = new ArrayBufferWriter<byte>(expectedByteLength);
+                using var writer = new Utf8JsonWriter(output, options);
+                writer.WriteStartArray();
+                writer.WriteStringValue(value.AsSpan());
+                writer.WriteEndArray();
+                writer.Flush();
+
+                // Layout: [ \n <IndentSize spaces> "escapedStr" \n ]
+                ReadOnlySpan<byte> written = output.WrittenSpan;
+                Assert.Equal(expectedByteLength, written.Length);
+                Assert.Equal((byte)'[', written[0]);
+                Assert.Equal((byte)']', written[^1]);
+                int stringStart = 1 + NewLine.Length + IndentSize;
+                Assert.Equal((byte)'"', written[stringStart]);
+                Assert.Equal((byte)'"', written[stringStart + escapedStrByteLength - 1]);
+            }
+            catch (OutOfMemoryException)
+            {
+                throw new SkipTestException("Out of memory allocating large objects");
+            }
+        }
+
+        [Fact]
+        public static void WriteRawValueWithInvalidJson_ValidationDisabled()
+        {
+            var options = new JsonWriterOptions { SkipValidation = true };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            writer.WriteStartArray();
+            writer.WriteRawValue("invalid json content"u8, skipInputValidation: true);
+            writer.WriteEndArray();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("invalid json content", json);
+        }
+
+        [Fact]
+        public static void JsonElement_ToString_EdgeCase()
+        {
+            using JsonDocument doc = JsonDocument.Parse("null");
+            JsonElement element = doc.RootElement;
+            string result = element.ToString();
+            Assert.Equal("", result);
+        }
+
+        [Fact]
+        public static void WriteWithMinimizedFormatting()
+        {
+            var options = new JsonWriterOptions { Indented = false };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            writer.WriteStartObject();
+            writer.WritePropertyName("name");
+            writer.WriteStringValue("test");
+            writer.WriteEndObject();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Equal("""{"name":"test"}""", json);
+        }
+
+        [Fact]
+        public static void WriteRawValue_WithValidation()
+        {
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output);
+            
+            writer.WriteStartArray();
+            writer.WriteRawValue("42"u8, skipInputValidation: false);
+            writer.WriteEndArray();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Equal("[42]", json);
+        }
+
+        [Fact]
+        public static void WriteDateTime_MinimizedFormat()
+        {
+            var options = new JsonWriterOptions { Indented = false };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            DateTime dt = new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+            writer.WriteStartObject();
+            writer.WriteString("date", dt);
+            writer.WriteEndObject();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("2024-01-01", json);
+        }
+
+        [Fact]
+        public static void WriteGuid_MinimizedFormat()
+        {
+            var options = new JsonWriterOptions { Indented = false };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            Guid guid = Guid.Parse("12345678-1234-1234-1234-123456789012");
+            writer.WriteStartObject();
+            writer.WriteString("id", guid);
+            writer.WriteEndObject();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("12345678-1234-1234-1234-123456789012", json);
+        }
+
+        [Fact]
+        public static void WriteDecimal_MinimizedFormat()
+        {
+            var options = new JsonWriterOptions { Indented = false };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            writer.WriteStartObject();
+            writer.WriteNumber("value", 123.456m);
+            writer.WriteEndObject();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("123.456", json);
+        }
+
+        [Fact]
+        public static void WriteLargeInteger_MinimizedFormat()
+        {
+            var options = new JsonWriterOptions { Indented = false };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            writer.WriteStartObject();
+            writer.WriteNumber("value", long.MaxValue);
+            writer.WriteEndObject();
+            writer.Flush();
+            
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("9223372036854775807", json);
+        }
+
+        [Fact]
+        public static void WriteBase64String_IndentedFormat()
+        {
+            var options = new JsonWriterOptions { Indented = true };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            byte[] bytes = new byte[] { 1, 2, 3, 4, 5 };
+            writer.WriteStartObject();
+            writer.WriteBase64String("data", bytes);
+            writer.WriteEndObject();
+            writer.Flush();
+
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("\"data\": \"AQIDBAU=\"", json);
+        }
+
+        [Fact]
+        public static void WriteStartArray_WithPropertyName_Indented()
+        {
+            var options = new JsonWriterOptions { Indented = true };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            writer.WriteStartObject();
+            writer.WriteStartArray("items");
+            writer.WriteNumberValue(1);
+            writer.WriteNumberValue(2);
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+            writer.Flush();
+
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("\"items\":", json);
+        }
+
+        [Fact]
+        public static void WriteStartObject_WithPropertyName_Indented()
+        {
+            var options = new JsonWriterOptions { Indented = true };
+            var output = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(output, options);
+            
+            writer.WriteStartObject();
+            writer.WriteStartObject("nested");
+            writer.WriteString("key", "value");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.Flush();
+
+            string json = Encoding.UTF8.GetString(output.WrittenSpan.ToArray());
+            Assert.Contains("\"nested\":", json);
+            Assert.Contains("\"key\": \"value\"", json);
+        }
     }
 
     public static class WriterHelpers

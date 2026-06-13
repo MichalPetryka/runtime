@@ -8,11 +8,15 @@ using System.Reflection;
 
 namespace System.Text.Json.Serialization.Metadata
 {
+    [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+    [RequiresUnreferencedCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
     internal sealed class ReflectionMemberAccessor : MemberAccessor
     {
-        public override Func<object>? CreateParameterlessConstructor(
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type,
-            ConstructorInfo? ctorInfo)
+        public ReflectionMemberAccessor()
+        {
+        }
+
+        public override Func<object>? CreateParameterlessConstructor(Type type, ConstructorInfo? ctorInfo)
         {
             Debug.Assert(type != null);
             Debug.Assert(ctorInfo is null || ctorInfo.GetParameters().Length == 0);
@@ -108,6 +112,27 @@ namespace System.Text.Json.Serialization.Metadata
             };
         }
 
+        public override Func<object?, T> CreateSingleParameterConstructor<T>(ConstructorInfo constructor)
+        {
+            Type type = typeof(T);
+
+            Debug.Assert(!type.IsAbstract);
+            Debug.Assert(constructor.DeclaringType == type && constructor.IsPublic && !constructor.IsStatic);
+            Debug.Assert(constructor.GetParameters().Length == 1);
+
+            return value =>
+            {
+                try
+                {
+                    return (T)constructor.Invoke(new object?[] { value });
+                }
+                catch (TargetInvocationException e)
+                {
+                    throw e.InnerException ?? e;
+                }
+            };
+        }
+
         public override Action<TCollection, object?> CreateAddMethodDelegate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] TCollection>()
         {
             Type collectionType = typeof(TCollection);
@@ -122,8 +147,6 @@ namespace System.Text.Json.Serialization.Metadata
             };
         }
 
-        [RequiresUnreferencedCode(IEnumerableConverterFactoryHelpers.ImmutableConvertersUnreferencedCodeMessage)]
-        [RequiresDynamicCode(IEnumerableConverterFactoryHelpers.ImmutableConvertersUnreferencedCodeMessage)]
         public override Func<IEnumerable<TElement>, TCollection> CreateImmutableEnumerableCreateRangeDelegate<TCollection, TElement>()
         {
             MethodInfo createRange = typeof(TCollection).GetImmutableEnumerableCreateRangeMethod(typeof(TElement));
@@ -131,8 +154,6 @@ namespace System.Text.Json.Serialization.Metadata
                 typeof(Func<IEnumerable<TElement>, TCollection>));
         }
 
-        [RequiresUnreferencedCode(IEnumerableConverterFactoryHelpers.ImmutableConvertersUnreferencedCodeMessage)]
-        [RequiresDynamicCode(IEnumerableConverterFactoryHelpers.ImmutableConvertersUnreferencedCodeMessage)]
         public override Func<IEnumerable<KeyValuePair<TKey, TValue>>, TCollection> CreateImmutableDictionaryCreateRangeDelegate<TCollection, TKey, TValue>()
         {
             MethodInfo createRange = typeof(TCollection).GetImmutableDictionaryCreateRangeMethod(typeof(TKey), typeof(TValue));
@@ -145,6 +166,16 @@ namespace System.Text.Json.Serialization.Metadata
             MethodInfo getMethodInfo = propertyInfo.GetMethod!;
 
             return delegate (object obj)
+            {
+                return (TProperty)getMethodInfo.Invoke(obj, null)!;
+            };
+        }
+
+        public override Func<TDeclaringType, TProperty> CreatePropertyGetter<TDeclaringType, TProperty>(PropertyInfo propertyInfo)
+        {
+            MethodInfo getMethodInfo = propertyInfo.GetMethod!;
+
+            return delegate (TDeclaringType obj)
             {
                 return (TProperty)getMethodInfo.Invoke(obj, null)!;
             };
@@ -171,5 +202,80 @@ namespace System.Text.Json.Serialization.Metadata
             {
                 fieldInfo.SetValue(obj, value);
             };
+
+        public override UnionTryGetValueAccessor<TUnion> CreateUnionTryGetValueAccessor<TUnion>(IReadOnlyList<KeyValuePair<Type, MethodInfo>> entries)
+        {
+            // Build per-entry typed delegates via Delegate.CreateDelegate so each TryGetValue
+            // call is a direct invocation rather than MethodInfo.Invoke (which would box
+            // value-type unions and allocate per call). Then return a closure that walks the
+            // chain in caller-supplied order; first match wins.
+            int count = entries.Count;
+            Type[] caseTypes = new Type[count];
+            UnionTryGetValueAccessor<TUnion>[] chain = new UnionTryGetValueAccessor<TUnion>[count];
+            for (int i = 0; i < count; i++)
+            {
+                KeyValuePair<Type, MethodInfo> entry = entries[i];
+                caseTypes[i] = entry.Key;
+                chain[i] = (UnionTryGetValueAccessor<TUnion>)typeof(ReflectionMemberAccessor)
+                    .GetMethod(nameof(CreateUnionTryGetValueAccessorCore), BindingFlags.NonPublic | BindingFlags.Static)!
+                    .MakeGenericMethod(typeof(TUnion), entry.Key)
+                    .Invoke(null, new object[] { entry.Value })!;
+            }
+
+            return (TUnion union, out Type? caseType, out object? value) =>
+            {
+                for (int i = 0; i < chain.Length; i++)
+                {
+                    if (chain[i](union, out _, out value))
+                    {
+                        caseType = caseTypes[i];
+                        return true;
+                    }
+                }
+
+                caseType = null;
+                value = null;
+                return false;
+            };
+        }
+
+        private delegate bool TypedTryGetValueDelegate<TUnion, TCase>(TUnion union, out TCase? value);
+
+        private delegate bool TypedStructTryGetValueDelegate<TUnion, TCase>(ref TUnion union, out TCase? value);
+
+        private static UnionTryGetValueAccessor<TUnion> CreateUnionTryGetValueAccessorCore<TUnion, TCase>(MethodInfo method)
+        {
+            // Per-entry adapter: binds the user-declared method to a typed delegate and
+            // returns a delegate matching UnionTryGetValueAccessor<TUnion>. The outer chained
+            // delegate fills in caseType on success; this inner adapter only reports value.
+            if (typeof(TUnion).IsValueType)
+            {
+                TypedStructTryGetValueDelegate<TUnion, TCase> typed =
+                    (TypedStructTryGetValueDelegate<TUnion, TCase>)Delegate.CreateDelegate(
+                        typeof(TypedStructTryGetValueDelegate<TUnion, TCase>), method, throwOnBindFailure: true)!;
+
+                return (TUnion union, out Type? caseType, out object? value) =>
+                {
+                    bool result = typed(ref union, out TCase? extracted);
+                    caseType = null;
+                    value = result ? extracted : null;
+                    return result;
+                };
+            }
+            else
+            {
+                TypedTryGetValueDelegate<TUnion, TCase> typed =
+                    (TypedTryGetValueDelegate<TUnion, TCase>)Delegate.CreateDelegate(
+                        typeof(TypedTryGetValueDelegate<TUnion, TCase>), method, throwOnBindFailure: true)!;
+
+                return (TUnion union, out Type? caseType, out object? value) =>
+                {
+                    bool result = typed(union, out TCase? extracted);
+                    caseType = null;
+                    value = result ? extracted : null;
+                    return result;
+                };
+            }
+        }
     }
 }

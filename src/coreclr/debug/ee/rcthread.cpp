@@ -126,36 +126,8 @@ HANDLE CreateWin32EventOrThrow(
     CONTRACT_END;
 
     HANDLE h = NULL;
-    h = WszCreateEvent(lpEventAttributes, (BOOL) eType, bInitialState, NULL);
+    h = CreateEvent(lpEventAttributes, (BOOL) eType, bInitialState, NULL);
 
-    if (h == NULL)
-        ThrowLastError();
-
-    RETURN h;
-}
-
-//-----------------------------------------------------------------------------
-// Open an event. Another helper for DebuggerRCThread::Init
-//-----------------------------------------------------------------------------
-HANDLE OpenWin32EventOrThrow(
-    DWORD dwDesiredAccess,
-    BOOL bInheritHandle,
-    LPCWSTR lpName
-)
-{
-    CONTRACT(HANDLE)
-    {
-        THROWS;
-        GC_NOTRIGGER;
-        POSTCONDITION(RETVAL != NULL);
-    }
-    CONTRACT_END;
-
-    HANDLE h = WszOpenEvent(
-        dwDesiredAccess,
-        bInheritHandle,
-        lpName
-    );
     if (h == NULL)
         ThrowLastError();
 
@@ -219,15 +191,6 @@ HRESULT DebuggerIPCControlBlock::Init(
 #else
     m_checkedBuild = false;
 #endif
-    m_bHostingInFiber = false;
-
-    // Are we in fiber mode? In Whidbey, we do not support launch a fiber mode process
-    // nor do we support attach to a fiber mode process.
-    //
-    if (g_CORDebuggerControlFlags & DBCF_FIBERMODE)
-    {
-        m_bHostingInFiber = true;
-    }
 
 #if !defined(FEATURE_DBGIPC_TRANSPORT_VM)
     // Copy RSEA and RSER into the control block.
@@ -345,7 +308,7 @@ HRESULT DebuggerRCThread::Init(void)
     // We will not fail out if CreateEvent fails for RSEA or RSER. Because
     // the worst case is that debugger cannot attach to debuggee.
     //
-    HandleHolder rightSideEventAvailable(WszCreateEvent(NULL, (BOOL) kAutoResetEvent, FALSE, NULL));
+    HandleHolder rightSideEventAvailable(CreateEvent(NULL, (BOOL) kAutoResetEvent, FALSE, NULL));
 
     // Security fix:
     // We need to check the last error to see if the event was precreated or not
@@ -358,7 +321,7 @@ HRESULT DebuggerRCThread::Init(void)
         rightSideEventAvailable.Clear();
     }
 
-    HandleHolder rightSideEventRead(WszCreateEvent(NULL, (BOOL) kAutoResetEvent, FALSE, NULL));
+    HandleHolder rightSideEventRead(CreateEvent(NULL, (BOOL) kAutoResetEvent, FALSE, NULL));
 
     // Security fix:
     // We need to check the last error to see if the event was precreated or not
@@ -568,8 +531,9 @@ static LONG _debugFilter(LPEXCEPTION_POINTERS ep, PVOID pv)
         EX_CATCH
         {
             string = "*Could not retrieve stack*";
+            RethrowTerminalExceptions();
         }
-        EX_END_CATCH(RethrowTerminalExceptions);
+        EX_END_CATCH
 
         CONSISTENCY_CHECK_MSGF(false,
             ("Unhandled exception on the helper thread.\nEvent=%s(0x%p)\nCode=0x%0x, Ip=0x%p, .cxr=%p, .exr=%p.\n pid=0x%x (%d), tid=0x%x (%d).\n-----\nStack of exception:\n%s\n----\n",
@@ -610,7 +574,7 @@ void DebuggerRCThread::ThreadProc(void)
     // This message actually serves a purpose (which is why it is always run)
     // The Stress log is run during hijacking, when other threads can be suspended
     // at arbitrary locations (including when holding a lock that NT uses to serialize
-    // all memory allocations).  By sending a message now, we insure that the stress
+    // all memory allocations).  By sending a message now, we ensure that the stress
     // log will not allocate memory at these critical times an avoid deadlock.
     {
         SUPPRESS_ALLOCATION_ASSERTS_IN_THIS_SCOPE;
@@ -858,7 +822,7 @@ void DebuggerRCThread::MainLoop()
         PRECONDITION(m_thread != NULL);
         PRECONDITION(ThisIsHelperThreadWorker());
         PRECONDITION(IsDbgHelperSpecialThread());   // Can only be called on native debugger helper thread
-        PRECONDITION((!ThreadStore::HoldingThreadStore()) || g_fProcessDetach);
+        PRECONDITION((!ThreadStore::HoldingThreadStore()) || IsAtProcessExit());
     }
     CONTRACTL_END;
 
@@ -960,7 +924,7 @@ void DebuggerRCThread::MainLoop()
             {
 
                 // If they called continue, then we must have released the TSL.
-                _ASSERTE(!ThreadStore::HoldingThreadStore() || g_fProcessDetach);
+                _ASSERTE(!ThreadStore::HoldingThreadStore() || IsAtProcessExit());
 
                 // Let's release the lock here since runtime is resumed.
                 debugLockHolderSuspended.Release();
@@ -1062,7 +1026,7 @@ LWaitTimedOut:
                 // We also hold debugger lock the whole time that Runtime is stopped. We will release the debugger lock
                 // when we receive the Continue event that resumes the runtime.
 
-                _ASSERTE(ThreadStore::HoldingThreadStore() || g_fProcessDetach);
+                _ASSERTE(ThreadStore::HoldingThreadStore() || IsAtProcessExit());
             }
             else
             {
@@ -1107,7 +1071,7 @@ void DebuggerRCThread::TemporaryHelperThreadMainLoop()
         // It should be holding the debugger lock!!!
         //
         PRECONDITION(m_debugger->ThreadHoldsLock());
-        PRECONDITION((ThreadStore::HoldingThreadStore()) || g_fProcessDetach);
+        PRECONDITION((ThreadStore::HoldingThreadStore()) || IsAtProcessExit());
         PRECONDITION(ThisIsTempHelperThread());
     }
     CONTRACTL_END;
@@ -1177,7 +1141,7 @@ void DebuggerRCThread::TemporaryHelperThreadMainLoop()
             if (fWasContinue)
             {
                 // If they called continue, then we must have released the TSL.
-                _ASSERTE(!ThreadStore::HoldingThreadStore() || g_fProcessDetach);
+                _ASSERTE(!ThreadStore::HoldingThreadStore() || IsAtProcessExit());
 
 #ifdef _DEBUG
                 // Always reset the syncSpinCount to 0 on a continue so that we have the maximum number of possible
@@ -1241,7 +1205,7 @@ LWaitTimedOut:
             dwWaitTimeout = INFINITE;
 
             // Note: we hold the thread store lock now and debugger lock...
-            _ASSERTE(ThreadStore::HoldingThreadStore() || g_fProcessDetach);
+            _ASSERTE(ThreadStore::HoldingThreadStore() || IsAtProcessExit());
 
         }
     }
@@ -1379,7 +1343,7 @@ HRESULT DebuggerRCThread::Start(void)
 
         // This gets published immediately.
         DebuggerIPCControlBlock* dcb = GetDCB();
-        PREFIX_ASSUME(dcb != NULL);
+        _ASSERTE(dcb != NULL);
         dcb->m_realHelperThreadId = helperThreadId;
 
 #ifdef _DEBUG
@@ -1416,11 +1380,7 @@ HRESULT DebuggerRCThread::AsyncStop(void)
         NOTHROW;
         GC_NOTRIGGER;
 
-#ifdef TARGET_X86
         PRECONDITION(!ThisIsHelperThreadWorker());
-#else
-        PRECONDITION(!ThisIsHelperThreadWorker());
-#endif
     }
     CONTRACTL_END;
 

@@ -13,19 +13,19 @@
 #include <memory.h>
 #include <windows.h>
 
-//#define TESTING 1
+// #define TESTING 1
 
-#define LOG2_BITS_PER_ELEMENT 5
+#define LOG2_BITS_PER_ELEMENT  5
 #define LOG2_ELEMENTS_PER_NODE 2
-#define LOG2_BITS_PER_NODE (LOG2_BITS_PER_ELEMENT + LOG2_ELEMENTS_PER_NODE)
+#define LOG2_BITS_PER_NODE     (LOG2_BITS_PER_ELEMENT + LOG2_ELEMENTS_PER_NODE)
 
-#define BITS_PER_ELEMENT (1 << LOG2_BITS_PER_ELEMENT)
+#define BITS_PER_ELEMENT  (1 << LOG2_BITS_PER_ELEMENT)
 #define ELEMENTS_PER_NODE (1 << LOG2_ELEMENTS_PER_NODE)
-#define BITS_PER_NODE (1 << LOG2_BITS_PER_NODE)
+#define BITS_PER_NODE     (1 << LOG2_BITS_PER_NODE)
 
 #ifdef TARGET_AMD64
-typedef unsigned __int64 elemType;
-typedef unsigned __int64 indexType;
+typedef uint64_t elemType;
+typedef uint64_t indexType;
 #else
 typedef unsigned int elemType;
 typedef unsigned int indexType;
@@ -85,34 +85,7 @@ inline int log2(int number)
 // return greatest power of 2 that is less than or equal
 inline int nearest_pow2(unsigned number)
 {
-    int result = 0;
-
-    if (number > 0xffff)
-    {
-        number >>= 16;
-        result += 16;
-    }
-    if (number > 0xff)
-    {
-        number >>= 8;
-        result += 8;
-    }
-    if (number > 0xf)
-    {
-        number >>= 4;
-        result += 4;
-    }
-    if (number > 0x3)
-    {
-        number >>= 2;
-        result += 2;
-    }
-    if (number > 0x1)
-    {
-        number >>= 1;
-        result += 1;
-    }
-    return 1 << result;
+    return 1 << BitOperations::Log2(number);
 }
 
 class hashBvNode
@@ -128,8 +101,8 @@ public:
     {
     }
     static hashBvNode* Create(indexType base, Compiler* comp);
-    void Reconstruct(indexType base);
-    int numElements()
+    void               Reconstruct(indexType base);
+    int                numElements()
     {
         return ELEMENTS_PER_NODE;
     }
@@ -172,8 +145,9 @@ public:
     hashBvNode** nodeArr;
     hashBvNode*  initialVector[1];
 
-    union {
-        Compiler* compiler;
+    union
+    {
+        Compiler* m_compiler;
         // for freelist
         hashBv* next;
     };
@@ -186,14 +160,14 @@ public:
 public:
     hashBv(Compiler* comp);
     static hashBv* Create(Compiler* comp);
-    static void Init(Compiler* comp);
+    static void    Init(Compiler* comp);
     static hashBv* CreateFrom(hashBv* other, Compiler* comp);
-    void hbvFree();
+    void           hbvFree();
 #ifdef DEBUG
     void dump();
     void dumpFancy();
 #endif // DEBUG
-    __forceinline int hashtable_size() const
+    FORCEINLINE int hashtable_size() const
     {
         return 1 << this->log2_hashSize;
     }
@@ -201,18 +175,18 @@ public:
     hashBvGlobalData* globalData();
 
     static hashBvNode*& nodeFreeList(hashBvGlobalData* globalData);
-    static hashBv*& hbvFreeList(hashBvGlobalData* data);
+    static hashBv*&     hbvFreeList(hashBvGlobalData* data);
 
     hashBvNode** getInsertionPointForIndex(indexType index);
 
 private:
     hashBvNode* getNodeForIndexHelper(indexType index, bool canAdd);
-    int getHashForIndex(indexType index, int table_size);
-    int getRehashForIndex(indexType thisIndex, int thisTableSize, int newTableSize);
+    int         getHashForIndex(indexType index, int table_size);
+    int         getRehashForIndex(indexType thisIndex, int thisTableSize, int newTableSize);
 
     // maintain free lists for vectors
     hashBvNode** getNewVector(int vectorLength);
-    int getNodeCount();
+    int          getNodeCount();
 
 public:
     inline hashBvNode* getOrAddNodeForIndex(indexType index)
@@ -221,7 +195,7 @@ public:
         return temp;
     }
     hashBvNode* getNodeForIndex(indexType index);
-    void removeNodeAtBase(indexType index);
+    void        removeNodeAtBase(indexType index);
 
 public:
     void setBit(indexType index);

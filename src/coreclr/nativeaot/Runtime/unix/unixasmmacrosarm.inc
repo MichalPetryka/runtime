@@ -5,34 +5,27 @@
 // CONSTANTS -- INTEGER
 //
 
-// GC type flags
-#define GC_ALLOC_FINALIZE 1
-#define GC_ALLOC_ALIGN8_BIAS 4
-#define GC_ALLOC_ALIGN8 8
-
 #define TSF_Attached                    0x01
 #define TSF_SuppressGcStress            0x08
 #define TSF_DoNotTriggerGc              0x10
 
+// These must match the PInvokeTransitionFrameFlags enum
 #define PTFF_SAVE_ALL_PRESERVED 0x0000007F  // NOTE: R11 is not included in this set!
 #define PTFF_SAVE_R9 0x00000020
 #define PTFF_SAVE_SP 0x00000100
 #define PTFF_SAVE_R0 0x00000200
-#define PTFF_THREAD_ABORT 0x00100000
+#define PTFF_SAVE_R1 0x00000400
+#define PTFF_SAVE_R2 0x00000800
+#define PTFF_THREAD_HIJACK 0x00004000   // indicates that this is a frame for a hijacked call
 
 #define DEFAULT_FRAME_SAVE_FLAGS (PTFF_SAVE_ALL_PRESERVED + PTFF_SAVE_SP)
 
 // These must match the TrapThreadsFlags enum
 #define TrapThreadsFlags_None            0
-#define TrapThreadsFlags_AbortInProgress 1
-#define TrapThreadsFlags_TrapThreads     2
-
-// Rename fields of nested structs
-#define OFFSETOF__Thread__m_alloc_context__alloc_ptr (OFFSETOF__Thread__m_rgbAllocContextBuffer + OFFSETOF__gc_alloc_context__alloc_ptr)
-#define OFFSETOF__Thread__m_alloc_context__alloc_limit (OFFSETOF__Thread__m_rgbAllocContextBuffer + OFFSETOF__gc_alloc_context__alloc_limit)
+#define TrapThreadsFlags_TrapThreads     1
 
 // GC minimal sized object. We use this to switch between 4 and 8 byte alignment in the GC heap (see AllocFast.asm).
-#define SIZEOF__MinObject 12
+#define ASM_MIN_OBJECT_SIZE 12
 
 .macro NESTED_ENTRY Name, Section, Handler
         LEAF_ENTRY \Name, \Section
@@ -77,13 +70,13 @@ C_FUNC(\Name):
 
 .macro PREPARE_EXTERNAL_VAR Name, HelperReg
         movw \HelperReg, #:lower16:C_FUNC(\Name) - (. + 12)
-        movt \HelperReg, #:upper16:C_FUNC(\Name) - (. + 12)
+        movt \HelperReg, #:upper16:C_FUNC(\Name) - (. + 8)
         add \HelperReg, pc
 .endm
 
 .macro PREPARE_EXTERNAL_VAR_INDIRECT Name, HelperReg
         movw \HelperReg, #:lower16:C_FUNC(\Name) - (. + 12)
-        movt \HelperReg, #:upper16:C_FUNC(\Name) - (. + 12)
+        movt \HelperReg, #:upper16:C_FUNC(\Name) - (. + 8)
         add \HelperReg, pc
         ldr \HelperReg, [\HelperReg]
 .endm
@@ -212,19 +205,6 @@ C_FUNC(\Name):
         movt \DestReg, #((\Constant) >> 16)
 .endm
 
-.macro EXPORT_POINTER_TO_ADDRESS Name
-
-1:
-
-        .data
-        .align      4
-C_FUNC(\Name):
-        .word       1b
-        .global     C_FUNC(\Name)
-        .text
-
-.endm
-
 //
 // Macro used from unmanaged helpers called from managed code where the helper does not transition immediately
 // into pre-emptive mode but may cause a GC and thus requires the stack is crawlable. This is typically the
@@ -289,8 +269,16 @@ C_FUNC(\Name):
 .endm
 
 .macro INLINE_GETTHREAD
+#ifdef FEATURE_EMULATED_TLS
+        bl C_FUNC(RhpGetThread)
+#else
         // Inlined version of call C_FUNC(RhpGetThread)
         INLINE_GET_TLS_VAR tls_CurrentThread
+#endif
+.endm
+
+.macro INLINE_GET_ALLOC_CONTEXT_BASE
+        INLINE_GETTHREAD
 .endm
 
 .macro INLINE_THREAD_UNHIJACK threadReg, trashReg1, trashReg2

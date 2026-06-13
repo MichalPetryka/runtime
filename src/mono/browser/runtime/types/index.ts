@@ -6,11 +6,10 @@ import type { EmscriptenModule, NativePointer } from "./emscripten";
 export interface DotnetHostBuilder {
     /**
      * @param config default values for the runtime configuration. It will be merged with the default values.
-     * Note that if you provide resources and don't provide custom configSrc URL, the blazor.boot.json will be downloaded and applied by default.
      */
     withConfig(config: MonoConfig): DotnetHostBuilder;
     /**
-     * @param configSrc URL to the configuration file. ./blazor.boot.json is a default config file location.
+     * @deprecated This method is no longer supported and will be removed in a future version.
      */
     withConfigSrc(configSrc: string): DotnetHostBuilder;
     /**
@@ -66,22 +65,39 @@ export interface DotnetHostBuilder {
      */
     withResourceLoader(loadBootResource?: LoadBootResourceCallback): DotnetHostBuilder;
     /**
+     * Downloads all the assets but doesn't create the runtime instance.
+     */
+    download(): Promise<void>;
+    /**
      * Starts the runtime and returns promise of the API object.
      */
     create(): Promise<RuntimeAPI>;
 
     /**
+     * @deprecated use runMain() or runMainAndExit() instead.
+     */
+    run(): Promise<number>;
+
+    /**
      * Runs the Main() method of the application and exits the runtime.
      * You can provide "command line" arguments for the Main() method using
-     * - dotnet.withApplicationArguments(["A", "B", "C"])
+     * - dotnet.withApplicationArguments("A", "B", "C")
      * - dotnet.withApplicationArgumentsFromQuery()
      * Note: after the runtime exits, it would reject all further calls to the API.
      * You can use runMain() if you want to keep the runtime alive.
      */
-    run(): Promise<number>;
+
+    runMainAndExit (): Promise<number>;
+    /**
+     * Runs the Main() method of the application and keeps the runtime alive.
+     * You can provide "command line" arguments for the Main() method using
+     * - dotnet.withApplicationArguments("A", "B", "C")
+     * - dotnet.withApplicationArgumentsFromQuery()
+     */
+    runMain (): Promise<number>;
 }
 
-// when adding new fields, please consider if it should be impacting the snapshot hash. If not, please drop it in the snapshot getCacheKey()
+// when adding new fields, please consider if it should be impacting the config hash. If not, please drop it in the getCacheKey()
 export type MonoConfig = {
     /**
      * Additional search locations for assets.
@@ -115,14 +131,6 @@ export type MonoConfig = {
     debugLevel?: number,
 
     /**
-     * Gets a value that determines whether to enable caching of the 'resources' inside a CacheStorage instance within the browser.
-     */
-    cacheBootResources?: boolean,
-    /**
-     * Delay of the purge of the cached resources in milliseconds. Default is 10000 (10 seconds).
-     */
-    cachedResourcesPurgeDelay?: number,
-    /**
      * Configures use of the `integrity` directive for fetching assets
      */
     disableIntegrityCheck?: boolean,
@@ -141,13 +149,23 @@ export type MonoConfig = {
         [i: string]: string;
     },
     /**
+     * Subset of runtimeconfig.json
+     */
+    runtimeConfig?: {
+        runtimeOptions?: {
+            configProperties?: {
+                [i: string]: string | number | boolean;
+            }
+        }
+    },
+    /**
      * initial number of workers to add to the emscripten pthread pool
      */
-    pthreadPoolSize?: number,
+    pthreadPoolInitialSize?: number,
     /**
-     * If true, the snapshot of runtime's memory will be stored in the browser and used for faster startup next time. Default is false.
+     * number of unused workers kept in the emscripten pthread pool after startup
      */
-    startupMemoryCache?: boolean,
+    pthreadPoolUnusedSize?: number,
     /**
      * If true, a list of the methods optimized by the interpreter will be saved and used for faster startup
      *  on future runs of the application
@@ -168,10 +186,7 @@ export type MonoConfig = {
      */
     applicationCulture?: string,
 
-    /**
-     * definition of assets to load along with the runtime.
-     */
-    resources?: ResourceGroups;
+    resources?: Assets,
 
     /**
      * appsettings files to load to VFS
@@ -197,26 +212,101 @@ export type MonoConfig = {
 
 export type ResourceExtensions = { [extensionName: string]: ResourceList };
 
-export interface ResourceGroups {
+export interface Assets {
     hash?: string;
-    assembly?: ResourceList; // nullable only temporarily
-    lazyAssembly?: ResourceList; // nullable only temporarily
-    pdb?: ResourceList;
+    coreAssembly?: AssemblyAsset[]; // nullable only temporarily
+    assembly?: AssemblyAsset[]; // nullable only temporarily
+    lazyAssembly?: AssemblyAsset[]; // nullable only temporarily
+    corePdb?: PdbAsset[];
+    pdb?: PdbAsset[];
 
-    jsModuleWorker?: ResourceList;
-    jsModuleNative: ResourceList;
-    jsModuleRuntime: ResourceList;
-    wasmSymbols?: ResourceList;
-    wasmNative: ResourceList;
-    icu?: ResourceList;
+    jsModuleWorker?: JsAsset[];
+    jsModuleDiagnostics?: JsAsset[];
+    jsModuleNative: JsAsset[];
+    jsModuleRuntime: JsAsset[];
 
-    satelliteResources?: { [cultureName: string]: ResourceList };
+    wasmSymbols?: SymbolsAsset[];
+    wasmNative: WasmAsset[];
+    icu?: IcuAsset[];
 
-    modulesAfterConfigLoaded?: ResourceList,
-    modulesAfterRuntimeReady?: ResourceList
+    satelliteResources?: { [cultureName: string]: AssemblyAsset[] };
+
+    modulesAfterConfigLoaded?: JsAsset[],
+    modulesAfterRuntimeReady?: JsAsset[]
 
     extensions?: ResourceExtensions
-    vfs?: { [virtualPath: string]: ResourceList };
+    coreVfs?: VfsAsset[];
+    vfs?: VfsAsset[];
+}
+
+export type Asset = {
+    /**
+     * this should be absolute url to the asset
+     */
+    resolvedUrl?: string;
+    /**
+     * If true, the runtime startup would not fail if the asset download was not successful.
+     */
+    isOptional?: boolean
+    /**
+     * If provided, runtime doesn't have to fetch the data.
+     * Runtime would set the buffer to null after instantiation to free the memory.
+     */
+    buffer?: ArrayBuffer | Promise<ArrayBuffer>,
+    /**
+     * It's metadata + fetch-like Promise<Response>
+     * If provided, the runtime doesn't have to initiate the download. It would just await the response.
+     */
+    pendingDownload?: LoadingResource
+}
+
+export type WasmAsset = Asset & {
+    name: string;
+    hash?: string | null | "";
+    cache?: RequestCache;
+}
+
+export type AssemblyAsset = Asset & {
+    virtualPath: string;
+    name: string; // actually URL
+    hash?: string | null | "";
+    cache?: RequestCache;
+}
+
+export type PdbAsset = Asset & {
+    virtualPath: string;
+    name: string; // actually URL
+    hash?: string | null | "";
+    cache?: RequestCache;
+}
+
+export type JsAsset = Asset & {
+    /**
+     * If provided, runtime doesn't have to import it's JavaScript modules.
+     * This will not work for multi-threaded runtime.
+     */
+    moduleExports?: any | Promise<any>,
+
+    name?: string; // actually URL
+}
+
+export type SymbolsAsset = Asset & {
+    name: string; // actually URL
+    cache?: RequestCache;
+}
+
+export type VfsAsset = Asset & {
+    virtualPath: string;
+    name: string; // actually URL
+    hash?: string | null | "";
+    cache?: RequestCache;
+}
+
+export type IcuAsset = Asset & {
+    virtualPath: string;
+    name: string; // actually URL
+    hash?: string | null | "";
+    cache?: RequestCache;
 }
 
 /**
@@ -235,7 +325,11 @@ export type ResourceList = { [name: string]: string | null | "" };
  * @returns A URI string or a Response promise to override the loading process, or null/undefined to allow the default loading behavior.
  * When returned string is not qualified with `./` or absolute URL, it will be resolved against the application base URI.
  */
-export type LoadBootResourceCallback = (type: WebAssemblyBootResourceType, name: string, defaultUri: string, integrity: string, behavior: AssetBehaviors) => string | Promise<Response> | null | undefined;
+export type LoadBootResourceCallback = (type: WebAssemblyBootResourceType, name: string, defaultUri: string, integrity: string, behavior: AssetBehaviors) => string | Promise<Response> | Promise<BootModule> | null | undefined;
+
+export type BootModule = {
+    config: MonoConfig
+}
 
 export interface LoadingResource {
     name: string;
@@ -243,7 +337,7 @@ export interface LoadingResource {
     response: Promise<Response>;
 }
 
-// Types of assets that can be in the _framework/blazor.boot.json file (taken from /src/tasks/WasmAppBuilder/WasmAppBuilder.cs)
+// Types of assets that can be in the _framework/dotnet.boot.js file (taken from /src/tasks/WasmAppBuilder/WasmAppBuilder.cs)
 export interface AssetEntry {
     /**
      * the name of the asset, including extension.
@@ -310,6 +404,10 @@ export type SingleAssetBehaviors =
      */
     | "js-module-threads"
     /**
+     * The javascript module for diagnostic server and client.
+     */
+    | "js-module-diagnostics"
+    /**
      * The javascript module for runtime.
      */
     | "js-module-runtime"
@@ -318,9 +416,13 @@ export type SingleAssetBehaviors =
      */
     | "js-module-native"
     /**
-     * Typically blazor.boot.json
+     * Typically dotnet.boot.js
      */
-    | "manifest";
+    | "manifest"
+    /**
+     * The debugging symbols
+     */
+    | "symbols"
 
 export type AssetBehaviors = SingleAssetBehaviors |
     /**
@@ -351,14 +453,6 @@ export type AssetBehaviors = SingleAssetBehaviors |
      * The javascript module that came from nuget package .
      */
     | "js-module-library-initializer"
-    /**
-     * The javascript module for threads.
-     */
-    | "symbols"
-    /**
-     * Load segmentation rules file for Hybrid Globalization.
-     */
-    | "segmentation-rules"
 
 export const enum GlobalizationMode {
     /**
@@ -376,16 +470,11 @@ export const enum GlobalizationMode {
     /**
      * Use user defined icu file.
      */
-    Custom = "custom",
-    /**
-     * Operate in hybrid globalization mode with small ICU files, using native platform functions.
-     */
-    Hybrid = "hybrid"
+    Custom = "custom"
 }
 
 export type DotnetModuleConfig = {
     config?: MonoConfig,
-    configSrc?: string,
     onConfigLoaded?: (config: MonoConfig) => void | Promise<void>;
     onDotnetReady?: () => void | Promise<void>;
     onDownloadResourceProgress?: (resourcesLoaded: number, totalResources: number) => void;
@@ -394,7 +483,7 @@ export type DotnetModuleConfig = {
     exports?: string[];
 } & Partial<EmscriptenModule>
 
-export type APIType = {
+export type RunAPIType = {
     /**
      * Runs the Main() method of the application.
      * Note: this will keep the .NET runtime alive and the APIs will be available for further calls.
@@ -412,9 +501,14 @@ export type APIType = {
      */
     runMainAndExit: (mainAssemblyName?: string, args?: string[]) => Promise<number>;
     /**
-     * Sets the environment variable for the "process"
-     * @param name
-     * @param value
+     * Exits the runtime.
+     * Note: after the runtime exits, it would reject all further calls to the API.
+     * @param code "process" exit code.
+     * @param reason could be a string or an Error object.
+     */
+    exit: (code: number, reason?: any) => void;
+    /**
+     * @deprecated use withEnvironmentVariable() on the host builder instead.
      */
     setEnvironmentVariable: (name: string, value: string) => void;
     /**
@@ -437,10 +531,17 @@ export type APIType = {
      * You can register the scripts using MonoConfig.resources.modulesAfterConfigLoaded and MonoConfig.resources.modulesAfterRuntimeReady.
      */
     invokeLibraryInitializers: (functionName: string, args: any[]) => Promise<void>;
+}
+
+export type MemoryAPIType = {
     /**
      * Writes to the WASM linear memory
      */
     setHeapB32: (offset: NativePointer, value: number | boolean) => void;
+    /**
+     * Writes to the WASM linear memory
+     */
+    setHeapB8: (offset: NativePointer, value: number | boolean) => void;
     /**
      * Writes to the WASM linear memory
      */
@@ -489,6 +590,10 @@ export type APIType = {
      * Reads from the WASM linear memory
      */
     getHeapB32: (offset: NativePointer) => boolean;
+    /**
+     * Reads from the WASM linear memory
+     */
+    getHeapB8: (offset: NativePointer) => boolean;
     /**
      * Reads from the WASM linear memory
      */
@@ -571,6 +676,47 @@ export type APIType = {
     localHeapViewF64: () => Float64Array;
 }
 
+export type DiagnosticsAPIType = {
+    /**
+     * creates diagnostic trace file. Default is 60 seconds.
+     * It could be opened in PerfView or Visual Studio as is.
+     */
+    collectCpuSamples: (options?:DiagnosticCommandOptions) => Promise<Uint8Array[]>;
+    /**
+     * creates diagnostic trace file. Default is 60 seconds.
+     * It could be opened in PerfView or Visual Studio as is.
+     * It could be summarized by `dotnet-trace report xxx.nettrace topN -n 10`
+     */
+    collectMetrics: (options?:DiagnosticCommandOptions) => Promise<Uint8Array[]>;
+    /**
+     * creates diagnostic trace file.
+     * It could be opened in PerfView as is.
+     * It could be converted for Visual Studio using `dotnet-gcdump convert`.
+     */
+    collectGcDump: (options?:DiagnosticCommandOptions) => Promise<Uint8Array[]>;
+    /**
+     * changes DOTNET_DiagnosticPorts and makes a new connection to WebSocket on that URL.
+     */
+    connectDSRouter (url: string): void;
+}
+
+export type DiagnosticCommandProviderV2 = {
+    keywords: [ number, number ],
+    logLevel: number,
+    providerName: string,
+    arguments: string|null
+}
+
+export type DiagnosticCommandOptions = {
+    durationSeconds?:number,
+    intervalSeconds?:number,
+    skipDownload?:boolean,
+    circularBufferMB?:number,
+    extraProviders?:DiagnosticCommandProviderV2[],
+}
+
+export type APIType = RunAPIType & MemoryAPIType & DiagnosticsAPIType;
+
 export type RuntimeAPI = {
     INTERNAL: any,
     Module: EmscriptenModule,
@@ -579,6 +725,9 @@ export type RuntimeAPI = {
         productVersion: string,
         gitHash: string,
         buildConfiguration: string,
+        wasmEnableThreads: boolean,
+        wasmEnableSIMD: boolean,
+        wasmEnableExceptionHandling: boolean,
     }
 } & APIType
 

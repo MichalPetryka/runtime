@@ -28,7 +28,7 @@ namespace System.Net.Sockets
         private int _closeSocketThread;
         private int _closeSocketTick;
 #endif
-        private int _ownClose;
+        private bool _ownClose;
 
         /// <summary>
         /// Creates a <see cref="T:System.Net.Sockets.SafeSocketHandle" />.
@@ -54,8 +54,7 @@ namespace System.Net.Sockets
 
         internal bool HasShutdownSend => _hasShutdownSend;
 
-        private bool TryOwnClose()
-            => Interlocked.CompareExchange(ref _ownClose, 1, 0) == 0;
+        private bool TryOwnClose() => !Interlocked.Exchange(ref _ownClose, true);
 
         private volatile bool _released;
         private bool _hasShutdownSend;
@@ -97,7 +96,7 @@ namespace System.Net.Sockets
             try
             {
 #endif
-                bool shouldClose = TryOwnClose();
+                bool shouldClose = !IsInvalid && TryOwnClose();
 
                 if (NetEventSource.Log.IsEnabled()) NetEventSource.Info(this, $"abortive={abortive}, shouldClose ={shouldClose}");
 
@@ -177,10 +176,6 @@ namespace System.Net.Sockets
 
             if (IsInvalid)
             {
-                // CloseAsIs musn't wait for a release.
-                TryOwnClose();
-
-                // Mark handle as invalid, so it won't be released.
                 SetHandleAsInvalid();
             }
         }

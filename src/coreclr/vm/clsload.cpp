@@ -78,14 +78,14 @@ NameHandle::NameHandle(Module* pModule, mdToken token) :
 // This method determines the "loader module" for an instantiated type
 // or method. The rule must ensure that any types involved in the
 // instantiated type or method do not outlive the loader module itself
-// with respect to app-domain unloading (e.g. MyList<MyType> can't be
+// with respect to module unloading (e.g. MyList<MyType> can't be
 // put in the module of MyList if MyList's assembly is
-// app-domain-neutral but MyType's assembly is app-domain-specific).
+// non-collectible but MyType's assembly is collectible).
 // The rule we use is:
 //
 // * Pick the first type in the class instantiation, followed by
-//   method instantiation, whose loader module is non-shared (app-domain-bound)
-// * If no type is app-domain-bound, return the module containing the generic type itself
+//   method instantiation, whose loader allocator is collectible and has the highest creation number.
+// * If no type is in collectible assembly, return the module containing the generic type itself.
 //
 // Some useful effects of this rule (for ngen purposes) are:
 //
@@ -113,18 +113,15 @@ PTR_Module ClassLoader::ComputeLoaderModuleWorker(
     }
     CONTRACT_END
 
+    // No generic instantiation, return the definition module
     if (classInst.IsEmpty() && methodInst.IsEmpty())
         RETURN PTR_Module(pDefinitionModule);
 
-    Module *pLoaderModule = NULL;
+    // Use the definition module as the loader module by default
+    Module *pLoaderModule = pDefinitionModule;
 
-    if (pDefinitionModule)
-    {
-        if (pDefinitionModule->IsCollectible())
-            goto ComputeCollectibleLoaderModule;
-        pLoaderModule = pDefinitionModule;
-    }
-
+    // If any of generic type arguments are in collectible module,
+    // we use a generic procedure.
     for (DWORD i = 0; i < classInst.GetNumArgs(); i++)
     {
         TypeHandle classArg = classInst[i];
@@ -135,6 +132,8 @@ PTR_Module ClassLoader::ComputeLoaderModuleWorker(
             pLoaderModule = pModule;
     }
 
+    // If any of generic method arguments are in collectible module,
+    // we also use a generic procedure.
     for (DWORD i = 0; i < methodInst.GetNumArgs(); i++)
     {
         TypeHandle methodArg = methodInst[i];
@@ -155,14 +154,18 @@ PTR_Module ClassLoader::ComputeLoaderModuleWorker(
     if (FALSE)
     {
 ComputeCollectibleLoaderModule:
-        LoaderAllocator *pLoaderAllocatorOfDefiningType = NULL;
-        LoaderAllocator *pOldestLoaderAllocator = NULL;
-        Module *pOldestLoaderModule = NULL;
-        UINT64 oldestFoundAge = 0;
+        Module *pLatestLoaderModule = NULL;
+        UINT64 latestFoundNumber = 0;
         DWORD classArgsCount = classInst.GetNumArgs();
         DWORD totalArgsCount = classArgsCount + methodInst.GetNumArgs();
 
-        if (pDefinitionModule != NULL) pLoaderAllocatorOfDefiningType = pDefinitionModule->GetLoaderAllocator();
+        // If loader allocator of the defining type is collectible, we use it
+        // and its creation number as the starting age.
+        if (pDefinitionModule != NULL && pDefinitionModule->IsCollectible())
+        {
+            pLatestLoaderModule = pDefinitionModule;
+            latestFoundNumber = pDefinitionModule->GetLoaderAllocator()->GetCreationNumber();
+        }
 
         for (DWORD i = 0; i < totalArgsCount; i++) {
 
@@ -176,22 +179,18 @@ ComputeCollectibleLoaderModule:
             Module *pModuleCheck = arg.GetLoaderModule();
             LoaderAllocator *pLoaderAllocatorCheck = pModuleCheck->GetLoaderAllocator();
 
-            if (pLoaderAllocatorCheck != pLoaderAllocatorOfDefiningType &&
-                pLoaderAllocatorCheck->IsCollectible() &&
-                pLoaderAllocatorCheck->GetCreationNumber() > oldestFoundAge)
+            if (pLoaderAllocatorCheck->IsCollectible() &&
+                pLoaderAllocatorCheck->GetCreationNumber() > latestFoundNumber)
             {
-                pOldestLoaderModule = pModuleCheck;
-                pOldestLoaderAllocator = pLoaderAllocatorCheck;
-                oldestFoundAge = pLoaderAllocatorCheck->GetCreationNumber();
+                pLatestLoaderModule = pModuleCheck;
+                latestFoundNumber = pLoaderAllocatorCheck->GetCreationNumber();
             }
         }
 
-        // Only if we didn't find a different loader allocator than the defining loader allocator do we
-        // use the defining loader allocator
-        if (pOldestLoaderModule != NULL)
-            pLoaderModule = pOldestLoaderModule;
-        else
-            pLoaderModule = pDefinitionModule;
+        // Use the module of the latest found collectible loader allocator.
+        // If nothing was found, then by default we use the defining module.
+        if (pLatestLoaderModule != NULL)
+            pLoaderModule = pLatestLoaderModule;
     }
     RETURN PTR_Module(pLoaderModule);
 }
@@ -261,7 +260,7 @@ BOOL ClassLoader::IsTypicalInstantiation(Module *pModule, mdToken token, Instant
         {
             TypeVarTypeDesc* tyvar = thArg.AsGenericVariable();
 
-            PREFIX_ASSUME(tyvar!=NULL);
+            _ASSERTE(tyvar!=NULL);
             if ((tyvar->GetTypeOrMethodDef() != token) ||
                 (tyvar->GetModule() != dac_cast<PTR_Module>(pModule)) ||
                 (tyvar->GetIndex() != i))
@@ -836,27 +835,6 @@ void ClassLoader::EnsureLoaded(TypeHandle typeHnd, ClassLoadLevel level)
 #endif // DACCESS_COMPILE
 }
 
-/*static*/
-void ClassLoader::TryEnsureLoaded(TypeHandle typeHnd, ClassLoadLevel level)
-{
-    WRAPPER_NO_CONTRACT;
-
-#ifndef DACCESS_COMPILE // Nothing to do for the DAC case
-
-    EX_TRY
-    {
-        ClassLoader::EnsureLoaded(typeHnd, level);
-    }
-    EX_CATCH
-    {
-        // Some type may not load successfully. For eg. generic instantiations
-        // that do not satisfy the constraints of the type arguments.
-    }
-    EX_END_CATCH(RethrowTerminalExceptions);
-
-#endif // DACCESS_COMPILE
-}
-
 /* static */
 TypeHandle ClassLoader::LookupTypeKey(const TypeKey *pKey, EETypeHashTable *pTable)
 {
@@ -888,7 +866,7 @@ TypeHandle ClassLoader::LookupInLoaderModule(const TypeKey *pKey)
     } CONTRACTL_END;
 
     Module *pLoaderModule = ComputeLoaderModule(pKey);
-    PREFIX_ASSUME(pLoaderModule!=NULL);
+    _ASSERTE(pLoaderModule!=NULL);
 
     return LookupTypeKey(pKey, pLoaderModule->GetAvailableParamTypes());
 }
@@ -1146,9 +1124,9 @@ bool CompareNameHandleWithTypeHandleNoThrow(
         // Technically, the above operations should never result in a non-OOM
         // exception, but we'll put the rethrow line in there just in case.
         CONSISTENCY_CHECK(!GET_EXCEPTION()->IsTerminal());
-        RethrowTerminalExceptions;
+        RethrowTerminalExceptions();
     }
-    EX_END_CATCH(SwallowAllExceptions);
+    EX_END_CATCH
 
     return fRet;
 }
@@ -1615,12 +1593,6 @@ TypeHandle ClassLoader::LookupTypeDefOrRefInModule(ModuleBase *pModule, mdToken 
     RETURN(typeHandle);
 }
 
-DomainAssembly *ClassLoader::GetDomainAssembly()
-{
-    WRAPPER_NO_CONTRACT;
-    return GetAssembly()->GetDomainAssembly();
-}
-
 #ifndef DACCESS_COMPILE
 
 //
@@ -1763,7 +1735,7 @@ VOID ClassLoader::Init(AllocMemTracker *pamTracker)
     // This lock is taken within the classloader whenever we have to insert a new param. type into the table.
     m_AvailableTypesLock.Init(
                               CrstAvailableParamTypes,
-                              CRST_DEBUGGER_THREAD);
+                              CrstFlags(CRST_DEBUGGER_THREAD | CRST_GC_NOTRIGGER_WHEN_TAKEN | CRST_UNSAFE_ANYMODE));
 
 #ifdef _DEBUG
     CorTypeInfo::CheckConsistency();
@@ -1932,7 +1904,7 @@ TypeHandle ClassLoader::LoadTypeDefThrowing(Module *pModule,
 #endif
             TRIGGERSGC();
 
-            if (pModule->IsReflection())
+            if (pModule->IsReflectionEmit())
             {
                 // Don't try to load types that are not in available table, when this
                 // is an in-memory module.  Raise the type-resolve event instead.
@@ -1958,17 +1930,17 @@ TypeHandle ClassLoader::LoadTypeDefThrowing(Module *pModule,
                                                         className);
                         GCX_COOP();
                         ASSEMBLYREF asmRef = NULL;
-                        DomainAssembly *pDomainAssembly = NULL;
+                        Assembly* pAssembly = NULL;
                         GCPROTECT_BEGIN(asmRef);
 
-                        pDomainAssembly = pDomain->RaiseTypeResolveEventThrowing(
-                            pModule->GetAssembly()->GetDomainAssembly(),
+                        pAssembly = pDomain->RaiseTypeResolveEventThrowing(
+                            pModule->GetAssembly(),
                             pszFullName, &asmRef);
 
                         if (asmRef != NULL)
                         {
-                            _ASSERTE(pDomainAssembly != NULL);
-                            if (pDomainAssembly->GetAssembly()->GetLoaderAllocator()->IsCollectible())
+                            _ASSERTE(pAssembly != NULL);
+                            if (pAssembly->GetLoaderAllocator()->IsCollectible())
                             {
                                 if (!pModule->GetLoaderAllocator()->IsCollectible())
                                 {
@@ -1976,14 +1948,12 @@ TypeHandle ClassLoader::LoadTypeDefThrowing(Module *pModule,
                                     COMPlusThrow(kNotSupportedException, W("NotSupported_CollectibleBoundNonCollectible"));
                                 }
 
-                                pModule->GetLoaderAllocator()->EnsureReference(pDomainAssembly->GetAssembly()->GetLoaderAllocator());
+                                pModule->GetLoaderAllocator()->EnsureReference(pAssembly->GetLoaderAllocator());
                             }
                         }
                         GCPROTECT_END();
-                        if (pDomainAssembly != NULL)
+                        if (pAssembly != NULL)
                         {
-                            Assembly *pAssembly = pDomainAssembly->GetAssembly();
-
                             NameHandle name(nameSpace, className);
                             name.SetTypeToken(pModule, typeDef);
                             name.SetTokenNotToLoad(tdAllAssemblies);
@@ -2151,7 +2121,7 @@ TypeHandle ClassLoader::LoadTypeDefOrRefThrowing(ModuleBase *pModule,
                         nameHandle.SetTokenNotToLoad(tokenNotToLoad);
                         typeHnd = pFoundModule->GetClassLoader()->
                             LoadTypeHandleThrowIfFailed(&nameHandle, level,
-                                                        pFoundModule->IsFullModule() ? (static_cast<Module*>(pFoundModule)->IsReflection() ? NULL : static_cast<Module*>(pFoundModule)) : NULL);
+                                                        pFoundModule->IsFullModule() ? (static_cast<Module*>(pFoundModule)->IsReflectionEmit() ? NULL : static_cast<Module*>(pFoundModule)) : NULL);
                     }
                 }
 
@@ -2326,7 +2296,7 @@ ClassLoader::ResolveNameToTypeDefThrowing(
             &pFoundModule,
             &foundExportedType,
             NULL,
-            pSourceModule->IsReflection() ? NULL : pSourceModule,
+            pSourceModule->IsReflectionEmit() ? NULL : pSourceModule,
             loadFlag))
         {
             RETURN FALSE;
@@ -2644,7 +2614,7 @@ TypeHandle ClassLoader::DoIncrementalLoad(const TypeKey *pTypeKey, TypeHandle ty
 
     if (typeHnd.GetLoadLevel() >= CLASS_LOAD_EXACTPARENTS)
     {
-        Notify(typeHnd);
+        NotifyLoad(typeHnd);
     }
 
     return typeHnd;
@@ -2697,18 +2667,18 @@ TypeHandle ClassLoader::CreateTypeHandleForTypeKey(const TypeKey* pKey, AllocMem
     else if (pKey->GetKind() == ELEMENT_TYPE_FNPTR)
     {
         Module *pLoaderModule = ComputeLoaderModule(pKey);
-        PREFIX_ASSUME(pLoaderModule != NULL);
+        _ASSERTE(pLoaderModule != NULL);
         pLoaderModule->GetLoaderAllocator()->EnsureInstantiation(NULL, Instantiation(pKey->GetRetAndArgTypes(), pKey->GetNumArgs() + 1));
 
         DWORD numArgs = pKey->GetNumArgs();
         BYTE* mem = (BYTE*) pamTracker->Track(pLoaderModule->GetAssembly()->GetLowFrequencyHeap()->AllocMem(S_SIZE_T(sizeof(FnPtrTypeDesc)) + S_SIZE_T(sizeof(TypeHandle)) * S_SIZE_T(numArgs)));
 
-        typeHnd = TypeHandle(new(mem)  FnPtrTypeDesc(pKey->GetCallConv(), numArgs, pKey->GetRetAndArgTypes()));
+        typeHnd = TypeHandle(new(mem)  FnPtrTypeDesc(pKey->GetCallConv(), numArgs, pKey->GetRetAndArgTypes(), pLoaderModule));
     }
     else
     {
         Module *pLoaderModule = ComputeLoaderModule(pKey);
-        PREFIX_ASSUME(pLoaderModule!=NULL);
+        _ASSERTE(pLoaderModule!=NULL);
 
         CorElementType kind = pKey->GetKind();
         TypeHandle paramType = pKey->GetElementType();
@@ -2751,7 +2721,7 @@ TypeHandle ClassLoader::CreateTypeHandleForTypeKey(const TypeKey* pKey, AllocMem
             // no parameterized type allowed on a reference
             if (paramType.GetInternalCorElementType() == ELEMENT_TYPE_BYREF)
             {
-                ThrowTypeLoadException(pKey, IDS_CLASSLOAD_GENERAL);
+                ThrowTypeLoadException(pKey, (kind == ELEMENT_TYPE_BYREF) ? IDS_CLASSLOAD_BYREF_OF_BYREF : IDS_CLASSLOAD_POINTER_OF_BYREF);
             }
 
             // We do allow parameterized types of ByRefLike types. Languages may restrict them to produce safe or verifiable code,
@@ -2783,6 +2753,16 @@ TypeHandle ClassLoader::PublishType(const TypeKey *pTypeKey, TypeHandle typeHnd)
     }
     CONTRACTL_END;
 
+#ifdef _DEBUG
+    if (!typeHnd.IsTypeDesc())
+    {
+        // The IsPublished flag is used by various asserts to assure that allocations of
+        // MethodTable associated memory which do not use the AllocMemTracker of the MethodTableBuilder
+        // aren't permitted until the MethodTable is in a state where the MethodTable object
+        // cannot be freed (except by freeing an entire LoaderAllocator)
+        typeHnd.AsMethodTable()->GetAuxiliaryDataForWrite()->SetIsPublished();
+    }
+#endif
 
     if (pTypeKey->IsConstructed())
     {
@@ -2821,7 +2801,10 @@ TypeHandle ClassLoader::PublishType(const TypeKey *pTypeKey, TypeHandle typeHnd)
         {
             MethodDesc * pMD = it.GetMethodDesc();
             CONSISTENCY_CHECK(pMD != NULL && pMD->GetMethodTable() == pMT);
-            if (!pMD->IsUnboxingStub())
+            // For {Task-returning, Async} variants of the same definition
+            // we associate the methoddef with the Task-returning variant since it
+            // matches the methadata signature.
+            if (!pMD->IsUnboxingStub() && !pMD->IsAsyncVariantMethod())
             {
                 pModule->EnsuredStoreMethodDef(pMD->GetMemberDef(), pMD);
             }
@@ -2848,7 +2831,7 @@ TypeHandle ClassLoader::PublishType(const TypeKey *pTypeKey, TypeHandle typeHnd)
 // Notify profiler and debugger that a type load has completed
 // Also adjust perf counters
 /*static*/
-void ClassLoader::Notify(TypeHandle typeHnd)
+void ClassLoader::NotifyLoad(TypeHandle typeHnd)
 {
     CONTRACTL
     {
@@ -2868,14 +2851,8 @@ void ClassLoader::Notify(TypeHandle typeHnd)
     {
         BEGIN_PROFILER_CALLBACK(CORProfilerTrackClasses());
         // We don't tell profilers about typedescs, as per IF above.  Also, we don't
-        // tell profilers about:
-        if (
-            // ...generics with unbound variables
-            (!pMT->ContainsGenericVariables()) &&
-            // ...or array method tables
-            // (This check is mainly for NGEN restore, as JITted code won't hit
-            // this code path for array method tables anyway)
-            (!pMT->IsArray()))
+        // tell profilers about generics with unbound variables.
+        if (!pMT->ContainsGenericVariables())
         {
             LOG((LF_CLASSLOADER, LL_INFO1000, "Notifying profiler of Started1 %p %s\n", pMT, pMT->GetDebugClassName()));
             // Record successful load of the class for the profiler
@@ -2896,7 +2873,7 @@ void ClassLoader::Notify(TypeHandle typeHnd)
     }
 #endif //PROFILING_SUPPORTED
 
-    if (pMT->IsTypicalTypeDefinition())
+    if (pMT->IsTypicalTypeDefinition() && !IsNilToken(pMT->GetCl()))
     {
         LOG((LF_CLASSLOADER, LL_INFO100, "Successfully loaded class %s\n", pMT->GetDebugClassName()));
 
@@ -2910,12 +2887,69 @@ void ClassLoader::Notify(TypeHandle typeHnd)
         if (CORDebuggerAttached())
         {
             LOG((LF_CORDB, LL_EVERYTHING, "NotifyDebuggerLoad clsload 2239 class %s\n", pMT->GetDebugClassName()));
-            typeHnd.NotifyDebuggerLoad(NULL, FALSE);
+            typeHnd.NotifyDebuggerLoad(FALSE);
         }
 #endif // DEBUGGING_SUPPORTED
     }
 }
 
+// Notify profiler that a MethodTable is being unloaded
+/*static*/
+void ClassLoader::NotifyUnload(MethodTable* pMT, bool unloadStarted)
+{
+    CONTRACTL
+    {
+        NOTHROW;
+        GC_TRIGGERS;
+        MODE_ANY;
+        FORBID_FAULT;
+        PRECONDITION(pMT != NULL);
+    }
+    CONTRACTL_END
+
+#ifdef PROFILING_SUPPORTED
+    // If profiling, then notify the class is getting unloaded.
+    {
+        BEGIN_PROFILER_CALLBACK(CORProfilerTrackClasses());
+        {
+            if (pMT->ContainsGenericVariables() || pMT->IsArray())
+            {
+                // Don't notify the profiler about types with unbound variables or arrays.
+                // See ClassLoadStarted callback for more details.
+                return;
+            }
+
+            // Calls to the profiler callback may throw, or otherwise fail, if
+            // the profiler AVs/throws an unhandled exception/etc. We don't want
+            // those failures to affect the runtime, so we'll ignore them.
+            //
+            // Note that the profiler callback may turn around and make calls into
+            // the profiling runtime that may throw. This try/catch block doesn't
+            // protect the profiler against such failures. To protect the profiler
+            // against that, we will need try/catch blocks around all calls into the
+            // profiling API.
+            //
+
+            FAULT_NOT_FATAL();
+
+            EX_TRY
+            {
+                GCX_PREEMP();
+
+                if (unloadStarted)
+                    (&g_profControlBlock)->ClassUnloadStarted((ClassID) pMT);
+                else
+                    (&g_profControlBlock)->ClassUnloadFinished((ClassID) pMT, S_OK);
+            }
+            EX_SWALLOW_NONTERMINAL
+            // The exception here came from the profiler itself. We'll just
+            // swallow the exception, since we don't want the profiler to bring
+            // down the runtime.
+        }
+        END_PROFILER_CALLBACK();
+    }
+#endif // PROFILING_SUPPORTED
+}
 
 //-----------------------------------------------------------------------------
 // Common helper for LoadTypeHandleForTypeKey and LoadTypeHandleForTypeKeyNoLock.
@@ -3065,7 +3099,7 @@ TypeHandle ClassLoader::LoadTypeHandleForTypeKeyNoLock(const TypeKey *pTypeKey,
 //
 class PendingTypeLoadHolder
 {
-    Thread * m_pThread;
+    static thread_local PendingTypeLoadHolder * t_pCurrent;
     PendingTypeLoadTable::Entry * m_pEntry;
     PendingTypeLoadHolder * m_pPrevious;
 
@@ -3074,26 +3108,25 @@ public:
     {
         LIMITED_METHOD_CONTRACT;
 
-        m_pThread = GetThread();
         m_pEntry = pEntry;
 
-        m_pPrevious = m_pThread->GetPendingTypeLoad();
-        m_pThread->SetPendingTypeLoad(this);
+        m_pPrevious = t_pCurrent;
+        t_pCurrent = this;
     }
 
     ~PendingTypeLoadHolder()
     {
         LIMITED_METHOD_CONTRACT;
 
-        _ASSERTE(m_pThread->GetPendingTypeLoad() == this);
-        m_pThread->SetPendingTypeLoad(m_pPrevious);
+        _ASSERTE(t_pCurrent == this);
+        t_pCurrent = m_pPrevious;
     }
 
     static bool CheckForDeadLockOnCurrentThread(PendingTypeLoadTable::Entry * pEntry)
     {
         LIMITED_METHOD_CONTRACT;
 
-        PendingTypeLoadHolder * pCurrent = GetThread()->GetPendingTypeLoad();
+        PendingTypeLoadHolder * pCurrent = t_pCurrent;
 
         while (pCurrent != NULL)
         {
@@ -3106,6 +3139,8 @@ public:
         return false;
     }
 };
+
+thread_local PendingTypeLoadHolder * PendingTypeLoadHolder::t_pCurrent = NULL;
 
 //---------------------------------------------------------------------------------------
 //
@@ -3478,6 +3513,12 @@ VOID ClassLoader::AddAvailableClassHaveLock(
     EEClassHashEntry_t *pEncloser = NULL;
     if (SUCCEEDED(pMDImport->GetNestedClassProps(classdef, &enclosing))) {
         // nested type
+
+        if (enclosing == COR_GLOBAL_PARENT_TOKEN)
+        {
+            // Types nested in the <module> class can't be found by lookup.
+            return;
+        }
 
         COUNT_T classEntryIndex = RidFromToken(enclosing) - 1;
         _ASSERTE(RidFromToken(enclosing) < RidFromToken(classdef));
@@ -4021,9 +4062,6 @@ void DECLSPEC_NORETURN ThrowTypeAccessException(MethodDesc* pCallerMD,
 // Arguments:
 //    pAccessingAssembly    - The assembly requesting access to the internal member
 //    pTargetAssembly       - The assembly which contains the target member
-//    pOptionalTargetField  - Internal field being accessed OR
-//    pOptionalTargetMethod - Internal type being accessed OR
-//    pOptionalTargetType   - Internal type being accessed
 //
 // Return Value:
 //    TRUE if pTargetAssembly is pAccessingAssembly, or if pTargetAssembly allows
@@ -4031,10 +4069,7 @@ void DECLSPEC_NORETURN ThrowTypeAccessException(MethodDesc* pCallerMD,
 //
 
 static BOOL AssemblyOrFriendAccessAllowed(Assembly       *pAccessingAssembly,
-                                          Assembly       *pTargetAssembly,
-                                          FieldDesc      *pOptionalTargetField,
-                                          MethodDesc     *pOptionalTargetMethod,
-                                          MethodTable    *pOptionalTargetType)
+                                          Assembly       *pTargetAssembly)
 {
     CONTRACTL
     {
@@ -4042,8 +4077,6 @@ static BOOL AssemblyOrFriendAccessAllowed(Assembly       *pAccessingAssembly,
         GC_TRIGGERS;
         PRECONDITION(CheckPointer(pAccessingAssembly));
         PRECONDITION(CheckPointer(pTargetAssembly));
-        PRECONDITION(pOptionalTargetField != NULL || pOptionalTargetMethod != NULL || pOptionalTargetType != NULL);
-        PRECONDITION(pOptionalTargetField == NULL || pOptionalTargetMethod == NULL);
     }
     CONTRACTL_END;
 
@@ -4056,18 +4089,9 @@ static BOOL AssemblyOrFriendAccessAllowed(Assembly       *pAccessingAssembly,
     {
         return TRUE;
     }
-
-    else if (pOptionalTargetField != NULL)
-    {
-        return pTargetAssembly->GrantsFriendAccessTo(pAccessingAssembly, pOptionalTargetField);
-    }
-    else if (pOptionalTargetMethod != NULL)
-    {
-        return pTargetAssembly->GrantsFriendAccessTo(pAccessingAssembly, pOptionalTargetMethod);
-    }
     else
     {
-        return pTargetAssembly->GrantsFriendAccessTo(pAccessingAssembly, pOptionalTargetType);
+        return pTargetAssembly->GrantsFriendAccessTo(pAccessingAssembly);
     }
 }
 
@@ -4200,10 +4224,7 @@ BOOL ClassLoader::CanAccessClass(                   // True if access is legal, 
             _ASSERTE(pCurrentAssembly != NULL);
 
             if (AssemblyOrFriendAccessAllowed(pCurrentAssembly,
-                                              pTargetAssembly,
-                                              NULL,
-                                              NULL,
-                                              pTargetClass))
+                                              pTargetAssembly))
             {
                 return TRUE;
             }
@@ -4243,7 +4264,7 @@ BOOL ClassLoader::CanAccessClass(                   // True if access is legal, 
             // protection, we can fail the request now.  Otherwise we can check to make sure a public member
             // of the outer class is allowed, since we have satisfied the target's accessibility rules.
 
-            if (AssemblyOrFriendAccessAllowed(pContext->GetCallerAssembly(), pTargetAssembly, NULL, NULL, pTargetClass))
+            if (AssemblyOrFriendAccessAllowed(pContext->GetCallerAssembly(), pTargetAssembly))
                 dwProtection = (dwProtection == tdNestedFamANDAssem) ? mdFamily : mdPublic;
             else if (dwProtection == tdNestedFamORAssem)
                 dwProtection = mdFamily;
@@ -4267,7 +4288,6 @@ BOOL ClassLoader::CanAccessClass(                   // True if access is legal, 
         pTargetAssembly,
         dwProtection,
         NULL,
-        NULL,
         accessCheckOptions);
 } // BOOL ClassLoader::CanAccessClass()
 
@@ -4284,7 +4304,6 @@ BOOL ClassLoader::CanAccess(                            // TRUE if access is all
     DWORD               dwMemberAccess,                 // Member access flags of the desired target member (as method bits).
     MethodDesc*         pOptionalTargetMethod,          // The target method; NULL if the target is a not a method or
                                                         // there is no need to check the method's instantiation.
-    FieldDesc*          pOptionalTargetField,           // or The desired field; if NULL, return TRUE
     const AccessCheckOptions & accessCheckOptions)      // = s_NormalAccessChecks
 {
     CONTRACT(BOOL)
@@ -4304,7 +4323,6 @@ BOOL ClassLoader::CanAccess(                            // TRUE if access is all
                            pTargetAssembly,
                            dwMemberAccess,
                            pOptionalTargetMethod,
-                           pOptionalTargetField,
                            // Suppress exceptions for nested classes since this is not a hard-failure,
                            // and we can do additional checks
                            accessCheckOptionsNoThrow))
@@ -4337,7 +4355,6 @@ BOOL ClassLoader::CanAccess(                            // TRUE if access is all
                                  pTargetAssembly,
                                  dwMemberAccess,
                                  pOptionalTargetMethod,
-                                 pOptionalTargetField,
                                  accessCheckOptionsNoThrow);
         }
 
@@ -4367,7 +4384,6 @@ BOOL ClassLoader::CheckAccessMember(                // TRUE if access is allowed
     DWORD                   dwMemberAccess,         // Member access flags of the desired target member (as method bits).
     MethodDesc*             pOptionalTargetMethod,  // The target method; NULL if the target is a not a method or
                                                     // there is no need to check the method's instantiation.
-    FieldDesc*              pOptionalTargetField,   // target field, NULL if there is no Target field
     const AccessCheckOptions & accessCheckOptions
     )
 {
@@ -4401,9 +4417,6 @@ BOOL ClassLoader::CheckAccessMember(                // TRUE if access is allowed
     {
         return FALSE;
     }
-
-    // pOptionalTargetMethod and pOptionalTargetField can never be NULL at the same time.
-    _ASSERTE(pOptionalTargetMethod == NULL || pOptionalTargetField == NULL);
 
     // Perform transparency checks
     // We don't need to do transparency check against pTargetMT here because
@@ -4456,10 +4469,7 @@ BOOL ClassLoader::CheckAccessMember(                // TRUE if access is allowed
         _ASSERTE(pCurrentAssembly != NULL);
 
         const BOOL fAssemblyOrFriendAccessAllowed = AssemblyOrFriendAccessAllowed(pCurrentAssembly,
-                                                                                  pTargetAssembly,
-                                                                                  pOptionalTargetField,
-                                                                                  pOptionalTargetMethod,
-                                                                                  pTargetMT);
+                                                                                  pTargetAssembly);
 
         if ((pTargetMT == NULL || IsMdAssem(dwMemberAccess) || IsMdFamORAssem(dwMemberAccess)) &&
             fAssemblyOrFriendAccessAllowed)
@@ -4612,6 +4622,22 @@ BOOL ClassLoader::CanAccessFamily(
 }
 
 #endif // #ifndef DACCESS_COMPILE
+
+bool ClassLoader::EligibleForSpecialMarkerTypeUsage(Instantiation inst, MethodTable* pOwnerMT)
+{
+    LIMITED_METHOD_DAC_CONTRACT;
+
+    if (pOwnerMT == NULL)
+        return false;
+
+    if (inst.GetNumArgs() > MethodTable::MaxGenericParametersForSpecialMarkerType)
+        return false;
+
+    if (!inst.ContainsAllOneType(pOwnerMT->GetSpecialInstantiationType()))
+        return false;
+
+    return true;
+}
 
 #ifdef DACCESS_COMPILE
 

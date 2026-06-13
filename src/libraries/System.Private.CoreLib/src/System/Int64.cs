@@ -47,6 +47,12 @@ namespace System
         /// <summary>Represents the number negative one (-1).</summary>
         private const long NegativeOne = -1;
 
+        /// <summary>Produces the full product of two 64-bit numbers.</summary>
+        /// <param name="left">The first number to multiply.</param>
+        /// <param name="right">The second number to multiply.</param>
+        /// <returns>The number containing the product of the specified numbers.</returns>
+        public static Int128 BigMul(long left, long right) => Math.BigMul(left, right);
+
         // Compares this object to another object, returning an integer that
         // indicates the relationship.
         // Returns a value less than zero if this  object
@@ -291,6 +297,17 @@ namespace System
         [Intrinsic]
         public static long LeadingZeroCount(long value) => BitOperations.LeadingZeroCount((ulong)value);
 
+        /// <inheritdoc cref="IBinaryInteger{TSelf}.Log10(TSelf)" />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long Log10(long value)
+        {
+            if (value < 0)
+            {
+                ThrowHelper.ThrowValueArgumentOutOfRange_NeedNonNegNumException();
+            }
+            return (long)ulong.Log10((ulong)value);
+        }
+
         /// <inheritdoc cref="IBinaryInteger{TSelf}.PopCount(TSelf)" />
         [Intrinsic]
         public static long PopCount(long value) => BitOperations.PopCount((ulong)value);
@@ -352,19 +369,10 @@ namespace System
                     }
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(long))
                 {
-                    sourceRef = ref Unsafe.Add(ref sourceRef, source.Length - sizeof(long));
-
                     // We have at least 8 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<long>(ref sourceRef);
-
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadInt64BigEndian(source.Slice(source.Length - sizeof(long)));
                 }
                 else
                 {
@@ -375,7 +383,7 @@ namespace System
                     for (int i = 0; i < source.Length; i++)
                     {
                         result <<= 8;
-                        result |= Unsafe.Add(ref sourceRef, i);
+                        result |= source[i];
                     }
 
                     if (!isUnsigned)
@@ -434,17 +442,10 @@ namespace System
                     }
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(long))
                 {
                     // We have at least 8 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<long>(ref sourceRef);
-
-                    if (!BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadInt64LittleEndian(source);
                 }
                 else
                 {
@@ -457,7 +458,7 @@ namespace System
                     for (int i = 0; i < source.Length; i++)
                     {
                         result <<= 8;
-                        result |= Unsafe.Add(ref sourceRef, i);
+                        result |= source[i];
                     }
 
                     result <<= ((sizeof(long) - source.Length) * 8);
@@ -495,37 +496,27 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteBigEndian(Span{byte}, out int)" />
         bool IBinaryInteger<long>.TryWriteBigEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(long))
+            if (BinaryPrimitives.TryWriteInt64BigEndian(destination, m_value))
             {
-                long value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(m_value) : m_value;
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(long);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteLittleEndian(Span{byte}, out int)" />
         bool IBinaryInteger<long>.TryWriteLittleEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(long))
+            if (BinaryPrimitives.TryWriteInt64LittleEndian(destination, m_value))
             {
-                long value = BitConverter.IsLittleEndian ? m_value : BinaryPrimitives.ReverseEndianness(m_value);
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(long);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         //
@@ -908,6 +899,9 @@ namespace System
         /// <inheritdoc cref="INumberBase{TSelf}.MinMagnitudeNumber(TSelf, TSelf)" />
         static long INumberBase<long>.MinMagnitudeNumber(long x, long y) => MinMagnitude(x, y);
 
+        /// <inheritdoc cref="INumberBase{TSelf}.MultiplyAddEstimate(TSelf, TSelf, TSelf)" />
+        static long INumberBase<long>.MultiplyAddEstimate(long left, long right, long addend) => (long)((left * right) + addend);
+
         /// <inheritdoc cref="INumberBase{TSelf}.TryConvertFromChecked{TOther}(TOther, out TSelf)" />
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static bool INumberBase<long>.TryConvertFromChecked<TOther>(TOther value, out long result) => TryConvertFromChecked(value, out result);
@@ -1000,15 +994,23 @@ namespace System
             if (typeof(TOther) == typeof(double))
             {
                 double actualValue = (double)(object)value;
+#if MONO
                 result = (actualValue >= MaxValue) ? MaxValue :
                          (actualValue <= MinValue) ? MinValue : (long)actualValue;
+#else
+                result = (long)actualValue;
+#endif
                 return true;
             }
             else if (typeof(TOther) == typeof(Half))
             {
                 Half actualValue = (Half)(object)value;
+#if MONO
                 result = (actualValue == Half.PositiveInfinity) ? MaxValue :
                          (actualValue == Half.NegativeInfinity) ? MinValue : (long)actualValue;
+#else
+                result = (long)actualValue;
+#endif
                 return true;
             }
             else if (typeof(TOther) == typeof(short))
@@ -1045,8 +1047,12 @@ namespace System
             else if (typeof(TOther) == typeof(float))
             {
                 float actualValue = (float)(object)value;
+#if MONO
                 result = (actualValue >= MaxValue) ? MaxValue :
                          (actualValue <= MinValue) ? MinValue : (long)actualValue;
+#else
+                result = (long)actualValue;
+#endif
                 return true;
             }
             else
@@ -1076,15 +1082,23 @@ namespace System
             if (typeof(TOther) == typeof(double))
             {
                 double actualValue = (double)(object)value;
+#if MONO
                 result = (actualValue >= MaxValue) ? MaxValue :
                          (actualValue <= MinValue) ? MinValue : (long)actualValue;
+#else
+                result = (long)actualValue;
+#endif
                 return true;
             }
             else if (typeof(TOther) == typeof(Half))
             {
                 Half actualValue = (Half)(object)value;
+#if MONO
                 result = (actualValue == Half.PositiveInfinity) ? MaxValue :
                          (actualValue == Half.NegativeInfinity) ? MinValue : (long)actualValue;
+#else
+                result = (long)actualValue;
+#endif
                 return true;
             }
             else if (typeof(TOther) == typeof(short))
@@ -1120,8 +1134,12 @@ namespace System
             else if (typeof(TOther) == typeof(float))
             {
                 float actualValue = (float)(object)value;
+#if MONO
                 result = (actualValue >= MaxValue) ? MaxValue :
                          (actualValue <= MinValue) ? MinValue : (long)actualValue;
+#else
+                result = (long)actualValue;
+#endif
                 return true;
             }
             else

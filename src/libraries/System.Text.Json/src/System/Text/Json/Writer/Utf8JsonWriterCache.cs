@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Buffers;
 using System.Diagnostics;
 
 namespace System.Text.Json
@@ -28,7 +29,7 @@ namespace System.Text.Json
                 writer = state.Writer;
 
                 bufferWriter.InitializeEmptyInstance(defaultBufferSize);
-                writer.Reset(bufferWriter, options);
+                writer.ConfigureForCacheReuse(bufferWriter, options);
             }
             else
             {
@@ -40,7 +41,7 @@ namespace System.Text.Json
             return writer;
         }
 
-        public static Utf8JsonWriter RentWriter(JsonSerializerOptions options, PooledByteBufferWriter bufferWriter)
+        public static Utf8JsonWriter RentWriter(JsonSerializerOptions options, IBufferWriter<byte> bufferWriter)
         {
             ThreadLocalState state = t_threadLocalState ??= new();
             Utf8JsonWriter writer;
@@ -49,7 +50,7 @@ namespace System.Text.Json
             {
                 // First JsonSerializer call in the stack -- initialize & return the cached instance.
                 writer = state.Writer;
-                writer.Reset(bufferWriter, options.GetWriterOptions());
+                writer.ConfigureForCacheReuse(bufferWriter, options.GetWriterOptions());
             }
             else
             {

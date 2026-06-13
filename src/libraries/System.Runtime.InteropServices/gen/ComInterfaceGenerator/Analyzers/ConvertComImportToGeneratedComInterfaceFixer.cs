@@ -32,12 +32,16 @@ namespace Microsoft.Interop.Analyzers
                 : SR.ConvertToGeneratedComInterfaceTitle;
         }
 
-        protected override Func<DocumentEditor, CancellationToken, Task> CreateFixForSelectedOptions(SyntaxNode node, ImmutableDictionary<string, Option> selectedOptions)
+        protected override Func<SolutionEditor, DocumentId, CancellationToken, Task> CreateFixForSelectedOptions(SyntaxNode node, ImmutableDictionary<string, Option> selectedOptions)
         {
             bool mayRequireAdditionalWork = selectedOptions.TryGetValue(Option.MayRequireAdditionalWork, out Option mayRequireAdditionalWorkOption) && mayRequireAdditionalWorkOption is Option.Bool(true);
             bool addStringMarshalling = selectedOptions.TryGetValue(AddStringMarshallingOption, out Option addStringMarshallingOption) && addStringMarshallingOption is Option.Bool(true);
 
-            return (editor, ct) => ConvertComImportToGeneratedComInterfaceAsync(editor, node, mayRequireAdditionalWork, addStringMarshalling, ct);
+            return async (solutionEditor, documentId, ct) =>
+            {
+                var editor = await solutionEditor.GetDocumentEditorAsync(documentId, ct).ConfigureAwait(false);
+                await ConvertComImportToGeneratedComInterfaceAsync(editor, node, mayRequireAdditionalWork, addStringMarshalling, ct).ConfigureAwait(false);
+            };
         }
 
         protected override ImmutableDictionary<string, Option> ParseOptionsFromDiagnostic(Diagnostic diagnostic)
@@ -53,6 +57,20 @@ namespace Microsoft.Interop.Analyzers
                 optionsBuilder.Add(AddStringMarshallingOption, new Option.Bool(true));
             }
             return optionsBuilder.ToImmutable();
+        }
+
+        protected override ImmutableDictionary<string, Option> CombineOptions(ImmutableDictionary<string, Option> fixAllOptions, ImmutableDictionary<string, Option> diagnosticOptions)
+        {
+            ImmutableDictionary<string, Option> combinedOptions = fixAllOptions;
+            if (fixAllOptions.TryGetValue(AddStringMarshallingOption, out Option fixAllAddStringMarshallingOption)
+                && fixAllAddStringMarshallingOption is Option.Bool(true)
+                && (!diagnosticOptions.TryGetValue(AddStringMarshallingOption, out Option addStringMarshallingOption)
+                    || addStringMarshallingOption is Option.Bool(false)))
+            {
+                combinedOptions = combinedOptions.Remove(AddStringMarshallingOption);
+            }
+
+            return combinedOptions;
         }
 
         private static async Task ConvertComImportToGeneratedComInterfaceAsync(DocumentEditor editor, SyntaxNode node, bool mayRequireAdditionalWork, bool addStringMarshalling, CancellationToken ct)
@@ -125,6 +143,5 @@ namespace Microsoft.Interop.Analyzers
 
             MakeNodeParentsPartial(editor, node);
         }
-
     }
 }

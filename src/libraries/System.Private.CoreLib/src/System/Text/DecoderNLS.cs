@@ -1,8 +1,9 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Buffers;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace System.Text
@@ -58,7 +59,7 @@ namespace System.Text
                     SR.ArgumentOutOfRange_IndexCountBuffer);
 
             // Just call pointer version
-            fixed (byte* pBytes = &MemoryMarshal.GetReference((Span<byte>)bytes))
+            fixed (byte* pBytes = &MemoryMarshal.GetArrayDataReference(bytes))
                 return GetCharCount(pBytes + index, count, flush);
         }
 
@@ -103,11 +104,13 @@ namespace System.Text
             int charCount = chars.Length - charIndex;
 
             // Just call pointer version
-            fixed (byte* pBytes = &MemoryMarshal.GetReference((Span<byte>)bytes))
-            fixed (char* pChars = &MemoryMarshal.GetReference((Span<char>)chars))
+            fixed (byte* pBytes = &MemoryMarshal.GetArrayDataReference(bytes))
+            fixed (char* pChars = &MemoryMarshal.GetArrayDataReference(chars))
+            {
                 // Remember that charCount is # to decode, not size of array
                 return GetChars(pBytes + byteIndex, byteCount,
                                 pChars + charIndex, charCount, flush);
+            }
         }
 
         public override unsafe int GetChars(byte* bytes, int byteCount,
@@ -152,13 +155,11 @@ namespace System.Text
                       SR.ArgumentOutOfRange_IndexCountBuffer);
 
             // Just call the pointer version (public overrides can't do this)
-            fixed (byte* pBytes = &MemoryMarshal.GetReference((Span<byte>)bytes))
+            fixed (byte* pBytes = &MemoryMarshal.GetArrayDataReference(bytes))
+            fixed (char* pChars = &MemoryMarshal.GetArrayDataReference(chars))
             {
-                fixed (char* pChars = &MemoryMarshal.GetReference((Span<char>)chars))
-                {
-                    Convert(pBytes + byteIndex, byteCount, pChars + charIndex, charCount, flush,
-                        out bytesUsed, out charsUsed, out completed);
-                }
+                Convert(pBytes + byteIndex, byteCount, pChars + charIndex, charCount, flush,
+                    out bytesUsed, out charsUsed, out completed);
             }
         }
 
@@ -230,7 +231,7 @@ namespace System.Text
             // Copy the existing leftover data plus as many bytes as possible of the new incoming data
             // into a temporary concated buffer, then get its char count by decoding it.
 
-            Span<byte> combinedBuffer = stackalloc byte[4];
+            Span<byte> combinedBuffer = [0, 0, 0, 0];
             combinedBuffer = combinedBuffer.Slice(0, ConcatInto(GetLeftoverData(), bytes, combinedBuffer));
             int charCount = 0;
 
@@ -286,7 +287,7 @@ namespace System.Text
             // Copy the existing leftover data plus as many bytes as possible of the new incoming data
             // into a temporary concated buffer, then transcode it from bytes to chars.
 
-            Span<byte> combinedBuffer = stackalloc byte[4];
+            Span<byte> combinedBuffer = [0, 0, 0, 0];
             combinedBuffer = combinedBuffer.Slice(0, ConcatInto(GetLeftoverData(), bytes, combinedBuffer));
             int charsWritten = 0;
 

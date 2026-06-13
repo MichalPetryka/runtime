@@ -51,10 +51,7 @@ namespace System.Text.Json
         /// </remarks>
         public void WriteNumber(string propertyName, long value)
         {
-            if (propertyName is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(propertyName));
-            }
+            ArgumentNullException.ThrowIfNull(propertyName);
             WriteNumber(propertyName.AsSpan(), value);
         }
 
@@ -142,10 +139,7 @@ namespace System.Text.Json
         /// </remarks>
         public void WriteNumber(string propertyName, int value)
         {
-            if (propertyName is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(propertyName));
-            }
+            ArgumentNullException.ThrowIfNull(propertyName);
             WriteNumber(propertyName.AsSpan(), (long)value);
         }
 
@@ -216,7 +210,7 @@ namespace System.Text.Json
             }
         }
 
-        private void WriteNumberEscapeProperty(ReadOnlySpan<char> propertyName, long value, int firstEscapeIndexProp)
+        private unsafe void WriteNumberEscapeProperty(ReadOnlySpan<char> propertyName, long value, int firstEscapeIndexProp)
         {
             Debug.Assert(int.MaxValue / JsonConstants.MaxExpansionFactorWhileEscaping >= propertyName.Length);
             Debug.Assert(firstEscapeIndexProp >= 0 && firstEscapeIndexProp < propertyName.Length);
@@ -239,7 +233,7 @@ namespace System.Text.Json
             }
         }
 
-        private void WriteNumberEscapeProperty(ReadOnlySpan<byte> utf8PropertyName, long value, int firstEscapeIndexProp)
+        private unsafe void WriteNumberEscapeProperty(ReadOnlySpan<byte> utf8PropertyName, long value, int firstEscapeIndexProp)
         {
             Debug.Assert(int.MaxValue / JsonConstants.MaxExpansionFactorWhileEscaping >= utf8PropertyName.Length);
             Debug.Assert(firstEscapeIndexProp >= 0 && firstEscapeIndexProp < utf8PropertyName.Length);
@@ -355,11 +349,11 @@ namespace System.Text.Json
             int indent = Indentation;
             Debug.Assert(indent <= _indentLength * _options.MaxDepth);
 
-            Debug.Assert(escapedPropertyName.Length < (int.MaxValue / JsonConstants.MaxExpansionFactorWhileTranscoding) - indent - JsonConstants.MaximumFormatInt64Length - 5 - s_newLineLength);
+            Debug.Assert(escapedPropertyName.Length < (int.MaxValue / JsonConstants.MaxExpansionFactorWhileTranscoding) - indent - JsonConstants.MaximumFormatInt64Length - 5 - _newLineLength);
 
             // All ASCII, 2 quotes for property name, 1 colon, and 1 space => escapedPropertyName.Length + JsonConstants.MaximumFormatInt64Length + 4
             // Optionally, 1 list separator, 1-2 bytes for new line, and up to 3x growth when transcoding
-            int maxRequired = indent + (escapedPropertyName.Length * JsonConstants.MaxExpansionFactorWhileTranscoding) + JsonConstants.MaximumFormatInt64Length + 5 + s_newLineLength;
+            int maxRequired = indent + (escapedPropertyName.Length * JsonConstants.MaxExpansionFactorWhileTranscoding) + JsonConstants.MaximumFormatInt64Length + 5 + _newLineLength;
 
             if (_memory.Length - BytesPending < maxRequired)
             {
@@ -401,10 +395,10 @@ namespace System.Text.Json
             int indent = Indentation;
             Debug.Assert(indent <= _indentLength * _options.MaxDepth);
 
-            Debug.Assert(escapedPropertyName.Length < int.MaxValue - indent - JsonConstants.MaximumFormatInt64Length - 5 - s_newLineLength);
+            Debug.Assert(escapedPropertyName.Length < int.MaxValue - indent - JsonConstants.MaximumFormatInt64Length - 5 - _newLineLength);
 
             int minRequired = indent + escapedPropertyName.Length + JsonConstants.MaximumFormatInt64Length + 4; // 2 quotes for property name, 1 colon, and 1 space
-            int maxRequired = minRequired + 1 + s_newLineLength; // Optionally, 1 list separator and 1-2 bytes for new line
+            int maxRequired = minRequired + 1 + _newLineLength; // Optionally, 1 list separator and 1-2 bytes for new line
 
             if (_memory.Length - BytesPending < maxRequired)
             {
@@ -445,7 +439,7 @@ namespace System.Text.Json
         internal void WritePropertyName(int value)
             => WritePropertyName((long)value);
 
-        internal void WritePropertyName(long value)
+        internal unsafe void WritePropertyName(long value)
         {
             Span<byte> utf8PropertyName = stackalloc byte[JsonConstants.MaximumFormatInt64Length];
 

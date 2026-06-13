@@ -9,7 +9,6 @@ namespace System.Runtime.InteropServices.ObjectiveC
 {
     public static partial class ObjectiveCMarshal
     {
-#pragma warning disable IDE0060 // Remove when implemented
         /// <summary>
         /// Sets a pending exception to be thrown the next time the runtime is entered from an Objective-C msgSend P/Invoke.
         /// </summary>
@@ -30,9 +29,10 @@ namespace System.Runtime.InteropServices.ObjectiveC
             delegate* unmanaged<IntPtr, void> trackedObjectEnteredFinalization)
              => throw new NotImplementedException();
 
-        private static IntPtr CreateReferenceTrackingHandleInternal(
-            ObjectHandleOnStack obj,
-            out int memInSizeT,
-            out IntPtr mem) => throw new NotImplementedException();
+        private static IntPtr AllocateReferenceTrackingHandle(object obj)
+            => throw new NotImplementedException();
+
+        private static bool IsTrackedReferenceWithFinalizer(object obj)
+            => throw new NotImplementedException();
     }
 }

@@ -6,11 +6,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-
+using Microsoft.DotNet.XUnitExtensions;
 using Xunit;
 
 namespace System.Net.Sockets.Tests
 {
+    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
     public class ArgumentValidation
     {
         // This type is used to test Socket.Select's argument validation.
@@ -401,25 +402,18 @@ namespace System.Net.Sockets.Tests
         [Fact]
         public void SelectPoll_InfiniteTimeSpan_Ok()
         {
-            using (Socket host = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
-                host.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-                host.Listen(1);
-                Task accept = host.AcceptAsync();
+                // should be writable
+                var list = new List<Socket> { s };
+                Socket.Select(null, list, null, Timeout.InfiniteTimeSpan);
+                Assert.Equal(new[] { s }, list);
 
-                using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-                {
-                    s.Connect(new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)host.LocalEndPoint).Port));
+                Socket.Select(null, list, null, -1);
+                Assert.Equal(new[] { s }, list);
 
-                    var list = new List<Socket>();
-                    list.Add(s);
-
-                    // should be writable
-                    Socket.Select(null, list, null, Timeout.InfiniteTimeSpan);
-                    Socket.Select(null, list, null, -1);
-                    s.Poll(Timeout.InfiniteTimeSpan, SelectMode.SelectWrite);
-                    s.Poll(-1, SelectMode.SelectWrite);
-                }
+                Assert.True(s.Poll(Timeout.InfiniteTimeSpan, SelectMode.SelectWrite));
+                Assert.True(s.Poll(-1, SelectMode.SelectWrite));
             }
         }
 
@@ -587,26 +581,6 @@ namespace System.Net.Sockets.Tests
             Assert.Throws<NotSupportedException>(() => GetSocket().SendPacketsAsync(eventArgs));
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
-        public void Socket_Connect_DnsEndPoint_ExposedHandle_NotSupported(bool useSafeHandle)
-        {
-            using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-            {
-                if (useSafeHandle)
-                {
-                    _ = s.SafeHandle;
-                }
-                else
-                {
-                    _ = s.Handle;
-                }
-                Assert.Throws<PlatformNotSupportedException>(() => s.Connect(new DnsEndPoint("localhost", 12345)));
-            }
-        }
-
         [Fact]
         public async Task Socket_Connect_DnsEndPointWithIPAddressString_Supported()
         {
@@ -622,26 +596,6 @@ namespace System.Net.Sockets.Tests
                 }
 
                 await accept;
-            }
-        }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
-        public void Socket_Connect_StringHost_ExposedHandle_NotSupported(bool useSafeHandle)
-        {
-            using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-            {
-                if (useSafeHandle)
-                {
-                    _ = s.SafeHandle;
-                }
-                else
-                {
-                    _ = s.Handle;
-                }
-                Assert.Throws<PlatformNotSupportedException>(() => s.Connect("localhost", 12345));
             }
         }
 
@@ -681,46 +635,6 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
-        public void Socket_Connect_MultipleAddresses_ExposedHandle_NotSupported(bool useSafeHandle)
-        {
-            using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-            {
-                if (useSafeHandle)
-                {
-                    _ = s.SafeHandle;
-                }
-                else
-                {
-                    _ = s.Handle;
-                }
-                Assert.Throws<PlatformNotSupportedException>(() => s.Connect(new[] { IPAddress.Loopback }, 12345));
-            }
-        }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
-        public void Socket_ConnectAsync_DnsEndPoint_ExposedHandle_NotSupported(bool useSafeHandle)
-        {
-            using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-            {
-                if (useSafeHandle)
-                {
-                    _ = s.SafeHandle;
-                }
-                else
-                {
-                    _ = s.Handle;
-                }
-                Assert.Throws<PlatformNotSupportedException>(() => { s.ConnectAsync(new DnsEndPoint("localhost", 12345)); });
-            }
-        }
-
         [Fact]
         public async Task Socket_ConnectAsync_DnsEndPointWithIPAddressString_Supported()
         {
@@ -735,26 +649,6 @@ namespace System.Net.Sockets.Tests
                         host.AcceptAsync(),
                         s.ConnectAsync(new DnsEndPoint(IPAddress.Loopback.ToString(), ((IPEndPoint)host.LocalEndPoint).Port)));
                 }
-            }
-        }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
-        public void Socket_ConnectAsync_StringHost_ExposedHandle_NotSupported(bool useSafeHandle)
-        {
-            using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-            {
-                if (useSafeHandle)
-                {
-                    _ = s.SafeHandle;
-                }
-                else
-                {
-                    _ = s.Handle;
-                }
-                Assert.Throws<PlatformNotSupportedException>(() => { s.ConnectAsync("localhost", 12345); });
             }
         }
 
@@ -792,7 +686,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [Theory]
+        [ConditionalTheory]
         [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
         [InlineData(0)]
         [InlineData(1)]
@@ -800,6 +694,11 @@ namespace System.Net.Sockets.Tests
         {
             using (Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
+                if (PlatformDetection.IsQemuLinux && invalidatingAction == 1)
+                {
+                    throw new SkipTestException("Skip on Qemu due to [ActiveIssue(https://github.com/dotnet/runtime/issues/104542)]");
+                }
+
                 switch (invalidatingAction)
                 {
                     case 0:
@@ -823,7 +722,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [Theory]
+        [ConditionalTheory]
         [PlatformSpecific(TestPlatforms.AnyUnix)]  // API throws PNSE on Unix
         [InlineData(0)]
         [InlineData(1)]
@@ -833,6 +732,11 @@ namespace System.Net.Sockets.Tests
 
             using (Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
+                if (PlatformDetection.IsQemuLinux && invalidatingAction == 1)
+                {
+                    throw new SkipTestException("Skip on Qemu due to [ActiveIssue(https://github.com/dotnet/runtime/issues/104542)]");
+                }
+
                 switch (invalidatingAction)
                 {
                     case 0:
@@ -1156,6 +1060,17 @@ namespace System.Net.Sockets.Tests
         public void CancelConnectAsync_NullEventArgs_Throws_ArgumentNull()
         {
             Assert.Throws<ArgumentNullException>(() => Socket.CancelConnectAsync(null));
+        }
+
+        // MacOS And FreeBSD do not support setting don't-fragment (DF) bit on dual mode socket
+        [Fact]
+        [PlatformSpecific(TestPlatforms.Linux | TestPlatforms.Windows)]
+        public void CanSetDontFragment_OnIPV6Address_DualModeSocket()
+        {
+            using Socket socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+            socket.DualMode = true;
+            socket.DontFragment = true;
+            Assert.True(socket.DontFragment);
         }
     }
 }

@@ -4,16 +4,21 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 
-using Internal.Runtime;
 using Internal.Text;
 using Internal.TypeSystem;
 
+using ILCompiler.DependencyAnalysisFramework;
+
 namespace ILCompiler.DependencyAnalysis
 {
-    public sealed class InterfaceDispatchCellNode : EmbeddedObjectNode, ISymbolDefinitionNode
+    public sealed class InterfaceDispatchCellNode : SortableDependencyNode, ISymbolDefinitionNode
     {
+        private const int InvalidOffset = -1;
+
         private readonly MethodDesc _targetMethod;
         private readonly ISortableSymbolNode _callSiteIdentifier;
+
+        private int _offset;
 
         internal MethodDesc TargetMethod => _targetMethod;
 
@@ -25,12 +30,13 @@ namespace ILCompiler.DependencyAnalysis
             Debug.Assert(!targetMethod.IsSharedByGenericInstantiations);
             _targetMethod = targetMethod;
             _callSiteIdentifier = callSiteIdentifier;
+            _offset = InvalidOffset;
         }
 
         public void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
             sb.Append(nameMangler.CompilationUnitPrefix)
-                .Append("__InterfaceDispatchCell_")
+                .Append("__InterfaceDispatchCell_"u8)
                 .Append(nameMangler.GetMangledMethodName(_targetMethod));
 
             if (_callSiteIdentifier != null)
@@ -40,91 +46,65 @@ namespace ILCompiler.DependencyAnalysis
             }
         }
 
-        int ISymbolDefinitionNode.Offset => OffsetFromBeginningOfArray;
+        int ISymbolDefinitionNode.Offset
+        {
+            get
+            {
+                Debug.Assert(_offset != InvalidOffset);
+                return _offset;
+            }
+        }
 
         int ISymbolNode.Offset => 0;
 
-        public override bool IsShareable => false;
+        public int Size
+        {
+            get
+            {
+                // The size of the dispatch cell is 2 * PointerSize:
+                // a cached thisObj MethodTable, and a code pointer.
+                return _targetMethod.Context.Target.PointerSize * 2;
+            }
+        }
+
+        public void InitializeOffset(int offset)
+        {
+            Debug.Assert(_offset == InvalidOffset);
+            _offset = offset;
+        }
 
         protected override string GetName(NodeFactory factory) => this.GetMangledName(factory.NameMangler);
 
         public override bool StaticDependenciesAreComputed => true;
 
+        internal IEETypeNode GetInterfaceTypeNode(NodeFactory factory)
+        {
+            // If this dispatch cell is ever used with an object that implements IDynamicIntefaceCastable, user code will
+            // see a RuntimeTypeHandle representing this interface.
+            if (factory.DevirtualizationManager.CanHaveDynamicInterfaceImplementations(_targetMethod.OwningType))
+            {
+                return factory.ConstructedTypeSymbol(_targetMethod.OwningType);
+            }
+            else
+            {
+                return factory.NecessaryTypeSymbol(_targetMethod.OwningType);
+            }
+        }
+
         public override IEnumerable<DependencyListEntry> GetStaticDependencies(NodeFactory factory)
         {
             DependencyList result = new DependencyList();
 
-            if (!factory.VTable(_targetMethod.OwningType).HasFixedSlots)
+            if (!factory.VTable(_targetMethod.OwningType).HasKnownVirtualMethodUse)
             {
                 result.Add(factory.VirtualMethodUse(_targetMethod), "Interface method use");
             }
 
             factory.MetadataManager.GetDependenciesDueToVirtualMethodReflectability(ref result, factory, _targetMethod);
 
-            TargetArchitecture targetArchitecture = factory.Target.Architecture;
-            if (targetArchitecture == TargetArchitecture.ARM)
-            {
-                result.Add(factory.InitialInterfaceDispatchStub, "Initial interface dispatch stub");
-            }
-            else
-            {
-                result.Add(factory.ExternSymbol("RhpInitialDynamicInterfaceDispatch"), "Initial interface dispatch stub");
-            }
-
-            // We counter-intuitively ask for a constructed type symbol. This is needed due to IDynamicInterfaceCastable.
-            // If this dispatch cell is ever used with an object that implements IDynamicIntefaceCastable, user code will
-            // see a RuntimeTypeHandle representing this interface.
-            result.Add(factory.ConstructedTypeSymbol(_targetMethod.OwningType), "Interface type");
+            result.Add(GetInterfaceTypeNode(factory), "Interface type");
 
             return result;
-        }
-
-        public override void EncodeData(ref ObjectDataBuilder objData, NodeFactory factory, bool relocsOnly)
-        {
-            TargetArchitecture targetArchitecture = factory.Target.Architecture;
-            if (targetArchitecture == TargetArchitecture.ARM)
-            {
-                objData.EmitPointerReloc(factory.InitialInterfaceDispatchStub);
-            }
-            else
-            {
-                objData.EmitPointerReloc(factory.ExternSymbol("RhpInitialDynamicInterfaceDispatch"));
-            }
-
-            // We counter-intuitively ask for a constructed type symbol. This is needed due to IDynamicInterfaceCastable.
-            // If this dispatch cell is ever used with an object that implements IDynamicIntefaceCastable, user code will
-            // see a RuntimeTypeHandle representing this interface.
-            IEETypeNode interfaceType = factory.ConstructedTypeSymbol(_targetMethod.OwningType);
-            if (factory.Target.SupportsRelativePointers)
-            {
-                if (interfaceType.RepresentsIndirectionCell)
-                {
-                    objData.EmitReloc(interfaceType, RelocType.IMAGE_REL_BASED_RELPTR32,
-                        (int)InterfaceDispatchCellCachePointerFlags.CachePointerIsIndirectedInterfaceRelativePointer);
-                }
-                else
-                {
-                    objData.EmitReloc(interfaceType, RelocType.IMAGE_REL_BASED_RELPTR32,
-                        (int)InterfaceDispatchCellCachePointerFlags.CachePointerIsInterfaceRelativePointer);
-                }
-
-                if (objData.TargetPointerSize == 8)
-                {
-                    // IMAGE_REL_BASED_RELPTR is a 32-bit relocation. However, the cell needs a full pointer
-                    // width there since a pointer to the cache will be written into the cell. Emit additional
-                    // 32 bits on targets whose pointer size is 64 bit.
-                    objData.EmitInt(0);
-                }
-            }
-            else
-            {
-                // There are no free bits in the cache flags, but we could support the indirection cell case
-                // by repurposing "CachePointerIsIndirectedInterfaceRelativePointer" to mean "relative indirect
-                // if the target supports it, simple indirect otherwise".
-                Debug.Assert(!interfaceType.RepresentsIndirectionCell);
-                objData.EmitPointerReloc(interfaceType,
-                    (int)InterfaceDispatchCellCachePointerFlags.CachePointerIsInterfacePointerOrMetadataToken);
-            }
         }
 
         public override int ClassCode => -2023802120;
@@ -134,5 +114,14 @@ namespace ILCompiler.DependencyAnalysis
             var compare = comparer.Compare(_targetMethod, ((InterfaceDispatchCellNode)other)._targetMethod);
             return compare != 0 ? compare : comparer.Compare(_callSiteIdentifier, ((InterfaceDispatchCellNode)other)._callSiteIdentifier);
         }
+
+        public bool RepresentsIndirectionCell => false;
+
+        public override bool InterestingForDynamicDependencyAnalysis => false;
+        public override bool HasDynamicDependencies => false;
+        public override bool HasConditionalStaticDependencies => false;
+
+        public override IEnumerable<CombinedDependencyListEntry> GetConditionalStaticDependencies(NodeFactory factory) => null;
+        public override IEnumerable<CombinedDependencyListEntry> SearchDynamicDependencies(List<DependencyNodeCore<NodeFactory>> markedNodes, int firstNode, NodeFactory factory) => null;
     }
 }

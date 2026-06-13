@@ -42,7 +42,7 @@ namespace System.Threading
     {
         #region Shared TimerQueue instances
         /// <summary>Mapping from a tick count to a time to use when debugging to translate tick count values.</summary>
-        internal static readonly (long TickCount, DateTime Time) s_tickCountToTimeMap = (TickCount64, DateTime.UtcNow);
+        internal static readonly (long TickCount, DateTime Time) s_tickCountToTimeMap = (Environment.TickCount64, DateTime.UtcNow);
 
         public static TimerQueue[] Instances { get; } = CreateTimerQueues();
 
@@ -126,7 +126,7 @@ namespace System.Threading
 
             if (_isTimerScheduled)
             {
-                long elapsed = TickCount64 - _currentTimerStartTicks;
+                long elapsed = Environment.TickCount64 - _currentTimerStartTicks;
                 if (elapsed >= _currentTimerDuration)
                     return true; // the timer's about to fire
 
@@ -138,7 +138,7 @@ namespace System.Threading
             if (SetTimer(actualDuration))
             {
                 _isTimerScheduled = true;
-                _currentTimerStartTicks = TickCount64;
+                _currentTimerStartTicks = Environment.TickCount64;
                 _currentTimerDuration = actualDuration;
                 return true;
             }
@@ -161,7 +161,7 @@ namespace System.Threading
 
         // The current threshold, an absolute time where any timers scheduled to go off at or
         // before this time must be queued to the short list.
-        private long _currentAbsoluteThreshold = TickCount64 + ShortTimersThresholdMilliseconds;
+        private long _currentAbsoluteThreshold = Environment.TickCount64 + ShortTimersThresholdMilliseconds;
 
         // Default threshold that separates which timers target _shortTimers vs _longTimers. The threshold
         // is chosen to balance the number of timers in the small list against the frequency with which
@@ -170,6 +170,9 @@ namespace System.Threading
         // every time the timer fires, but also the more likely it is that when it does we won't
         // need to look at the long list because the current time will be <= _currentAbsoluteThreshold.
         private const int ShortTimersThresholdMilliseconds = 333;
+
+        // Lock shared by the TimerQueue and associated TimerQueueTimer instances
+        internal Lock SharedLock { get; } = new Lock();
 
         // Fire any timers that have expired, and update the native timer to schedule the rest of them.
         // We're in a thread pool work item here, and if there are multiple timers to be fired, we want
@@ -181,14 +184,14 @@ namespace System.Threading
             // are queued to the ThreadPool.
             TimerQueueTimer? timerToFireOnThisThread = null;
 
-            lock (this)
+            lock (SharedLock)
             {
                 // Since we got here, that means our previous timer has fired.
                 _isTimerScheduled = false;
                 bool haveTimerToSchedule = false;
                 uint nextTimerDuration = uint.MaxValue;
 
-                long nowTicks = TickCount64;
+                long nowTicks = Environment.TickCount64;
 
                 // Sweep through the "short" timers.  If the current tick count is greater than
                 // the current threshold, also sweep through the "long" timers.  Finally, as part
@@ -339,7 +342,7 @@ namespace System.Threading
 
         public bool UpdateTimer(TimerQueueTimer timer, uint dueTime, uint period)
         {
-            long nowTicks = TickCount64;
+            long nowTicks = Environment.TickCount64;
 
             // The timer can be put onto the short list if it's next absolute firing time
             // is <= the current absolute threshold.
@@ -384,10 +387,7 @@ namespace System.Threading
             // Use timer._short to decide to which list to add.
             ref TimerQueueTimer? listHead = ref timer._short ? ref _shortTimers : ref _longTimers;
             timer._next = listHead;
-            if (timer._next != null)
-            {
-                timer._next._prev = timer;
-            }
+            timer._next?._prev = timer;
             timer._prev = null;
             listHead = timer;
         }
@@ -395,10 +395,7 @@ namespace System.Threading
         private void UnlinkTimer(TimerQueueTimer timer)
         {
             TimerQueueTimer? t = timer._next;
-            if (t != null)
-            {
-                t._prev = timer._prev;
-            }
+            t?._prev = timer._prev;
 
             if (_shortTimers == timer)
             {
@@ -412,10 +409,7 @@ namespace System.Threading
             }
 
             t = timer._prev;
-            if (t != null)
-            {
-                t._next = timer._next;
-            }
+            t?._next = timer._next;
 
             // At this point the timer is no longer in a list, but its next and prev
             // references may still point to other nodes.  UnlinkTimer should thus be
@@ -540,7 +534,7 @@ namespace System.Threading
         {
             bool success;
 
-            lock (_associatedTimerQueue)
+            lock (_associatedTimerQueue.SharedLock)
             {
                 if (_canceled)
                 {
@@ -567,7 +561,7 @@ namespace System.Threading
 
         public void Dispose()
         {
-            lock (_associatedTimerQueue)
+            lock (_associatedTimerQueue.SharedLock)
             {
                 if (!_canceled)
                 {
@@ -584,7 +578,7 @@ namespace System.Threading
             bool success;
             bool shouldSignal = false;
 
-            lock (_associatedTimerQueue)
+            lock (_associatedTimerQueue.SharedLock)
             {
                 if (_canceled)
                 {
@@ -608,7 +602,7 @@ namespace System.Threading
 
         public ValueTask DisposeAsync()
         {
-            lock (_associatedTimerQueue)
+            lock (_associatedTimerQueue.SharedLock)
             {
                 object? notifyWhenNoCallbacksRunning = _notifyWhenNoCallbacksRunning;
 
@@ -668,9 +662,9 @@ namespace System.Threading
 
         internal void Fire(bool isThreadPool = false)
         {
-            bool canceled = false;
+            bool canceled;
 
-            lock (_associatedTimerQueue)
+            lock (_associatedTimerQueue.SharedLock)
             {
                 canceled = _canceled;
                 if (!canceled)
@@ -683,7 +677,7 @@ namespace System.Threading
             CallCallback(isThreadPool);
 
             bool shouldSignal;
-            lock (_associatedTimerQueue)
+            lock (_associatedTimerQueue.SharedLock)
             {
                 _callbacksRunning--;
                 shouldSignal = _canceled && _callbacksRunning == 0 && _notifyWhenNoCallbacksRunning != null;
@@ -943,7 +937,7 @@ namespace System.Threading
                 long count = 0;
                 foreach (TimerQueue queue in TimerQueue.Instances)
                 {
-                    lock (queue)
+                    lock (queue.SharedLock)
                     {
                         count += queue.ActiveCount;
                     }
@@ -970,23 +964,5 @@ namespace System.Threading
         }
 
         private string DisplayString => _timer._timer.DisplayString;
-
-        /// <summary>Gets a list of all timers for debugging purposes.</summary>
-        private static IEnumerable<TimerQueueTimer> AllTimers // intended to be used by devs from debugger
-        {
-            get
-            {
-                var timers = new List<TimerQueueTimer>();
-
-                foreach (TimerQueue queue in TimerQueue.Instances)
-                {
-                    timers.AddRange(queue.GetTimersForDebugger());
-                }
-
-                timers.Sort((t1, t2) => t1._dueTime.CompareTo(t2._dueTime));
-
-                return timers;
-            }
-        }
     }
 }

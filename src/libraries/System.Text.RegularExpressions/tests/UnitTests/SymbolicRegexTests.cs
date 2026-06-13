@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Globalization;
+using System.Text;
 using Xunit;
 using System.Text.RegularExpressions.Symbolic;
 using System.Collections.Generic;
@@ -209,13 +210,13 @@ namespace System.Text.RegularExpressions.Tests
             [
                 // simple counters that are too large
                 "((ab){0,9000})",
-                "((ab){1000})",
+                "((ab){5000})",
                 "((ab){100,5000})",
                 // almost infinite lower bound
                 "a{2147483646,}",              // 2147483646 = int.MaxValue-1
                 // nested small counters causing unsafe blowup through multiplicative nature of counter nesting
-                "(((ab){10}){10}){10}",        // more than 10^3
-                "((((abcd){4}){4}){4}){4}",    // exponential: more than 4^5 = 1024
+                "(((ab){10}){10}){50}",        // more than 10^3 * 5
+                "(((((abcd){4}){4}){4}){4}){10}",    // exponential: more than 4^5 * 10 = 10240
                 // combined large counters
                 "((ab){1000}){1000}",          // more than 1000^2
                 "((ab){99999999}){99999999}",  // multiply: much more than int.MaxValue
@@ -228,6 +229,57 @@ namespace System.Text.RegularExpressions.Tests
                 SymbolicRegexNode<BDD> rootNode = converter.ConvertToSymbolicRegexNode(tree);
                 yield return new object[] { rootNode };
             }
+
+            // Deeply nested unbounded loops with alternating laziness cause exponential
+            // derivative blowup. CountSingletons accounts for this by multiplying by 2 per
+            // nesting level, so at depth 15+ the estimate exceeds the default 10,000 threshold.
+            // Build: (?:(?:(?:a)*)*?)* ... with alternating greedy/lazy quantifiers at each level
+            {
+                // 20 levels → 2^20 = 1,048,576 estimated singletons, well above the 10,000
+                // default threshold. 15 would be the minimum to exceed threshold (2^15 = 32,768)
+                // but 20 provides margin.
+                const int depth = 20;
+                var sb = new StringBuilder();
+                for (int i = 0; i < depth; i++)
+                {
+                    sb.Append("(?:");
+                }
+
+                sb.Append('a');
+                for (int i = depth - 1; i >= 0; i--)
+                {
+                    sb.Append(i % 2 == 0 ? ")*" : ")*?");
+                }
+
+                RegexNode tree = RegexParser.Parse(sb.ToString(), options, CultureInfo.CurrentCulture).Root;
+                SymbolicRegexNode<BDD> rootNode = converter.ConvertToSymbolicRegexNode(tree);
+                yield return new object[] { rootNode };
+            }
+
+            // Deeply nested capturing loops also cause exponential blowup. CountSingletons
+            // looks through Concat/Effect wrappers (captures) to detect nested unbounded loops.
+            // Build: ((((a)*)*)...)*  at depth 20 with capturing groups
+            {
+                // Same reasoning as above: 20 levels → estimated singletons well above threshold.
+                const int depth = 20;
+                var sb = new StringBuilder();
+                for (int i = 0; i < depth; i++)
+                {
+                    sb.Append('(');
+                }
+
+                sb.Append('a');
+                for (int i = 0; i < depth; i++)
+                {
+                    sb.Append(")*");
+                }
+
+                // Use default options (not ExplicitCapture) so groups are capturing
+                RegexOptions capturingOptions = RegexOptions.NonBacktracking;
+                RegexNode tree = RegexParser.Parse(sb.ToString(), capturingOptions, CultureInfo.CurrentCulture).Root;
+                SymbolicRegexNode<BDD> rootNode = converter.ConvertToSymbolicRegexNode(tree);
+                yield return new object[] { rootNode };
+            }
         }
 
         [Theory]
@@ -236,6 +288,42 @@ namespace System.Text.RegularExpressions.Tests
         {
             int size = ((SymbolicRegexNode<BDD>)node).EstimateNfaSize();
             Assert.True(size > SymbolicRegexThresholds.GetSymbolicRegexSafeSizeThreshold());
+        }
+
+        /// <summary>
+        /// Verifies that deeply nested same-laziness unbounded loops do NOT exceed the unsafe
+        /// threshold, because ReduceLoops collapses them (e.g. (?:(?:a)*)* at depth 100 → a*)
+        /// before the symbolic engine sees them.
+        /// </summary>
+        [Fact]
+        public void SameLazinessDeepNestingIsSafeAfterReduceLoops()
+        {
+            var charSetSolver = new CharSetSolver();
+            var bddBuilder = new SymbolicRegexBuilder<BDD>(charSetSolver, charSetSolver);
+            var converter = new RegexNodeConverter(bddBuilder, null);
+            RegexOptions options = RegexOptions.NonBacktracking | RegexOptions.ExplicitCapture;
+
+            // Build (?:(?:(?:a)*)*...)*  at depth 100 — all same laziness (greedy)
+            const int depth = 100;
+            var sb = new StringBuilder();
+            for (int i = 0; i < depth; i++)
+            {
+                sb.Append("(?:");
+            }
+
+            sb.Append('a');
+            for (int i = 0; i < depth; i++)
+            {
+                sb.Append(")*");
+            }
+
+            RegexNode tree = RegexParser.Parse(sb.ToString(), options, CultureInfo.CurrentCulture).Root;
+            SymbolicRegexNode<BDD> rootNode = converter.ConvertToSymbolicRegexNode(tree);
+
+            // After ReduceLoops, this collapses to a*, so the estimate should be tiny
+            int size = rootNode.EstimateNfaSize();
+            Assert.True(size <= SymbolicRegexThresholds.GetSymbolicRegexSafeSizeThreshold(),
+                $"Same-laziness nested loops should be safe after ReduceLoops, but EstimateNfaSize returned {size}");
         }
 
         [Theory]

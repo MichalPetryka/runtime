@@ -273,6 +273,7 @@ EnumerateCertificates(JNIEnv* env, jobject /*KeyStore*/ store, EnumCertificatesC
     //     }
     // }
     jboolean hasNext = (*env)->CallBooleanMethod(env, aliases, g_EnumerationHasMoreElements);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
     while (hasNext)
     {
         INIT_LOCALS(loc, alias, entry, cert, publicKey, privateKey);
@@ -311,6 +312,7 @@ EnumerateCertificates(JNIEnv* env, jobject /*KeyStore*/ store, EnumCertificatesC
         RELEASE_LOCALS(loc, env);
 
         hasNext = (*env)->CallBooleanMethod(env, aliases, g_EnumerationHasMoreElements);
+        ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
     }
 
     ret = SUCCESS;
@@ -365,31 +367,34 @@ ARGS_NON_NULL_ALL static int32_t EnumerateTrustedCertificates(
     //     }
     // }
     jboolean hasNext = (*env)->CallBooleanMethod(env, aliases, g_EnumerationHasMoreElements);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
     while (hasNext)
     {
+        jobject cert = NULL;
         jstring alias = (*env)->CallObjectMethod(env, aliases, g_EnumerationNextElement);
         ON_EXCEPTION_PRINT_AND_GOTO(loop_cleanup);
 
         if (filter == NULL || filter(env, alias))
         {
-            jobject cert = (*env)->CallObjectMethod(env, store, g_KeyStoreGetCertificate, alias);
-            if (cert != NULL && !CheckJNIExceptions(env))
+            cert = (*env)->CallObjectMethod(env, store, g_KeyStoreGetCertificate, alias);
+            if (!CheckJNIExceptions(env) && cert != NULL)
             {
-                cert = ToGRef(env, cert);
-                cb(cert, context);
+                cb(AddGRef(env, cert), context);
             }
         }
 
-        hasNext = (*env)->CallBooleanMethod(env, aliases, g_EnumerationHasMoreElements);
-
     loop_cleanup:
-        (*env)->DeleteLocalRef(env, alias);
+        ReleaseLRef(env, cert);
+        ReleaseLRef(env, alias);
+
+        hasNext = (*env)->CallBooleanMethod(env, aliases, g_EnumerationHasMoreElements);
+        ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
     }
 
     ret = SUCCESS;
 
 cleanup:
-    (*env)->DeleteLocalRef(env, aliases);
+    ReleaseLRef(env, aliases);
     return ret;
 }
 
@@ -431,9 +436,11 @@ jobject /*KeyStore*/ AndroidCryptoNative_X509StoreOpenDefault(void)
     (*env)->CallVoidMethod(env, store, g_KeyStoreLoad, NULL, NULL);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
     ret = ToGRef(env, store);
+    store = NULL;
 
 cleanup:
-    (*env)->DeleteLocalRef(env, storeType);
+    ReleaseLRef(env, store);
+    ReleaseLRef(env, storeType);
     return ret;
 }
 
@@ -444,17 +451,76 @@ int32_t AndroidCryptoNative_X509StoreRemoveCertificate(jobject /*KeyStore*/ stor
     abort_if_invalid_pointer_argument (store);
 
     JNIEnv* env = GetJNIEnv();
+    int32_t ret = FAIL;
 
     jstring alias = make_java_string(env, hashString);
     if (!ContainsMatchingCertificateForAlias(env, store, cert, alias))
     {
         // Certificate is not in store - nothing to do
-        return SUCCESS;
+        ret = SUCCESS;
+        goto cleanup;
     }
 
     // store.deleteEntry(alias);
     (*env)->CallVoidMethod(env, store, g_KeyStoreDeleteEntry, alias);
+    ret = CheckJNIExceptions(env) ? FAIL : SUCCESS;
 
-    (*env)->DeleteLocalRef(env, alias);
-    return CheckJNIExceptions(env) ? FAIL : SUCCESS;
+cleanup:
+    ReleaseLRef(env, alias);
+    return ret;
+}
+
+jobject AndroidCryptoNative_X509StoreGetPrivateKeyEntry(jobject /*KeyStore*/ store, const char* hashString)
+{
+    abort_if_invalid_pointer_argument (store);
+
+    JNIEnv* env = GetJNIEnv();
+    INIT_LOCALS(loc, alias);
+
+    jobject privateKeyEntry = NULL;
+
+    loc[alias] = make_java_string(env, hashString);
+
+    privateKeyEntry = (*env)->CallObjectMethod(env, store, g_KeyStoreGetEntry, loc[alias], NULL);
+    if (CheckJNIExceptions(env))
+    {
+        ReleaseLRef(env, privateKeyEntry);
+        goto cleanup;
+    }
+
+    bool isPrivateKeyEntry = (*env)->IsInstanceOf(env, privateKeyEntry, g_PrivateKeyEntryClass);
+    if (!isPrivateKeyEntry)
+    {
+        ReleaseLRef(env, privateKeyEntry);
+        privateKeyEntry = NULL;
+        goto cleanup;
+    }
+
+    privateKeyEntry = ToGRef(env, privateKeyEntry);
+
+cleanup:
+    RELEASE_LOCALS(loc, env);
+    return privateKeyEntry;
+}
+
+int32_t AndroidCryptoNative_X509StoreDeleteEntry(jobject /*KeyStore*/ store, const char* hashString)
+{
+    int32_t ret = FAIL;
+
+    abort_if_invalid_pointer_argument (store);
+
+    JNIEnv* env = GetJNIEnv();
+    INIT_LOCALS(loc, alias);
+
+    loc[alias] = make_java_string(env, hashString);
+
+    // store.deleteEntry(alias);
+    (*env)->CallVoidMethod(env, store, g_KeyStoreDeleteEntry, loc[alias]);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
+
+    ret = SUCCESS;
+
+cleanup:
+    RELEASE_LOCALS(loc, env);
+    return ret;
 }

@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection.Metadata;
 
 using Internal.Text;
 using Internal.TypeSystem;
@@ -10,15 +11,12 @@ using Internal.TypeSystem.Ecma;
 
 namespace ILCompiler.DependencyAnalysis
 {
-    internal sealed class ModuleInitializerListNode : ObjectNode, ISymbolDefinitionNode, INodeWithSize
+    internal sealed class ModuleInitializerListNode : ObjectNode, ISymbolDefinitionNode
     {
-        private int? _size;
-
-        int INodeWithSize.Size => _size.Value;
 
         public void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append(nameMangler.CompilationUnitPrefix).Append("__module_initializers");
+            sb.Append(nameMangler.CompilationUnitPrefix).Append("__module_initializers"u8);
         }
 
         public int Offset => 0;
@@ -143,8 +141,6 @@ namespace ILCompiler.DependencyAnalysis
 
             var result = builder.ToObjectData();
 
-            _size = result.Data.Length;
-
             return result;
         }
 
@@ -203,7 +199,7 @@ namespace ILCompiler.DependencyAnalysis
 
                         try
                         {
-                            var reference = module.Context.ResolveAssembly(new System.Reflection.AssemblyName(assemblyName));
+                            var reference = module.Context.ResolveAssembly(new AssemblyNameInfo(assemblyName));
                             referencedAssemblies.Add(reference);
                         }
                         catch (TypeSystemException) { }

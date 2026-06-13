@@ -34,6 +34,7 @@
 #include "comdelegate.h"
 #include "typestring.h"
 #include "appdomain.inl"
+#include "stubhelpers.h"
 
 #ifdef FEATURE_COMINTEROP
 #include "comcallablewrapper.h"
@@ -43,8 +44,12 @@
 #include "interoputil.h"
 #endif // FEATURE_COMINTEROP
 
+#ifdef FEATURE_JAVAMARSHAL
+#include "interoplibinterface.h"
+#endif // FEATURE_JAVAMARSHAL
+
 // Prelink
-// Does advance loading of an N/Direct library
+// Does advance loading of an PInvoke library
 extern "C" VOID QCALLTYPE MarshalNative_Prelink(MethodDesc * pMD)
 {
     QCALL_CONTRACT;
@@ -54,11 +59,11 @@ extern "C" VOID QCALLTYPE MarshalNative_Prelink(MethodDesc * pMD)
 
     // If the code is already ready, we are done. Else, we need to execute the prestub
     // This is a perf thing since it's always safe to execute the prestub twice.
-    if (!pMD->IsPointingToPrestub())
+    if (!pMD->ShouldCallPrestub())
         return;
 
-    // Silently ignore if not N/Direct and not runtime generated.
-    if (!(pMD->IsNDirect()) && !(pMD->IsRuntimeSupplied()))
+    // Silently ignore if not PInvoke and not runtime generated.
+    if (!(pMD->IsPInvoke()) && !(pMD->IsRuntimeSupplied()))
         return;
 
     BEGIN_QCALL;
@@ -91,7 +96,7 @@ extern "C" BOOL QCALLTYPE MarshalNative_IsBuiltInComSupported()
     return ret;
 }
 
-extern "C" BOOL QCALLTYPE MarshalNative_TryGetStructMarshalStub(void* enregisteredTypeHandle, PCODE* pStructMarshalStub, SIZE_T* pSize)
+extern "C" BOOL QCALLTYPE MarshalNative_HasLayout(QCall::TypeHandle t, BOOL* pIsBlittable, DWORD* pNativeSize)
 {
     QCALL_CONTRACT;
 
@@ -99,39 +104,25 @@ extern "C" BOOL QCALLTYPE MarshalNative_TryGetStructMarshalStub(void* enregister
 
     BEGIN_QCALL;
 
-    TypeHandle th = TypeHandle::FromPtr(enregisteredTypeHandle);
+    TypeHandle th = t.AsTypeHandle();
 
-    if (th.IsBlittable())
+    if (th.IsEnum())
     {
-        *pStructMarshalStub = NULL;
-        *pSize = th.GetMethodTable()->GetNativeSize();
-        ret = TRUE;
+        // Enums don't have native layout info, but they marshal identically
+        // to their underlying primitive type.
+        th = CoreLibBinder::GetElementType(th.GetInternalCorElementType());
     }
-    else if (th.HasLayout())
+
+    if (th.HasLayout())
     {
-        MethodTable* pMT = th.GetMethodTable();
-        MethodDesc* structMarshalStub = NULL;
-
-        EEMarshalingData* pEEMarshalingData = pMT->GetLoaderAllocator()->GetMarshalingDataIfAvailable();
-        if (pEEMarshalingData != NULL)
-        {
-            GCX_COOP();
-            structMarshalStub = pEEMarshalingData->LookupStructILStubSpeculative(pMT);
-        }
-
-        if (structMarshalStub == NULL)
-        {
-            structMarshalStub = NDirect::CreateStructMarshalILStub(pMT);
-        }
-
-        *pStructMarshalStub = structMarshalStub->GetSingleCallableAddrOfCode();
-        *pSize = 0;
+        *pIsBlittable = th.IsBlittable();
+        *pNativeSize = th.GetMethodTable()->GetNativeSize();
         ret = TRUE;
     }
     else
     {
-        *pStructMarshalStub = NULL;
-        *pSize = 0;
+        *pIsBlittable = FALSE;
+        *pNativeSize = 0;
     }
 
     END_QCALL;
@@ -283,26 +274,46 @@ extern "C" IsInCooperativeGCMode_fn QCALLTYPE MarshalNative_GetIsInCooperativeGC
 #endif
 
 /************************************************************************
- * Marshal.GetLastPInvokeError
+ * Support for the last PInvoke error
  */
+static thread_local int t_lastPInvokeError;
+
 FCIMPL0(int, MarshalNative::GetLastPInvokeError)
 {
     FCALL_CONTRACT;
 
-    return (UINT32)(GetThread()->m_dwLastError);
+    return t_lastPInvokeError;
 }
 FCIMPLEND
 
-/************************************************************************
- * Marshal.SetLastPInvokeError
- */
 FCIMPL1(void, MarshalNative::SetLastPInvokeError, int error)
 {
     FCALL_CONTRACT;
 
-    GetThread()->m_dwLastError = (DWORD)error;
+    t_lastPInvokeError = error;
 }
 FCIMPLEND
+
+FCIMPL0(void, StubHelpers::SetLastError)
+{
+    // Make sure this is the first thing we do after returning from the target, as almost everything can cause the last error to get trashed
+    DWORD lastError = ::GetLastError();
+
+    FCALL_CONTRACT;
+
+    t_lastPInvokeError = lastError;
+}
+FCIMPLEND
+
+#ifdef FEATURE_IJW
+// GetLastError override for C++/CLI
+DWORD STDMETHODCALLTYPE FalseGetLastError()
+{
+    WRAPPER_NO_CONTRACT;
+
+    return t_lastPInvokeError;
+}
+#endif // FEATURE_IJW
 
 /************************************************************************
  * Support for the GCHandle class.
@@ -328,10 +339,12 @@ FCIMPL2(LPVOID, MarshalNative::GCHandleInternalAlloc, Object *obj, int type)
 {
     FCALL_CONTRACT;
 
-    assert(type >= HNDTYPE_WEAK_SHORT && type <= HNDTYPE_SIZEDREF);
+    assert(type >= HNDTYPE_WEAK_SHORT && type <= HNDTYPE_DEPENDENT);
 
+#if defined(PROFILING_SUPPORTED)
     if (CORProfilerTrackGC())
         return NULL;
+#endif // PROFILING_SUPPORTED
 
     return GetAppDomain()->GetHandleStore()->CreateHandleOfType(obj, static_cast<HandleType>(type));
 }
@@ -356,8 +369,10 @@ FCIMPL1(FC_BOOL_RET, MarshalNative::GCHandleInternalFree, OBJECTHANDLE handle)
 {
     FCALL_CONTRACT;
 
+#ifdef PROFILING_SUPPORTED
     if (CORProfilerTrackGC())
         FC_RETURN_BOOL(false);
+#endif // PROFILING_SUPPORTED
 
     GCHandleUtilities::GetGCHandleManager()->DestroyHandleOfUnknownType(handle);
     FC_RETURN_BOOL(true);
@@ -376,6 +391,46 @@ FCIMPL1(LPVOID, MarshalNative::GCHandleInternalGet, OBJECTHANDLE handle)
     return *((LPVOID*)&objRef);
 }
 FCIMPLEND
+
+#ifdef FEATURE_JAVAMARSHAL
+// Get the object referenced by a GC handle, also waiting for bridge procesing to finish.
+// Used by WeakReference
+FCIMPL2(FC_BOOL_RET, MarshalNative::GCHandleInternalTryGetBridgeWait, OBJECTHANDLE handle, Object **pObjResult)
+{
+    FCALL_CONTRACT;
+
+    if (Interop::IsGCBridgeActive())
+    {
+        FC_RETURN_BOOL(false);
+    }
+
+    *pObjResult = OBJECTREFToObject(ObjectFromHandle(handle));
+    FC_RETURN_BOOL(true);
+}
+FCIMPLEND
+
+// Unlike the fast call above, this can block
+extern "C" void QCALLTYPE GCHandle_InternalGetBridgeWait(OBJECTHANDLE handle, QCall::ObjectHandleOnStack result)
+{
+    QCALL_CONTRACT;
+
+    _ASSERTE(handle != NULL);
+
+    BEGIN_QCALL;
+
+    {
+        GCX_COOP();
+
+        Interop::WaitForGCBridgeFinish();
+        // No GC can happen between the wait and obtaining of the reference, so the
+        // bridge processing status can't change, guaranteeing the nulling of weak refs
+        // took place in the bridge processing finish stage.
+        result.Set(ObjectFromHandle(handle));
+    }
+
+    END_QCALL;
+}
+#endif // FEATURE_JAVAMARSHAL
 
 // Update the object referenced by a GC handle.
 FCIMPL2(VOID, MarshalNative::GCHandleInternalSet, OBJECTHANDLE handle, Object *obj)
@@ -417,9 +472,9 @@ extern "C" void QCALLTYPE MarshalNative_GetExceptionForHR(INT32 errorCode, LPVOI
 
     BEGIN_QCALL;
 
+#ifdef FEATURE_COMINTEROP
     // Retrieve the IErrorInfo to use.
     IErrorInfo* pErrorInfo = (IErrorInfo*)errorInfo;
-#ifdef FEATURE_COMINTEROP
     if (pErrorInfo == (IErrorInfo*)(-1))
     {
         pErrorInfo = NULL;
@@ -435,7 +490,11 @@ extern "C" void QCALLTYPE MarshalNative_GetExceptionForHR(INT32 errorCode, LPVOI
 
     OBJECTREF exceptObj = NULL;
     GCPROTECT_BEGIN(exceptObj);
+#ifdef FEATURE_COMINTEROP
     ::GetExceptionForHR(errorCode, pErrorInfo, &exceptObj);
+#else
+    ::GetExceptionForHR(errorCode, &exceptObj);
+#endif // FEATURE_COMINTEROP
     retVal.Set(exceptObj);
     GCPROTECT_END();
 
@@ -509,6 +568,33 @@ extern "C" IDispatch* QCALLTYPE MarshalNative_GetIDispatchForObject(QCall::Objec
     OBJECTREF oref = o.Get();
     GCPROTECT_BEGIN(oref);
     retVal = (IDispatch*)GetComIPFromObjectRef(&oref, ComIpType_Dispatch, NULL);
+    GCPROTECT_END();
+
+    END_QCALL;
+    return retVal;
+}
+
+//====================================================================
+// return the IUnknown* or IDispatch* for an Object.
+//====================================================================
+extern "C" void* QCALLTYPE MarshalNative_GetIUnknownOrIDispatchForObject(QCall::ObjectHandleOnStack o, BOOL* isIDispatch)
+{
+    QCALL_CONTRACT;
+
+    void* retVal = NULL;
+
+    BEGIN_QCALL;
+
+    // Ensure COM is started up.
+    EnsureComStarted();
+
+    GCX_COOP();
+
+    OBJECTREF oref = o.Get();
+    GCPROTECT_BEGIN(oref);
+    ComIpType fetchedIpType = ComIpType_None;
+    retVal = GetComIPFromObjectRef(&oref, ComIpType_Both, &fetchedIpType);
+    *isIDispatch = fetchedIpType == ComIpType_Dispatch;
     GCPROTECT_END();
 
     END_QCALL;
@@ -693,7 +779,7 @@ extern "C" IUnknown* QCALLTYPE MarshalNative_CreateAggregatedObject(IUnknown* pO
 }
 
 //====================================================================
-// Free unused RCWs in the current COM+ context.
+// Free unused RCWs in the current CLR context.
 //====================================================================
 extern "C" void QCALLTYPE MarshalNative_CleanupUnusedObjectsInCurrentContext()
 {
@@ -748,7 +834,7 @@ extern "C" INT32 QCALLTYPE MarshalNative_ReleaseComObject(QCall::ObjectHandleOnS
     GCPROTECT_BEGIN(obj);
 
     MethodTable* pMT = obj->GetMethodTable();
-    PREFIX_ASSUME(pMT != NULL);
+    _ASSERTE(pMT != NULL);
     if(!pMT->IsComObjectType())
         COMPlusThrow(kArgumentException, IDS_EE_SRC_OBJ_NOT_COMOBJECT);
 
@@ -778,7 +864,7 @@ extern "C" void QCALLTYPE MarshalNative_FinalReleaseComObject(QCall::ObjectHandl
     GCPROTECT_BEGIN(obj);
 
     MethodTable* pMT = obj->GetMethodTable();
-    PREFIX_ASSUME(pMT != NULL);
+    _ASSERTE(pMT != NULL);
     if(!pMT->IsComObjectType())
         COMPlusThrow(kArgumentException, IDS_EE_SRC_OBJ_NOT_COMOBJECT);
 
@@ -992,7 +1078,7 @@ static int GetComSlotInfo(MethodTable *pMT, MethodTable **ppDefItfMT)
         if (DefItfType == DefaultInterfaceType_AutoDual || DefItfType == DefaultInterfaceType_Explicit)
         {
             pMT = hndDefItfClass.GetMethodTable();
-            PREFIX_ASSUME(pMT != NULL);
+            _ASSERTE(pMT != NULL);
         }
         else
         {

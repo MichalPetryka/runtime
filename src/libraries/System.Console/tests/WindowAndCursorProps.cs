@@ -46,7 +46,7 @@ public class WindowAndCursorProps
     }
 
     [Theory]
-    [PlatformSpecific((TestPlatforms.Windows) | (TestPlatforms.AnyUnix & ~TestPlatforms.Browser & ~TestPlatforms.iOS & ~TestPlatforms.MacCatalyst & ~TestPlatforms.tvOS))]
+    [PlatformSpecific(TestPlatforms.Windows)]
     [InlineData(0)]
     [InlineData(-1)]
     public static void WindowWidth_SetInvalid_ThrowsArgumentOutOfRangeException(int value)
@@ -71,14 +71,14 @@ public class WindowAndCursorProps
     }
 
     [Fact]
-    [PlatformSpecific(TestPlatforms.iOS | TestPlatforms.MacCatalyst | TestPlatforms.tvOS)]  // Expected behavior specific to Unix
+    [PlatformSpecific(TestPlatforms.AnyUnix)]
     public static void WindowWidth_SetUnix_ThrowsPlatformNotSupportedException()
     {
         Assert.Throws<PlatformNotSupportedException>(() => Console.WindowWidth = 100);
     }
 
     [Theory]
-    [PlatformSpecific((TestPlatforms.Windows) | (TestPlatforms.AnyUnix & ~TestPlatforms.Browser & ~TestPlatforms.iOS & ~TestPlatforms.MacCatalyst & ~TestPlatforms.tvOS))]
+    [PlatformSpecific(TestPlatforms.Windows)]
     [InlineData(0)]
     [InlineData(-1)]
     public static void WindowHeight_SetInvalid_ThrowsArgumentOutOfRangeException(int value)
@@ -111,7 +111,7 @@ public class WindowAndCursorProps
     }
 
     [Fact]
-    [PlatformSpecific(TestPlatforms.Browser | TestPlatforms.iOS | TestPlatforms.MacCatalyst | TestPlatforms.tvOS)]  // Expected behavior specific to Unix
+    [PlatformSpecific(TestPlatforms.AnyUnix)]
     public static void WindowHeight_SetUnix_ThrowsPlatformNotSupportedException()
     {
         Assert.Throws<PlatformNotSupportedException>(() => Console.WindowHeight = 100);
@@ -237,7 +237,7 @@ public class WindowAndCursorProps
 
     private static bool IsNotWindowsNanoServerAndNotServerCoreAndRemoteExecutorSupported => PlatformDetection.IsNotWindowsNanoNorServerCore && RemoteExecutor.IsSupported;
 
-    [ConditionalTheory(nameof(IsNotWindowsNanoServerAndNotServerCoreAndRemoteExecutorSupported))] // Nano and Server Core currently ignore set title
+    [ConditionalTheory(typeof(WindowAndCursorProps), nameof(IsNotWindowsNanoServerAndNotServerCoreAndRemoteExecutorSupported))] // Nano and Server Core currently ignore set title
     [ActiveIssue("https://github.com/dotnet/runtime/issues/34454", TestPlatforms.Windows, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.Mono)]
     [InlineData(0)]
     [InlineData(1)]
@@ -268,7 +268,7 @@ public class WindowAndCursorProps
         AssertExtensions.Throws<ArgumentNullException>("value", () => Console.Title = null);
     }
 
-    [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+    [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
     [OuterLoop] // makes noise, not very inner-loop friendly
     public static void Beep_Invoke_Success()
     {
@@ -277,7 +277,7 @@ public class WindowAndCursorProps
     }
 
     [Fact]
-    [OuterLoop] // makes noise, not very inner-loop friendly
+    [OuterLoop("makes noise, not very inner-loop friendly", ~TestPlatforms.Browser)]
     [PlatformSpecific(TestPlatforms.Windows)]
     public static void BeepWithFrequency_Invoke_Success()
     {
@@ -579,7 +579,7 @@ public class WindowAndCursorProps
     }
 
     [Fact]
-    [PlatformSpecific(TestPlatforms.Browser | TestPlatforms.iOS | TestPlatforms.MacCatalyst | TestPlatforms.tvOS)]
+    [PlatformSpecific(TestPlatforms.AnyUnix)]
     public void SetWindowSize_Unix_ThrowsPlatformNotSupportedException()
     {
         Assert.Throws<PlatformNotSupportedException>(() => Console.SetWindowSize(50, 50));

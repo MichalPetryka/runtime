@@ -27,7 +27,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         void MaterializeSignature();
     }
 
-    public class ManifestMetadataTableNode : HeaderTableNode
+    public class ManifestMetadataTableNode : HeaderTableNode, IDisposable
     {
         /// <summary>
         /// Map from simple assembly names to their module indices. The map gets prepopulated
@@ -37,10 +37,10 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         private readonly Dictionary<string, int> _assemblyRefToModuleIdMap;
 
         /// <summary>
-        /// Map from module index to the AssemblyName for the module. This only contains modules
+        /// Map from module index to the AssemblyNameInfo for the module. This only contains modules
         /// that were actually loaded and is populated by ModuleToIndex.
         /// </summary>
-        private readonly Dictionary<int, AssemblyName> _moduleIdToAssemblyNameMap;
+        private readonly Dictionary<int, AssemblyNameInfo> _moduleIdToAssemblyNameMap;
 
         /// <summary>
         /// MVIDs of the assemblies included in manifest metadata to be emitted as the
@@ -84,7 +84,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         public ManifestMetadataTableNode(NodeFactory nodeFactory)
         {
             _assemblyRefToModuleIdMap = new Dictionary<string, int>();
-            _moduleIdToAssemblyNameMap = new Dictionary<int, AssemblyName>();
+            _moduleIdToAssemblyNameMap = new Dictionary<int, AssemblyNameInfo>();
             _manifestAssemblyMvids = new List<Guid>();
             _signatureEmitters = new List<ISignatureEmitter>();
             _nodeFactory = nodeFactory;
@@ -231,7 +231,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                 return 0;
             }
 
-            AssemblyName assemblyName = emodule.Assembly.GetName();
+            AssemblyNameInfo assemblyName = emodule.Assembly.GetName();
             int assemblyRefIndex;
             if (!_assemblyRefToModuleIdMap.TryGetValue(assemblyName.Name, out assemblyRefIndex))
             {
@@ -253,7 +253,10 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                 }
                 else
                 {
-                    Debug.Assert(_nodeFactory.CompilationModuleGroup.CrossModuleInlineableModule(emodule));
+                    // Module lookups can also be used in scenarios (e.g. certain module fixups)
+                    // where there is no actual image reference available. In those cases we
+                    // record a default MVID instead of enforcing that the module must have
+                    // been tracked as "indexable" earlier in the pipeline.
                     _manifestAssemblyMvids.Add(default(Guid));
                 }
             }
@@ -264,7 +267,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("ManifestMetadataTableNode");
+            sb.Append("ManifestMetadataTableNode"u8);
         }
 
         private void ComputeLastSetOfModuleIndices()
@@ -298,7 +301,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
             foreach (var idAndAssemblyName in _moduleIdToAssemblyNameMap.OrderBy(x => x.Key))
             {
-                AssemblyName assemblyName = idAndAssemblyName.Value;
+                AssemblyNameInfo assemblyName = idAndAssemblyName.Value;
                 var handle = _mutableModule.TryGetAssemblyRefHandle(assemblyName);
                 Debug.Assert(handle.HasValue);
                 Debug.Assert(((handle.Value & 0xFFFFFF) + (_assemblyRefCount)) == (idAndAssemblyName.Key - 1));
@@ -328,6 +331,11 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                 _manifestAssemblyMvids[i].TryWriteBytes(new Span<byte>(manifestAssemblyMvidTable, GuidByteSize * i, GuidByteSize));
             }
             return manifestAssemblyMvidTable;
+        }
+
+        public void Dispose()
+        {
+            _modulesWhichMustBeIndexable = null;
         }
     }
 }

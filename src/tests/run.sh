@@ -14,6 +14,7 @@ function print_usage {
     echo '  <arch>                           : One of x64, x86, arm, arm64, loongarch64, riscv64, wasm. Defaults to current architecture.'
     echo '  <build configuration>            : One of debug, checked, release. Defaults to debug.'
     echo '  android                          : Set build OS to Android.'
+    echo '  wasi                             : Set build OS to WASI.'
     echo '  --test-env=<path>                : Script to set environment variables for tests'
     echo '  --testRootDir=<path>             : Root directory of the test build (e.g. runtime/artifacts/tests/windows.x64.Debug).'
     echo '  --coreRootDir=<path>             : Directory to the CORE_ROOT location.'
@@ -40,6 +41,9 @@ function print_usage {
     echo '  --runincontext                   : Run each tests in an unloadable AssemblyLoadContext'
     echo '  --tieringtest                    : Run each test to encourage tier1 rejitting'
     echo '  --runnativeaottests              : Run NativeAOT compiled tests'
+    echo '  --interpreter                    : Runs the tests with the interpreter enabled'
+    echo '  --node                           : Runs the tests with NodeJS (wasm only)'
+    echo '  --tree=<path>                    : Only run tests under the specified subtree (e.g. JIT/Regression)'
     echo '  --limitedDumpGeneration          : '
 }
 
@@ -50,7 +54,7 @@ readonly EXIT_CODE_TEST_FAILURE=2  # Script completed successfully, but one or m
 
 scriptPath="$(cd "$(dirname "$BASH_SOURCE[0]")"; pwd -P)"
 repoRootDir="$(cd "$scriptPath"/../..; pwd -P)"
-source "$repoRootDir/eng/native/init-os-and-arch.sh"
+source "$repoRootDir/eng/common/native/init-os-and-arch.sh"
 
 # Argument variables
 buildArch="$arch"
@@ -70,9 +74,16 @@ runSequential=0
 runincontext=0
 tieringtest=0
 nativeaottest=0
+treeSubtree=
 
 for i in "$@"
 do
+    if [[ "$__nextTreeArg" == "1" ]]; then
+        treeSubtree="$i"
+        __nextTreeArg=
+        continue
+    fi
+
     case $i in
         -h|--help)
             print_usage
@@ -105,6 +116,9 @@ do
         android)
             buildOS="android"
             ;;
+        wasi)
+            buildOS="wasi"
+            ;;
         debug|Debug)
             buildConfiguration="Debug"
             ;;
@@ -128,10 +142,6 @@ do
             ;;
         --jitforcerelocs)
             export DOTNET_ForceRelocs=1
-            ;;
-        --link=*)
-            export ILLINK=${i#*=}
-            export DoLink=true
             ;;
         --ilasmroundtrip)
             ((ilasmroundtrip = 1))
@@ -187,6 +197,21 @@ do
         --runnativeaottests)
             nativeaottest=1
             ;;
+        --tree=*|-tree=*)
+            treeSubtree=${i#*=}
+            ;;
+        --tree:*|-tree:*)
+            treeSubtree=${i#*:}
+            ;;
+        --tree|-tree)
+            __nextTreeArg=1
+            ;;
+        --interpreter)
+            export RunInterpreter=1
+            ;;
+        --node)
+            export RunWithNodeJS=1
+            ;;
         *)
             echo "Unknown switch: $i"
             print_usage
@@ -194,6 +219,11 @@ do
             ;;
     esac
 done
+
+# Set default for RunWithNodeJS when using wasm architecture
+if [ "$buildArch" = "wasm" ] && [ -z "$RunWithNodeJS" ]; then
+    export RunWithNodeJS=1
+fi
 
 ################################################################################
 # Call run.py to run tests.
@@ -204,8 +234,12 @@ runtestPyArguments=("-arch" "${buildArch}" "-build_type" "${buildConfiguration}"
 echo "Build Architecture            : ${buildArch}"
 echo "Build Configuration           : ${buildConfiguration}"
 
-if [ "$buildArch" = "wasm" ]; then
-    runtestPyArguments+=("-os" "browser")
+if [ "$buildArch" = "wasm" -a -z "$buildOS" ]; then
+    buildOS="browser"
+fi
+
+if [ -n "$buildOS" ]; then
+    runtestPyArguments+=("-os" "$buildOS")
 fi
 
 if [ "$buildOS" = "android" ]; then
@@ -287,6 +321,21 @@ fi
 if [[ "$nativeaottest" -ne 0 ]]; then
     echo "Running NativeAOT compiled tests"
     runtestPyArguments+=("--run_nativeaot_tests")
+fi
+
+if [[ -n "$RunInterpreter" ]]; then
+    echo "Running tests with the interpreter"
+    runtestPyArguments+=("--interpreter")
+fi
+
+if [[ -n "$RunWithNodeJS" ]]; then
+    echo "Running tests with NodeJS"
+    runtestPyArguments+=("--node")
+fi
+
+if [[ -n "$treeSubtree" ]]; then
+    echo "Running tests under subtree   : ${treeSubtree}"
+    runtestPyArguments+=("--tree" "$treeSubtree")
 fi
 
 # Default to python3 if it is installed

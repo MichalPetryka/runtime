@@ -106,13 +106,43 @@ namespace Microsoft.Extensions.Caching.Memory
             }
         }
 
-#if NET6_0_OR_GREATER
+#if NET
         [Fact]
         public void GetCurrentStatistics_DIMReturnsNull()
         {
             Assert.Null((new FakeMemoryCache() as IMemoryCache).GetCurrentStatistics());
         }
 #endif
+
+        [Fact]
+        public void GetCurrentStatistics_ExplicitRemove_DoesNotTrackEviction()
+        {
+            var cache = new MemoryCache(new MemoryCacheOptions { TrackStatistics = true });
+
+            cache.Set("key", "value");
+            cache.Remove("key");
+
+            MemoryCacheStatistics? stats = cache.GetCurrentStatistics();
+            Assert.NotNull(stats);
+            Assert.Equal(0, stats.TotalEvictions);
+        }
+
+        [Fact]
+        public void GetCurrentStatistics_Compact_TracksTotalEvictions()
+        {
+            var cache = new MemoryCache(new MemoryCacheOptions { TrackStatistics = true });
+
+            for (int i = 0; i < 10; i++)
+            {
+                cache.Set($"key{i}", $"value{i}");
+            }
+
+            cache.Compact(1.0);
+
+            MemoryCacheStatistics? stats = cache.GetCurrentStatistics();
+            Assert.NotNull(stats);
+            Assert.Equal(10, stats.TotalEvictions);
+        }
 
         private class FakeMemoryCache : IMemoryCache
         {

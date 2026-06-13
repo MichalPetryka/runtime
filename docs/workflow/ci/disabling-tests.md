@@ -16,7 +16,7 @@ There are two main sets of tests in the repo: runtime tests in the src/tests tre
 are spread amongst the libraries in the src/libraries tree. (There are also PAL tests in src/coreclr/pal/tests, which
 are ignored here.)
 
-The two types have very different mechanisms for disabling.
+The two types have similar mechanisms for disabling, but the runtime tests have more options given how they build and execute.
 
 ## Test configuration
 
@@ -40,20 +40,48 @@ expedient to disable the test more broadly than possibly required.
 
 ## Disabling runtime tests (src/tests)
 
-Most tests are disabled by adding the test to the appropriate place, under the appropriate configuration condition,
-in the [issues.targets](../../../src/tests/issues.targets) file. All temporarily disabled tests must have a
-link to a GitHub issue in the `<Issue>` element. Disabling a test here can be conditioned on processor
-architecture, runtime, and operating system.
 
-However, some test configurations must be disabled by editing the `.csproj` or `.ilproj` file for the test,
+### Disabling runtime tests (src/tests) with xunit attributes
+
+The runtime tests use an XUnit-based model for test execution. There are [a number of attributes provided for filtering](../testing/libraries/filtering-tests.md)
+based on different test modes. Here are some examples of attributes that can be applied to tests to prevent them from running in certain configurations:
+
+- Prevent a test from running on Mono: `[SkipOnMono]`
+- Prevent a test from running on CoreCLR: `[SkipOnCoreClr]`
+- Prevent a test from running on NativeAOT: `[ConditionalFact("", typeof(TestLibrary.Utilities), nameof(Utilities.IsNotNativeAot))]` instead of `[Fact]`
+- Prevent a test from running under GCStress: `[SkipOnCoreClr("Reason", RuntimeTestModes.AnyGCStress)]`
+- Prevent a test from running under HeapVerify: `[SkipOnCoreClr("Reason", RuntimeTestModes.HeapVerify)]`
+- Prevent a test from running under JIT stress modes: `[SkipOnCoreClr("Reason", RuntimeTestModes.AnyJitStress)]`
+
+Additionally, the `ConditionalFact`, `ConditionalTheory`, `PlatformSpecific`, and `ActiveIssue` attributes are available for usage to disable or enable tests only on specific platforms or configurations.
+
+Some test modes are processed at the assembly level. For these tests, you should mark the tests as `<RequiresProcessIsolation>true</RequiresProcessIsolation>` and set one of the attributes in the following section.
+
+### Disabling runtime tests (src/tests) with CLRTestTargetUnsupported
+
+Generally, tests should be diabled via xunit attributes unless it is not possible to do so. There are a few scenarios where this might occur, all in cases where the test project is marked with `<RequiresProcessIsolation>true</RequiresProcessIsolation>`:
+
+- A test may have an explicit `Main` method and not use the `XUnitWrapperGenerator`. In this case, the XUnit attributes will not apply.
+- A test may be written in a non-C# language (generally IL) and be required to have `<RequiresProcessIsolation>true</RequiresProcessIsolation>` for another reason. In this case, there is no generator.
+
+In this case, the test should be disabled by setting the `CLRTestTargetUnsupported` property in its project file with a relevant condition and a comment with the issue link or reason.
+
+### Disabling runtime tests (src/tests) with test configuration properties
+
+Some test configurations must be disabled by editing the `.csproj` or `.ilproj` file for the test,
 and inserting a property in a `<PropertyGroup>`, as follows:
 
-- Prevent a test from running under GCStress: add `<GCStressIncompatible>true</GCStressIncompatible>`
 - Prevent a test from running when testing unloadability: add `<UnloadabilityIncompatible>true</UnloadabilityIncompatible>`
 - Prevent a test from running when testing ildasm/ilasm round-tripping: add `<IlasmRoundTripIncompatible>true</IlasmRoundTripIncompatible>`
-- Prevent a test from running under HeapVerify: add `<HeapVerifyIncompatible>true</HeapVerifyIncompatible>`
-- Prevent a test from running under Mono AOT modes: add `<MonoAotIncompatible>true</MonoAotIncompatible>`
+- Prevent a test assembly from being passed to the Mono AOT compiler: add `<MonoAotIncompatible>true</MonoAotIncompatible>`
+- Prevent a test from being passed to CrossGen2: add `<CrossGenTest>false</CrossGenTest>`
+- Prevent a test from being passed to the NativeAOT ILCompiler and run under NativeAOT: add `<NativeAotIncompatible>true</NativeAotIncompatible>`
+
+When one of the following settings is already required for a given test, the following settings can also be set in the project file instead of via XUnit attributes. They should not be the only reason a test is marked as `<RequiresProcessIsolation>true</RequiresProcessIsolation>`, however.
+
+- Prevent a test from running under GCStress: add `<GCStressIncompatible>true</GCStressIncompatible>`
 - Prevent a test from running running under JIT stress modes: add `<JitOptimizationSensitive>true</JitOptimizationSensitive>`
+- Prevent a test from running under HeapVerify: add `<HeapVerifyIncompatible>true</HeapVerifyIncompatible>`
 
 Note that these properties can be conditional, e.g.:
 ```
@@ -63,13 +91,6 @@ Note that these properties can be conditional, e.g.:
 (REVIEW: I'm not clear which conditions are allowed, and respected.)
 
 More information about writing/adding tests to src/tests can be found [here](../testing/coreclr/test-configuration.md).
-
-## Disabling runtime tests (src/tests) with xunit attributes
-
-When this document was written, the src/tests tree was in the process of being converted to a new
-execution model (see [dotnet/runtime#54512](https://github.com/dotnet/runtime/issues/54512)). This model annotates tests with xunit-style
-`[Fact]` attributes. For tests which have been converted to this form, all the xunit attributes related to test disabling
-described in the "src/libraries" section below are also applicable.
 
 ## Disabling libraries tests (src/libraries)
 

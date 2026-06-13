@@ -45,6 +45,15 @@ namespace System.Runtime.InteropServices.JavaScript
         });
 
         /// <summary>
+        /// Dispatches the call asynchronously and doesn't wait for result.
+        /// </summary>
+        /// <returns>The marshaler metadata.</returns>
+        public static JSMarshalerType DiscardNoWait { get; } = new JSMarshalerType(new JSFunctionBinding.JSBindingType
+        {
+            Type = MarshalerType.DiscardNoWait
+        });
+
+        /// <summary>
         /// Marshal as JavaScript <see href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">Boolean</see> type.
         /// </summary>
         /// <returns>The marshaler metadata.</returns>
@@ -453,6 +462,7 @@ namespace System.Runtime.InteropServices.JavaScript
             if (underlying == MarshalerType.Byte
                 || underlying == MarshalerType.Int32
                 || underlying == MarshalerType.Double
+                || underlying == MarshalerType.Single
                 || underlying == MarshalerType.String
                 || underlying == MarshalerType.Object
                 || underlying == MarshalerType.JSObject
@@ -466,6 +476,7 @@ namespace System.Runtime.InteropServices.JavaScript
             if (underlying == MarshalerType.Byte
                 || underlying == MarshalerType.Int32
                 || underlying == MarshalerType.Double
+                || underlying == MarshalerType.Single
                 ) return;
             throw new ArgumentException(SR.Format(SR.UnsupportedElementType, underlying), nameof(underlyingType));
         }
@@ -477,7 +488,6 @@ namespace System.Runtime.InteropServices.JavaScript
             if (underlying == MarshalerType.Array
                 || underlying == MarshalerType.ArraySegment
                 || underlying == MarshalerType.Span
-
                 || underlying == MarshalerType.Task
                 || underlying == MarshalerType.Action
                 || underlying == MarshalerType.Function

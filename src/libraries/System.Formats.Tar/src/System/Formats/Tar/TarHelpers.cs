@@ -19,7 +19,6 @@ namespace System.Formats.Tar
     {
         internal const short RecordSize = 512;
         internal const int MaxBufferLength = 4096;
-        internal const long MaxSizeLength = (1L << 33) - 1; // Max value of 11 octal digits = 2^33 - 1 or 8 Gb.
 
         internal const UnixFileMode ValidUnixFileModes =
             UnixFileMode.UserRead |
@@ -59,13 +58,19 @@ namespace System.Formats.Tar
             else if (bytesToDiscard > 0)
             {
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(minimumLength: (int)Math.Min(MaxBufferLength, bytesToDiscard));
-                while (bytesToDiscard > 0)
+                try
                 {
-                    int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToDiscard);
-                    archiveStream.ReadExactly(buffer.AsSpan(0, currentLengthToRead));
-                    bytesToDiscard -= currentLengthToRead;
+                    while (bytesToDiscard > 0)
+                    {
+                        int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToDiscard);
+                        archiveStream.ReadExactly(buffer.AsSpan(0, currentLengthToRead));
+                        bytesToDiscard -= currentLengthToRead;
+                    }
                 }
-                ArrayPool<byte>.Shared.Return(buffer);
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
         }
 
@@ -81,13 +86,19 @@ namespace System.Formats.Tar
             else if (bytesToDiscard > 0)
             {
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(minimumLength: (int)Math.Min(MaxBufferLength, bytesToDiscard));
-                while (bytesToDiscard > 0)
+                try
                 {
-                    int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToDiscard);
-                    await archiveStream.ReadExactlyAsync(buffer, 0, currentLengthToRead, cancellationToken).ConfigureAwait(false);
-                    bytesToDiscard -= currentLengthToRead;
+                    while (bytesToDiscard > 0)
+                    {
+                        int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToDiscard);
+                        await archiveStream.ReadExactlyAsync(buffer, 0, currentLengthToRead, cancellationToken).ConfigureAwait(false);
+                        bytesToDiscard -= currentLengthToRead;
+                    }
                 }
-                ArrayPool<byte>.Shared.Return(buffer);
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
         }
 
@@ -95,14 +106,20 @@ namespace System.Formats.Tar
         internal static void CopyBytes(Stream origin, Stream destination, long bytesToCopy)
         {
             byte[] buffer = ArrayPool<byte>.Shared.Rent(minimumLength: (int)Math.Min(MaxBufferLength, bytesToCopy));
-            while (bytesToCopy > 0)
+            try
             {
-                int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToCopy);
-                origin.ReadExactly(buffer.AsSpan(0, currentLengthToRead));
-                destination.Write(buffer.AsSpan(0, currentLengthToRead));
-                bytesToCopy -= currentLengthToRead;
+                while (bytesToCopy > 0)
+                {
+                    int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToCopy);
+                    origin.ReadExactly(buffer.AsSpan(0, currentLengthToRead));
+                    destination.Write(buffer.AsSpan(0, currentLengthToRead));
+                    bytesToCopy -= currentLengthToRead;
+                }
             }
-            ArrayPool<byte>.Shared.Return(buffer);
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         // Asynchronously helps copy a specific number of bytes from one stream into another.
@@ -111,15 +128,21 @@ namespace System.Formats.Tar
             cancellationToken.ThrowIfCancellationRequested();
 
             byte[] buffer = ArrayPool<byte>.Shared.Rent(minimumLength: (int)Math.Min(MaxBufferLength, bytesToCopy));
-            while (bytesToCopy > 0)
+            try
             {
-                int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToCopy);
-                Memory<byte> memory = buffer.AsMemory(0, currentLengthToRead);
-                await origin.ReadExactlyAsync(buffer, 0, currentLengthToRead, cancellationToken).ConfigureAwait(false);
-                await destination.WriteAsync(memory, cancellationToken).ConfigureAwait(false);
-                bytesToCopy -= currentLengthToRead;
+                while (bytesToCopy > 0)
+                {
+                    int currentLengthToRead = (int)Math.Min(MaxBufferLength, bytesToCopy);
+                    Memory<byte> memory = buffer.AsMemory(0, currentLengthToRead);
+                    await origin.ReadExactlyAsync(buffer, 0, currentLengthToRead, cancellationToken).ConfigureAwait(false);
+                    await destination.WriteAsync(memory, cancellationToken).ConfigureAwait(false);
+                    bytesToCopy -= currentLengthToRead;
+                }
             }
-            ArrayPool<byte>.Shared.Return(buffer);
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         // Returns the number of bytes until the next multiple of the record size.
@@ -131,7 +154,7 @@ namespace System.Formats.Tar
         }
 
         // Returns true if all the bytes in the specified array are nulls, false otherwise.
-        internal static bool IsAllNullBytes(Span<byte> buffer) =>
+        internal static bool IsAllNullBytes(ReadOnlySpan<byte> buffer) =>
             !buffer.ContainsAnyExcept((byte)0);
 
         // Converts the specified number of seconds that have passed since the Unix Epoch to a DateTimeOffset.
@@ -195,6 +218,9 @@ namespace System.Formats.Tar
             return false;
         }
 
+        // Chooses the compatible regular file entry type for the specified format.
+        internal static TarEntryType GetRegularFileEntryTypeForFormat(TarEntryFormat format) => format is TarEntryFormat.V7 ? TarEntryType.V7RegularFile : TarEntryType.RegularFile;
+
         // When writing an entry that came from an archive of a different format, if its entry type happens to
         // be an incompatible regular file entry type, convert it to the compatible one.
         // No change for all other entry types.
@@ -215,11 +241,36 @@ namespace System.Formats.Tar
             return entryType;
         }
 
+        /// <summary>Parses a numeric field.</summary>
+        internal static T ParseNumeric<T>(ReadOnlySpan<byte> buffer) where T : struct, INumber<T>, IBinaryInteger<T>
+        {
+            // The tar standard specifies that numeric fields are stored using an octal representation.
+            // This limits the range of values that can be stored in the fields.
+            // To increase the supported range, a GNU extension defines that when the leading byte is
+            // '0xff'/'0x80' the remaining bytes are a negative/positive big formatted endian value.
+            // Like the 'tar' tool we are permissive when encountering this representation in non GNU formats.
+            byte leadingByte = buffer[0];
+            if (leadingByte == 0xff)
+            {
+                return T.ReadBigEndian(buffer, isUnsigned: false);
+            }
+            else if (leadingByte == 0x80)
+            {
+                return T.ReadBigEndian(buffer.Slice(1), isUnsigned: true);
+            }
+            else
+            {
+                return ParseOctal<T>(buffer);
+            }
+        }
+
         /// <summary>Parses a byte span that represents an ASCII string containing a number in octal base.</summary>
         internal static T ParseOctal<T>(ReadOnlySpan<byte> buffer) where T : struct, INumber<T>
         {
-            buffer = TrimEndingNullsAndSpaces(buffer);
-            buffer = TrimLeadingNullsAndSpaces(buffer);
+            buffer = TrimNullTerminated(buffer);
+
+            // We ignore spaces because some archives seem to have them (even though they shouldn't).
+            buffer = buffer.Trim((byte)' ');
 
             if (buffer.Length == 0)
             {
@@ -244,45 +295,24 @@ namespace System.Formats.Tar
 
         [DoesNotReturn]
         private static void ThrowInvalidNumber() =>
-            throw new InvalidDataException(SR.Format(SR.TarInvalidNumber));
+            throw new InvalidDataException(SR.TarInvalidNumber);
 
-        // Returns the string contained in the specified buffer of bytes,
-        // in the specified encoding, removing the trailing null or space chars.
-        private static string GetTrimmedString(ReadOnlySpan<byte> buffer, Encoding encoding)
+        // Returns the null-terminated UTF8 string contained in the specified buffer.
+        internal static string ParseUtf8String(ReadOnlySpan<byte> buffer)
         {
-            buffer = TrimEndingNullsAndSpaces(buffer);
-            return buffer.IsEmpty ? string.Empty : encoding.GetString(buffer);
+            buffer = TrimNullTerminated(buffer);
+            return Encoding.UTF8.GetString(buffer);
         }
 
-        internal static ReadOnlySpan<byte> TrimEndingNullsAndSpaces(ReadOnlySpan<byte> buffer)
+        internal static ReadOnlySpan<byte> TrimNullTerminated(ReadOnlySpan<byte> buffer)
         {
-            int trimmedLength = buffer.Length;
-            while (trimmedLength > 0 && buffer[trimmedLength - 1] is 0 or 32)
+            int i = buffer.IndexOf((byte)0);
+            if (i != -1)
             {
-                trimmedLength--;
+                buffer = buffer[0..i];
             }
-
-            return buffer.Slice(0, trimmedLength);
+            return buffer;
         }
-
-        private static ReadOnlySpan<byte> TrimLeadingNullsAndSpaces(ReadOnlySpan<byte> buffer)
-        {
-            int newStart = 0;
-            while (newStart < buffer.Length && buffer[newStart] is 0 or 32)
-            {
-                newStart++;
-            }
-
-            return buffer.Slice(newStart);
-        }
-
-        // Returns the ASCII string contained in the specified buffer of bytes,
-        // removing the trailing null or space chars.
-        internal static string GetTrimmedAsciiString(ReadOnlySpan<byte> buffer) => GetTrimmedString(buffer, Encoding.ASCII);
-
-        // Returns the UTF8 string contained in the specified buffer of bytes,
-        // removing the trailing null or space chars.
-        internal static string GetTrimmedUtf8String(ReadOnlySpan<byte> buffer) => GetTrimmedString(buffer, Encoding.UTF8);
 
         // After the file contents, there may be zero or more null characters,
         // which exist to ensure the data is aligned to the record size. Skip them and

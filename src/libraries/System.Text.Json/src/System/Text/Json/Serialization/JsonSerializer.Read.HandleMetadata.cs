@@ -27,6 +27,52 @@ namespace System.Text.Json
             Debug.Assert(state.Current.ObjectState == StackFrameObjectState.StartToken);
             Debug.Assert(state.Current.CanContainMetadata);
 
+            // Custom classifier branch: runs BEFORE normal metadata scanning.
+            // When a TypeClassifier is configured, it replaces discriminator-based type resolution.
+            PolymorphicTypeResolver? polymorphicResolver = jsonTypeInfo.PolymorphicTypeResolver;
+            if (polymorphicResolver is not null && jsonTypeInfo.TypeClassifier is { } typeClassifier)
+            {
+                // Ensure the entire object is buffered (for streaming scenarios).
+                if (!reader.IsFinalBlock)
+                {
+                    Utf8JsonReader bufferCheck = reader;
+                    if (!bufferCheck.TrySkipPartial())
+                    {
+                        return false;
+                    }
+                }
+
+                // If reference handling is configured and the payload is a $ref-only object,
+                // defer to the normal metadata loop so the reference resolver can return the
+                // previously-deserialized instance instead of asking the classifier to identify
+                // a type from a metadata-only payload that does not describe one.
+                bool isRefOnlyPayload = false;
+                if (state.ReferenceResolver is not null)
+                {
+                    Utf8JsonReader peek = reader;
+                    if (peek.Read() &&
+                        peek.TokenType == JsonTokenType.PropertyName &&
+                        peek.GetUnescapedSpan().SequenceEqual(s_refPropertyName))
+                    {
+                        isRefOnlyPayload = true;
+                    }
+                }
+
+                if (!isRefOnlyPayload)
+                {
+                    // Classify using a struct copy; the original reader stays at the object start.
+                    Utf8JsonReader classifierCopy = reader;
+                    Type? resolvedType = typeClassifier(ref classifierCopy);
+
+                    if (resolvedType is null)
+                    {
+                        ThrowHelper.ThrowJsonException(SR.PolymorphicTypeClassifierReturnedNull);
+                    }
+
+                    state.PolymorphicResolvedType = resolvedType;
+                }
+            }
+
             Utf8JsonReader checkpoint;
             bool allowOutOfOrderMetadata = jsonTypeInfo.Options.AllowOutOfOrderMetadataProperties;
             bool isReadingAheadOfNonMetadataProperties = false;
@@ -323,44 +369,17 @@ namespace System.Text.Json
             {
                 switch (propertyName.Length)
                 {
-                    case 3:
-                        if (propertyName[1] == 'i' &&
-                            propertyName[2] == 'd')
-                        {
-                            return MetadataPropertyName.Id;
-                        }
-                        break;
+                    case 3 when propertyName.SequenceEqual("$id"u8):
+                        return MetadataPropertyName.Id;
 
-                    case 4:
-                        if (propertyName[1] == 'r' &&
-                            propertyName[2] == 'e' &&
-                            propertyName[3] == 'f')
-                        {
-                            return MetadataPropertyName.Ref;
-                        }
-                        break;
+                    case 4 when propertyName.SequenceEqual("$ref"u8):
+                        return MetadataPropertyName.Ref;
 
-                    case 5 when resolver?.CustomTypeDiscriminatorPropertyNameUtf8 is null:
-                        if (propertyName[1] == 't' &&
-                            propertyName[2] == 'y' &&
-                            propertyName[3] == 'p' &&
-                            propertyName[4] == 'e')
-                        {
-                            return MetadataPropertyName.Type;
-                        }
-                        break;
+                    case 5 when resolver?.CustomTypeDiscriminatorPropertyNameUtf8 is null && propertyName.SequenceEqual("$type"u8):
+                        return MetadataPropertyName.Type;
 
-                    case 7:
-                        if (propertyName[1] == 'v' &&
-                            propertyName[2] == 'a' &&
-                            propertyName[3] == 'l' &&
-                            propertyName[4] == 'u' &&
-                            propertyName[5] == 'e' &&
-                            propertyName[6] == 's')
-                        {
-                            return MetadataPropertyName.Values;
-                        }
-                        break;
+                    case 7 when propertyName.SequenceEqual("$values"u8):
+                        return MetadataPropertyName.Values;
                 }
             }
 
@@ -496,15 +515,7 @@ namespace System.Text.Json
                             return value;
                         }
 
-                        JsonValueKind metadataValueKind = jsonNode switch
-                        {
-                            null => JsonValueKind.Null,
-                            JsonObject => JsonValueKind.Object,
-                            JsonArray => JsonValueKind.Array,
-                            JsonValue<JsonElement> element => element.Value.ValueKind,
-                            _ => JsonValueKind.Undefined,
-                        };
-
+                        JsonValueKind metadataValueKind = jsonNode?.GetValueKind() ?? JsonValueKind.Null;
                         Debug.Assert(metadataValueKind != JsonValueKind.Undefined);
                         ThrowHelper.ThrowJsonException_MetadataValueWasNotString(metadataValueKind);
                         return null!;

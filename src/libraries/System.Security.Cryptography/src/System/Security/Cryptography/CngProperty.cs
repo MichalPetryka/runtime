@@ -27,7 +27,14 @@ namespace System.Security.Cryptography
             _value = value.CloneByteArray();
         }
 
-        internal CngProperty(string name, ReadOnlySpan<byte> value, CngPropertyOptions options)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CngProperty" /> struct.
+        /// </summary>
+        /// <param name="name">The property name to set.</param>
+        /// <param name="value">The property value to set.</param>
+        /// <param name="options">A bitwise combination of the enumeration values that specify how the property is stored.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="name" /> is <see langword="null" />.</exception>
+        public CngProperty(string name, ReadOnlySpan<byte> value, CngPropertyOptions options)
             : this()
         {
             ArgumentNullException.ThrowIfNull(name);
@@ -52,7 +59,7 @@ namespace System.Security.Cryptography
         /// <summary>
         ///     Options used to set / get the property
         /// </summary>
-        public CngPropertyOptions Options { get; private set; }
+        public CngPropertyOptions Options { get; }
 
         public override bool Equals([NotNullWhen(true)] object? obj)
         {

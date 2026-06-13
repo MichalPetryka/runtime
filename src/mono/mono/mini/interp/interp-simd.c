@@ -2,7 +2,7 @@
 #include "interp-internals.h"
 #include "interp-simd.h"
 
-#if HOST_BROWSER
+#if HOST_BROWSER || HOST_WASI
 #include <wasm_simd128.h>
 #endif
 
@@ -315,47 +315,15 @@ interp_v128_u2_widen_upper (gpointer res, gpointer v1)
 static void
 interp_v128_u1_narrow (gpointer res, gpointer v1, gpointer v2)
 {
-	guint8 *res_typed = (guint8*)res;
+	guint8 res_typed [SIZEOF_V128];
 	guint16 *v1_typed = (guint16*)v1;
 	guint16 *v2_typed = (guint16*)v2;
 
-	if (res != v2) {
-		res_typed [0] = v1_typed [0];
-		res_typed [1] = v1_typed [1];
-		res_typed [2] = v1_typed [2];
-		res_typed [3] = v1_typed [3];
-		res_typed [4] = v1_typed [4];
-		res_typed [5] = v1_typed [5];
-		res_typed [6] = v1_typed [6];
-		res_typed [7] = v1_typed [7];
-
-		res_typed [8] = v2_typed [0];
-		res_typed [9] = v2_typed [1];
-		res_typed [10] = v2_typed [2];
-		res_typed [11] = v2_typed [3];
-		res_typed [12] = v2_typed [4];
-		res_typed [13] = v2_typed [5];
-		res_typed [14] = v2_typed [6];
-		res_typed [15] = v2_typed [7];
-	} else {
-		res_typed [15] = v2_typed [7];
-		res_typed [14] = v2_typed [6];
-		res_typed [13] = v2_typed [5];
-		res_typed [12] = v2_typed [4];
-		res_typed [11] = v2_typed [3];
-		res_typed [10] = v2_typed [2];
-		res_typed [9] = v2_typed [1];
-		res_typed [8] = v2_typed [0];
-
-		res_typed [0] = v1_typed [0];
-		res_typed [1] = v1_typed [1];
-		res_typed [2] = v1_typed [2];
-		res_typed [3] = v1_typed [3];
-		res_typed [4] = v1_typed [4];
-		res_typed [5] = v1_typed [5];
-		res_typed [6] = v1_typed [6];
-		res_typed [7] = v1_typed [7];
-	}
+	for (int i = 0; i < 8; i++)
+		res_typed [i] = v1_typed [i];
+	for (int i = 0; i < 8; i++)
+		res_typed [i + 8] = v2_typed [i];
+	memcpy (res, res_typed, SIZEOF_V128);
 }
 
 // GreaterThan
@@ -643,6 +611,12 @@ interp_v128_i8_shuffle (gpointer res, gpointer v1, gpointer v2)
 // https://github.com/llvm/llvm-project/blob/main/clang/lib/Headers/wasm_simd128.h
 // In this context V means Vector128 and P means void* pointer.
 #ifdef HOST_BROWSER
+#define HOST_WASM_SIMD 1
+#elif defined(HOST_WASI)
+#define HOST_WASM_SIMD 1
+#endif
+
+#if HOST_WASM_SIMD
 
 static v128_t
 _interp_wasm_simd_assert_not_reached (v128_t lhs, v128_t rhs) {
@@ -963,7 +937,7 @@ int interp_simd_p_ppp_wasm_opcode_table [] = {
 #undef INTERP_SIMD_INTRINSIC_P_PPP
 #define INTERP_SIMD_INTRINSIC_P_PPP(a,b,c)
 
-#endif // HOST_BROWSER
+#endif // HOST_WASM_SIMD
 
 #undef INTERP_SIMD_INTRINSIC_P_P
 #define INTERP_SIMD_INTRINSIC_P_P(a,b,c) b,

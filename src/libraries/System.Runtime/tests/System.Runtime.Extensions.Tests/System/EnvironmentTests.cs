@@ -58,18 +58,18 @@ namespace System.Tests
             Assert.Equal(Environment.CurrentManagedThreadId, Environment.CurrentManagedThreadId);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void CurrentManagedThreadId_DifferentForActiveThreads()
         {
             var ids = new HashSet<int>();
             Barrier b = new Barrier(10);
-            Task.WaitAll((from i in Enumerable.Range(0, b.ParticipantCount)
-                          select Task.Factory.StartNew(() =>
-                          {
-                              b.SignalAndWait();
-                              lock (ids) ids.Add(Environment.CurrentManagedThreadId);
-                              b.SignalAndWait();
-                          }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray());
+            Task.WaitAll(from i in Enumerable.Range(0, b.ParticipantCount)
+                         select Task.Factory.StartNew(() =>
+                         {
+                             b.SignalAndWait();
+                             lock (ids) ids.Add(Environment.CurrentManagedThreadId);
+                             b.SignalAndWait();
+                         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default));
             Assert.Equal(b.ParticipantCount, ids.Count);
         }
 
@@ -94,7 +94,8 @@ namespace System.Tests
         }
 
         [Fact]
-        [SkipOnPlatform(TestPlatforms.iOS | TestPlatforms.tvOS, "Throws PNSE")]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/123011", typeof(PlatformDetection), nameof(PlatformDetection.IsBrowser), nameof(PlatformDetection.IsCoreCLR))]
+        [SkipOnPlatform(TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.Android, "Throws PNSE")]
         public void ProcessPath_MatchesExpectedValue()
         {
             string expectedProcessPath = PlatformDetection.IsBrowser ? null : Process.GetCurrentProcess().MainModule.FileName;
@@ -139,7 +140,7 @@ namespace System.Tests
         public void OSVersion_MatchesPlatform()
         {
             PlatformID id = Environment.OSVersion.Platform;
-            PlatformID expected = OperatingSystem.IsWindows() ? PlatformID.Win32NT : OperatingSystem.IsBrowser() ? PlatformID.Other : PlatformID.Unix;
+            PlatformID expected = OperatingSystem.IsWindows() ? PlatformID.Win32NT : (OperatingSystem.IsBrowser() || OperatingSystem.IsWasi()) ? PlatformID.Other : PlatformID.Unix;
             Assert.Equal(expected, id);
         }
 
@@ -154,7 +155,7 @@ namespace System.Tests
 
             Assert.Contains(version.ToString(2), versionString);
 
-            string expectedOS = OperatingSystem.IsWindows() ? "Windows " : OperatingSystem.IsBrowser() ? "Other " : "Unix ";
+            string expectedOS = OperatingSystem.IsWindows() ? "Windows " : (OperatingSystem.IsBrowser() || OperatingSystem.IsWasi()) ? "Other " : "Unix ";
             Assert.Contains(expectedOS, versionString);
         }
 
@@ -224,7 +225,7 @@ namespace System.Tests
         [Fact]
         public void Version_Valid()
         {
-            Assert.True(Environment.Version >= new Version(3, 0));
+            Assert.Equal(Version.Parse((string)AppContext.GetData("System.Runtime.Extensions.Tests.EnvironmentTests.ExpectedVersion")), Environment.Version);
         }
 
         [Fact]
@@ -394,6 +395,7 @@ namespace System.Tests
         [InlineData(Environment.SpecialFolder.MyPictures, Environment.SpecialFolderOption.DoNotVerify)]
         [InlineData(Environment.SpecialFolder.Fonts, Environment.SpecialFolderOption.DoNotVerify)]
         [ActiveIssue("https://github.com/dotnet/runtime/issues/49868", TestPlatforms.Android)]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/123011", typeof(PlatformDetection), nameof(PlatformDetection.IsBrowser), nameof(PlatformDetection.IsCoreCLR))]
         public void GetFolderPath_Unix_NonEmptyFolderPaths(Environment.SpecialFolder folder, Environment.SpecialFolderOption option)
         {
             Assert.NotEmpty(Environment.GetFolderPath(folder, option));
@@ -571,6 +573,52 @@ namespace System.Tests
                 {
                     Assert.Contains((char)('A' + bit), drives[d++]);
                 }
+            }
+        }
+
+        [Fact]
+        public void TestCpuUsage()
+        {
+            if ((OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) || PlatformDetection.IstvOS || PlatformDetection.IsBrowser)
+            {
+                Environment.ProcessCpuUsage usage = Environment.CpuUsage;
+
+                if (usage.UserTime == TimeSpan.Zero)
+                {
+                    // Environment should return 0 for all values
+                    Assert.True(usage.PrivilegedTime == TimeSpan.Zero, $"Unexpected privileged time: {usage.PrivilegedTime} while having user time: {usage.UserTime}");
+                    Assert.True(usage.TotalTime == TimeSpan.Zero, $"Unexpected Zero Total while having privileged time: {usage.PrivilegedTime} and user time: {usage.UserTime}");
+                }
+                else
+                {
+                    // Mobile platforms emulators may return non-zero values. tvOS is possible returning Zero privileged time though.
+                    Assert.True(PlatformDetection.IstvOS || TimeSpan.Zero != usage.PrivilegedTime, $"Unexpected Zero privileged time while having user time: {usage.UserTime}");
+                    Assert.True(usage.TotalTime == usage.UserTime + usage.PrivilegedTime, $"Unexpected Total time: {usage.TotalTime} while having privileged time: {usage.PrivilegedTime} and user time: {usage.UserTime}");
+                }
+            }
+            else
+            {
+                Process currentProcess = Process.GetCurrentProcess();
+
+                TimeSpan userTime = currentProcess.UserProcessorTime;
+                TimeSpan privilegedTime = currentProcess.PrivilegedProcessorTime;
+                TimeSpan totalTime = currentProcess.TotalProcessorTime;
+
+                Environment.ProcessCpuUsage usage = Environment.CpuUsage;
+                Assert.True(usage.UserTime.TotalMilliseconds >= 0);
+                Assert.True(usage.PrivilegedTime.TotalMilliseconds >= 0);
+                Assert.True(usage.TotalTime.TotalMilliseconds >= 0);
+                Assert.Equal(usage.TotalTime, usage.UserTime + usage.PrivilegedTime);
+
+                Assert.True(usage.UserTime >= userTime);
+                Assert.True(usage.PrivilegedTime >= privilegedTime);
+                Assert.True(usage.TotalTime >= totalTime);
+
+                TimeSpan delta = TimeSpan.FromMinutes(1);
+
+                Assert.True(usage.UserTime - userTime < delta);
+                Assert.True(usage.PrivilegedTime - privilegedTime < delta);
+                Assert.True(usage.TotalTime - totalTime < delta);
             }
         }
 

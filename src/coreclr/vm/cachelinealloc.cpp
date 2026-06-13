@@ -39,10 +39,6 @@ CCacheLineAllocator::CCacheLineAllocator()
         MODE_ANY;
     }
     CONTRACTL_END;
-
-    m_freeList32.Init();
-    m_freeList64.Init();
-    m_registryList.Init();
 }
 
 ///////////////////////////////////////////////////////
@@ -67,7 +63,7 @@ CCacheLineAllocator::~CCacheLineAllocator()
         {
             if(tempPtr->m_pAddr[i] != NULL)
             {
-                if (!g_fProcessDetach)
+                if (!IsAtProcessExit())
                     VFree(tempPtr->m_pAddr[i]);
             }
         }

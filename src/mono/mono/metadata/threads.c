@@ -60,7 +60,6 @@
 #include <mono/metadata/mono-config.h>
 #include <mono/metadata/jit-info.h>
 #include <mono/utils/mono-tls-inline.h>
-#include <mono/utils/lifo-semaphore.h>
 #include <mono/utils/w32subset.h>
 
 #ifdef HAVE_SYS_WAIT_H
@@ -205,7 +204,7 @@ static MonoThreadAttachCB mono_thread_attach_cb = NULL;
 static MonoThreadCleanupFunc mono_thread_cleanup_fn = NULL;
 
 /* The default stack size for each thread */
-static guint32 default_stacksize = 0;
+static guint32 default_stacksize = ~0;
 
 static void mono_free_static_data (gpointer* static_data);
 static void mono_init_static_data_info (StaticDataInfo *static_data);
@@ -1242,8 +1241,7 @@ start_wrapper_internal (StartInfo *start_info, gsize *stack_ptr)
 
 	if (G_UNLIKELY (external_eventloop)) {
 		/* if the thread wants to stay alive in an external eventloop, don't clean up after it */
-		if (mono_thread_platform_external_eventloop_keepalive_check ())
-			return 0; // MONO_ENTER_GC_SAFE_UNBALANCED is done in start_wrapper
+		return 0; // MONO_ENTER_GC_SAFE_UNBALANCED is done in start_wrapper
 	}
 
 	/* Do any cleanup needed for apartment state. This
@@ -1278,11 +1276,9 @@ start_wrapper (gpointer data)
 
 	if (G_UNLIKELY (external_eventloop)) {
 		/* if the thread wants to stay alive, don't clean up after it */
-		if (mono_thread_platform_external_eventloop_keepalive_check ()) {
-			/* while we wait in the external eventloop, we're GC safe */
-			MONO_ENTER_GC_SAFE_UNBALANCED;
-			return 0;
-		}
+		/* while we wait in the external eventloop, we're GC safe */
+		MONO_ENTER_GC_SAFE_UNBALANCED;
+		return 0;
 	}
 
 	mono_thread_info_exit (res);
@@ -1375,7 +1371,7 @@ create_thread (MonoThread *thread, MonoInternalThread *internal, MonoThreadStart
 	mono_coop_sem_init (&start_info->registered, 0);
 
 	if (flags != MONO_THREAD_CREATE_FLAGS_SMALL_STACK)
-		stack_set_size = stack_size ? stack_size : default_stacksize;
+		stack_set_size = stack_size ? stack_size : mono_threads_get_default_stacksize();
 	else
 		stack_set_size = 0;
 
@@ -1449,6 +1445,21 @@ mono_threads_set_default_stacksize (guint32 stacksize)
 guint32
 mono_threads_get_default_stacksize (void)
 {
+	if (default_stacksize == ~0)
+	{
+		unsigned long stacksize = 0;
+
+		const char *value = g_getenv ("DOTNET_Thread_DefaultStackSize");
+		if (value) {
+			errno = 0;
+			stacksize = strtoul (value, NULL, 16);
+			if (errno != 0 || stacksize >= UINT_MAX)
+				stacksize = 0;
+		}
+
+		default_stacksize = (guint32)stacksize;
+	}
+
 	return default_stacksize;
 }
 
@@ -1760,6 +1771,12 @@ MonoThread *
 ves_icall_System_Threading_Thread_GetCurrentThread (void)
 {
 	return mono_thread_current ();
+}
+
+MonoBoolean
+ves_icall_System_Threading_Thread_CurrentThreadIsFinalizerThread (void)
+{
+	return mono_gc_is_finalizer_internal_thread (mono_thread_internal_current ()) ? TRUE : FALSE;
 }
 
 static MonoInternalThread*
@@ -2146,22 +2163,6 @@ gint64 ves_icall_System_Threading_Interlocked_Decrement_Long (gint64 * location)
 	return mono_atomic_dec_i64 (location);
 }
 
-guint8 ves_icall_System_Threading_Interlocked_Exchange_Byte (guint8 *location, guint8 value)
-{
-	if (G_UNLIKELY (!location))
-		return (guint8)set_pending_null_reference_exception ();
-
-	return mono_atomic_xchg_u8(location, value);
-}
-
-gint16 ves_icall_System_Threading_Interlocked_Exchange_Short (gint16 *location, gint16 value)
-{
-	if (G_UNLIKELY (!location))
-		return (gint16)set_pending_null_reference_exception ();
-
-	return mono_atomic_xchg_i16(location, value);
-}
-
 gint32 ves_icall_System_Threading_Interlocked_Exchange_Int (gint32 *location, gint32 value)
 {
 	if (G_UNLIKELY (!location))
@@ -2210,38 +2211,12 @@ ves_icall_System_Threading_Interlocked_Exchange_Long (gint64 *location, gint64 v
 	return mono_atomic_xchg_i64 (location, value);
 }
 
-guint8 ves_icall_System_Threading_Interlocked_CompareExchange_Byte(guint8 *location, guint8 value, guint8 comparand)
-{
-	if (G_UNLIKELY (!location))
-		return (guint8)set_pending_null_reference_exception ();
-
-	return mono_atomic_cas_u8(location, value, comparand);
-}
-
-gint16 ves_icall_System_Threading_Interlocked_CompareExchange_Short(gint16 *location, gint16 value, gint16 comparand)
-{
-	if (G_UNLIKELY (!location))
-		return (gint16)set_pending_null_reference_exception ();
-
-	return mono_atomic_cas_i16(location, value, comparand);
-}
-
 gint32 ves_icall_System_Threading_Interlocked_CompareExchange_Int(gint32 *location, gint32 value, gint32 comparand)
 {
 	if (G_UNLIKELY (!location))
 		return (gint32)set_pending_null_reference_exception ();
 
 	return mono_atomic_cas_i32(location, value, comparand);
-}
-
-gint32 ves_icall_System_Threading_Interlocked_CompareExchange_Int_Success(gint32 *location, gint32 value, gint32 comparand, MonoBoolean *success)
-{
-	if (G_UNLIKELY (!location))
-		return (gint32)set_pending_null_reference_exception ();
-
-	gint32 r = mono_atomic_cas_i32(location, value, comparand);
-	*success = r == comparand;
-	return r;
 }
 
 void
@@ -2986,20 +2961,13 @@ collect_frame (MonoStackFrameInfo *frame, MonoContext *ctx, gpointer data)
 	return FALSE;
 }
 
-/* This needs to be async safe */
 static SuspendThreadResult
 get_thread_dump (MonoThreadInfo *info, gpointer ud)
 {
 	ThreadDumpUserData *user_data = (ThreadDumpUserData *)ud;
 	MonoInternalThread *thread = user_data->thread;
 
-#if 0
-/* This no longer works with remote unwinding */
-	g_string_append_printf (text, " tid=0x%p this=0x%p ", (gpointer)(gsize)thread->tid, thread);
-	mono_thread_internal_describe (thread, text);
-	g_string_append (text, "\n");
-#endif
-
+	/* This needs to be async safe */
 	if (thread == mono_thread_internal_current ())
 		mono_get_eh_callbacks ()->mono_walk_stack_with_ctx (collect_frame, NULL, MONO_UNWIND_SIGNAL_SAFE, ud);
 	else
@@ -3090,7 +3058,7 @@ dump_thread (MonoInternalThread *thread, ThreadDumpUserData *ud, FILE* output_fi
 		MonoStackFrameInfo *frame = &ud->frames [i];
 		MonoMethod *method = NULL;
 
-		if (frame->type == FRAME_TYPE_MANAGED)
+		if (frame->type == FRAME_TYPE_MANAGED && frame->ji && !frame->ji->async)
 			method = mono_jit_info_get_method (frame->ji);
 
 		if (method) {
@@ -4152,9 +4120,8 @@ mono_thread_info_get_last_managed (MonoThreadInfo *info)
 	 * The suspended thread might be holding runtime locks. Make sure we don't try taking
 	 * any runtime locks while unwinding.
 	 */
-	mono_thread_info_set_is_async_context (TRUE);
 	mono_get_eh_callbacks ()->mono_walk_stack_with_state (last_managed, mono_thread_info_get_suspend_state (info), MONO_UNWIND_SIGNAL_SAFE, &ji);
-	mono_thread_info_set_is_async_context (FALSE);
+
 	return ji;
 }
 
@@ -4930,125 +4897,3 @@ ves_icall_System_Threading_Thread_GetCurrentOSThreadId (MonoError *error)
 {
 	return mono_native_thread_os_id_get ();
 }
-
-gpointer
-ves_icall_System_Threading_LowLevelLifoSemaphore_InitInternal (void)
-{
-	return (gpointer)mono_lifo_semaphore_init ();
-}
-
-void
-ves_icall_System_Threading_LowLevelLifoSemaphore_DeleteInternal (gpointer sem_ptr)
-{
-	LifoSemaphoreBase *sem = (LifoSemaphoreBase *)sem_ptr;
-	switch (sem->kind) {
-	case LIFO_SEMAPHORE_NORMAL:
-		mono_lifo_semaphore_delete ((LifoSemaphore*)sem);
-		break;
-#if defined(HOST_BROWSER) && !defined(DISABLE_THREADS)
-	case LIFO_SEMAPHORE_ASYNCWAIT:
-		mono_lifo_semaphore_asyncwait_delete ((LifoSemaphoreAsyncWait*)sem);
-		break;
-#endif
-	default:
-		g_assert_not_reached();
-	}
-}
-
-gint32
-ves_icall_System_Threading_LowLevelLifoSemaphore_TimedWaitInternal (gpointer sem_ptr, gint32 timeout_ms)
-{
-	LifoSemaphore *sem = (LifoSemaphore *)sem_ptr;
-	g_assert (sem->base.kind == LIFO_SEMAPHORE_NORMAL);
-	return mono_lifo_semaphore_timed_wait (sem, timeout_ms);
-}
-
-void
-ves_icall_System_Threading_LowLevelLifoSemaphore_ReleaseInternal (gpointer sem_ptr, gint32 count)
-{
-	LifoSemaphoreBase *sem = (LifoSemaphoreBase *)sem_ptr;
-	switch (sem->kind) {
-	case LIFO_SEMAPHORE_NORMAL:
-		mono_lifo_semaphore_release ((LifoSemaphore*)sem, count);
-		break;
-#if defined(HOST_BROWSER) && !defined(DISABLE_THREADS)
-	case LIFO_SEMAPHORE_ASYNCWAIT:
-		mono_lifo_semaphore_asyncwait_release ((LifoSemaphoreAsyncWait*)sem, count);
-		break;
-#endif
-	default:
-		g_assert_not_reached();
-	}
-}
-
-#if defined(HOST_BROWSER) && !defined(DISABLE_THREADS)
-gpointer
-ves_icall_System_Threading_LowLevelLifoAsyncWaitSemaphore_InitInternal (void)
-{
-	return (gpointer)mono_lifo_semaphore_asyncwait_init ();
-}
-
-void
-ves_icall_System_Threading_LowLevelLifoAsyncWaitSemaphore_PrepareAsyncWaitInternal (gpointer sem_ptr, gint32 timeout_ms, gpointer success_cb, gpointer timedout_cb, intptr_t user_data)
-{
-	LifoSemaphoreAsyncWait *sem = (LifoSemaphoreAsyncWait *)sem_ptr;
-	g_assert (sem->base.kind == LIFO_SEMAPHORE_ASYNCWAIT);
-	mono_lifo_semaphore_asyncwait_prepare_wait (sem, timeout_ms, (LifoSemaphoreAsyncWaitCallbackFn)success_cb, (LifoSemaphoreAsyncWaitCallbackFn)timedout_cb, user_data);
-}
-
-void
-ves_icall_System_Threading_WebWorkerEventLoop_KeepalivePushInternal (void)
-{
-	emscripten_runtime_keepalive_push();
-}
-
-void
-ves_icall_System_Threading_WebWorkerEventLoop_KeepalivePopInternal (void)
-{
-	emscripten_runtime_keepalive_pop();
-}
-
-extern int mono_wasm_eventloop_has_unsettled_interop_promises(void);
-
-MonoBoolean
-ves_icall_System_Threading_WebWorkerEventLoop_HasUnsettledInteropPromisesNative(void)
-{
-	return !!mono_wasm_eventloop_has_unsettled_interop_promises();
-}
-
-#endif /* HOST_BROWSER && !DISABLE_THREADS */
-
-/* for the AOT cross compiler with --print-icall-table these don't need to be callable, they just
- * need to be defined */
-#if defined(TARGET_WASM) && defined(ENABLE_ICALL_SYMBOL_MAP)
-gpointer
-ves_icall_System_Threading_LowLevelLifoAsyncWaitSemaphore_InitInternal (void)
-{
-	g_assert_not_reached ();
-}
-
-void
-ves_icall_System_Threading_LowLevelLifoAsyncWaitSemaphore_PrepareAsyncWaitInternal (gpointer sem_ptr, gint32 timeout_ms, gpointer success_cb, gpointer timedout_cb, intptr_t user_data)
-{
-	g_assert_not_reached ();
-}
-
-void
-ves_icall_System_Threading_WebWorkerEventLoop_KeepalivePushInternal (void)
-{
-	g_assert_not_reached();
-}
-
-void
-ves_icall_System_Threading_WebWorkerEventLoop_KeepalivePopInternal (void)
-{
-	g_assert_not_reached();
-}
-
-MonoBoolean
-ves_icall_System_Threading_WebWorkerEventLoop_HasUnsettledInteropPromisesNative(void)
-{
-	g_assert_not_reached();
-}
-#endif /* defined(TARGET_WASM) && defined(ENABLE_ICALL_SYMBOL_MAP) */
-

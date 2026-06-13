@@ -10,7 +10,7 @@ using Microsoft.Build.Utilities;
 public class AndroidAppBuilderTask : Task
 {
     [Required]
-    public string MonoRuntimeHeaders { get; set; } = ""!;
+    public string[] RuntimeHeaders { get; set; } = [];
 
     /// <summary>
     /// Target directory with *dll and other content to be AOT'd and/or bundled
@@ -37,6 +37,11 @@ public class AndroidAppBuilderTask : Task
     /// Additional linker arguments that apply to the app being built
     /// </summary>
     public ITaskItem[] ExtraLinkerArguments { get; set; } = Array.Empty<ITaskItem>();
+
+    /// <summary>
+    /// Additional native source files to compile alongside monodroid.c
+    /// </summary>
+    public ITaskItem[] ExtraNativeSources { get; set; } = Array.Empty<ITaskItem>();
 
     /// <summary>
     /// Prefer FullAOT mode for Emulator over JIT
@@ -96,6 +101,8 @@ public class AndroidAppBuilderTask : Task
 
     public bool StripDebugSymbols { get; set; }
 
+    public string RuntimeFlavor { get; set; } = nameof(RuntimeFlavorEnum.Mono);
+
     /// <summary>
     /// Path to a custom MainActivity.java with custom UI
     /// A default one is used if it's not set
@@ -138,7 +145,9 @@ public class AndroidAppBuilderTask : Task
         apkBuilder.IsLibraryMode = IsLibraryMode;
         apkBuilder.NativeDependencies = NativeDependencies;
         apkBuilder.ExtraLinkerArguments = ExtraLinkerArguments;
-        (ApkBundlePath, ApkPackageId) = apkBuilder.BuildApk(RuntimeIdentifier, MainLibraryFileName, MonoRuntimeHeaders);
+        apkBuilder.ExtraNativeSources = ExtraNativeSources;
+        apkBuilder.RuntimeFlavor = RuntimeFlavor;
+        (ApkBundlePath, ApkPackageId) = apkBuilder.BuildApk(RuntimeIdentifier, MainLibraryFileName, RuntimeHeaders);
 
         return true;
     }

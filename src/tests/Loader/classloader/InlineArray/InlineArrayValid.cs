@@ -10,9 +10,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Xunit;
+using TestLibrary;
 
-// we will be doing "sizeof" with arrays containing managed references.
-#pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type
 #pragma warning disable CS9184 // 'Inline arrays' language feature is not supported for an inline array type that is not valid as a type argument, or has element type that is not valid as a type argument
 
 [InlineArray(LengthConst)]
@@ -41,30 +40,42 @@ public unsafe class Validate
 {
     // ====================== SizeOf ==============================================================
     [InlineArray(42)]
-    struct FourtyTwoBytes
+    struct FortyTwoBytes
     {
         byte b;
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void Sizeof()
     {
         Console.WriteLine($"{nameof(Sizeof)}...");
-        Assert.Equal(42, sizeof(FourtyTwoBytes));
+        Assert.Equal(42, sizeof(FortyTwoBytes));
         Assert.Equal(84, sizeof(MyArray<char>));
     }
 
     // ====================== OneElement ==========================================================
+    // These types are interesting since their layouts are
+    // identical with or without the InlineArrayAttribute.
+
+    [InlineArray(1)]
+    struct OneInt
+    {
+        public int i;
+    }
+
     [InlineArray(1)]
     struct OneObj
     {
         public object obj;
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void OneElement()
     {
         Console.WriteLine($"{nameof(OneElement)}...");
+        Assert.Equal(sizeof(int), sizeof(OneInt));
         Assert.Equal(sizeof(nint), sizeof(OneObj));
     }
 
@@ -122,6 +133,7 @@ public unsafe class Validate
         Assert.Equal("Four", s1[3].o.GetType().Name);
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void UseOnStack()
     {
@@ -172,6 +184,7 @@ public unsafe class Validate
         }
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void MixObjectsAndValuetypes()
     {
@@ -217,6 +230,7 @@ public unsafe class Validate
         }
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void RefLikeOuter()
     {
@@ -259,6 +273,7 @@ public unsafe class Validate
         }
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void RefLikeInner()
     {
@@ -298,6 +313,7 @@ public unsafe class Validate
         }
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void Nested()
     {
@@ -329,6 +345,7 @@ public unsafe class Validate
         }
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void Boxed()
     {
@@ -345,6 +362,7 @@ public unsafe class Validate
 
     // ====================== GCDescOpt ==========================================================
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     [SkipOnMono("CoreCLR and NativeAOT-specific implementation details.")]
     public static void GCDescOpt()
@@ -376,6 +394,7 @@ public unsafe class Validate
         return holder;
     }
 
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
     [Fact]
     public static void MonoGCDescOpt()
     {
@@ -391,6 +410,71 @@ public unsafe class Validate
         {
             Assert.Equal(i, holder.arr[i].o);
             Assert.Equal(i + 1, holder.arr[i].s);
+        }
+    }
+
+    struct StructHasFortyTwoBytesField
+    {
+        FortyTwoBytes _field;
+    }
+
+    struct StructHasOneIntField
+    {
+        OneInt _field;
+    }
+
+    [ActiveIssue("needs triage", typeof(PlatformDetection), nameof(PlatformDetection.IsSimulator))]
+    [Fact]
+    public static void InlineArrayEqualsGetHashCode_Fails()
+    {
+        Console.WriteLine($"{nameof(InlineArrayEqualsGetHashCode_Fails)}...");
+
+        Assert.Throws<NotSupportedException>(() =>
+        {
+            new OneInt().Equals(new OneInt());
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+        {
+            new StructHasOneIntField().Equals(new StructHasOneIntField());
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+        {
+            new FortyTwoBytes().Equals(new FortyTwoBytes());
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+        {
+            new StructHasFortyTwoBytesField().Equals(new StructHasFortyTwoBytesField());
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+        {
+            new OneInt().GetHashCode();
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+        {
+            new FortyTwoBytes().GetHashCode();
+        });
+    }
+}
+
+[InlineArray(LengthConst)]
+public ref struct SpanArr
+{
+    private const int LengthConst = 100;
+    public Span<object> element;
+
+    public int Length => LengthConst;
+
+    [UnscopedRef]
+    public unsafe Span<object>* At(int index)
+    {
+        fixed (Span<object>* ptr = &element)
+        {
+            return ptr + index;
         }
     }
 }

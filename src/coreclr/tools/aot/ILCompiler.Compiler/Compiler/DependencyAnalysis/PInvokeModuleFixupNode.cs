@@ -26,7 +26,7 @@ namespace ILCompiler.DependencyAnalysis
 
         public void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("__nativemodule_");
+            sb.Append("__nativemodule_"u8);
             _pInvokeModuleData.AppendMangledName(nameMangler, sb);
         }
         public int Offset => 0;
@@ -124,7 +124,7 @@ namespace ILCompiler.DependencyAnalysis
         {
             sb.Append(nameMangler.GetMangledTypeName(DeclaringModule.GetGlobalModuleType()));
             sb.Append('_');
-            sb.Append(nameMangler.SanitizeName(ModuleName));
+            sb.Append(nameMangler.SanitizeName(new Utf8String(ModuleName)));
             if (DllImportSearchPath.HasValue)
             {
                 sb.Append('_');

@@ -17,28 +17,23 @@
 
 #include <minipal/getexepath.h>
 
-#ifdef DEBUG
-#define DEBUGNOTRETURN __attribute__((noreturn))
-#else
-#define DEBUGNOTRETURN
-#endif
-
 int32_t SystemNative_ForkAndExecProcess(const char* filename,
                                       char* const argv[],
                                       char* const envp[],
                                       const char* cwd,
-                                      int32_t redirectStdin,
-                                      int32_t redirectStdout,
-                                      int32_t redirectStderr,
                                       int32_t setCredentials,
                                       uint32_t userId,
                                       uint32_t groupId,
                                       uint32_t* groups,
                                       int32_t groupsLength,
                                       int32_t* childPid,
-                                      int32_t* stdinFd,
-                                      int32_t* stdoutFd,
-                                      int32_t* stderrFd)
+                                      int32_t stdinFd,
+                                      int32_t stdoutFd,
+                                      int32_t stderrFd,
+                                      int32_t* inheritedFds,
+                                      int32_t inheritedFdCount,
+                                      int32_t startDetached,
+                                      int32_t killOnParentExit)
 {
     return -1;
 }
@@ -72,10 +67,9 @@ int32_t SystemNative_GetSid(int32_t pid)
     return -1;
 }
 
-DEBUGNOTRETURN
 void SystemNative_SysLog(SysLogPriority priority, const char* message, const char* arg1)
 {
-    assert_msg(false, "Not supported on WASI", 0);
+    fprintf(stderr, message, arg1);
 }
 
 int32_t SystemNative_WaitIdAnyExitedNoHangNoWait(void)
@@ -83,7 +77,7 @@ int32_t SystemNative_WaitIdAnyExitedNoHangNoWait(void)
     return -1;
 }
 
-int32_t SystemNative_WaitPidExitedNoHang(int32_t pid, int32_t* exitCode)
+int32_t SystemNative_WaitPidExitedNoHang(int32_t pid, int32_t* exitCode, int32_t* terminatingSignal)
 {
     return -1;
 }

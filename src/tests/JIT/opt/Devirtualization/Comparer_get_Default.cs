@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Xunit;
+using TestLibrary;
 
 public class Program
 {
@@ -148,6 +149,8 @@ public class Program
     private static void Compare_Generic_Enum<TEnum>(TEnum a, TEnum b) where TEnum : Enum =>
         AssertEquals(a.CompareTo(b), Comparer<TEnum>.Default.Compare(a, b), $"({PrintBits(a)}; {PrintBits(b)}): ");
 
+    [ActiveIssue("https://github.com/dotnet/runtime/issues/90427", typeof(PlatformDetection), nameof(PlatformDetection.IsMonoLLVMFULLAOT))]
+    [ActiveIssue("https://github.com/dotnet/runtime/issues/90427", typeof(PlatformDetection), nameof(PlatformDetection.IsMonoMINIFULLAOT))]
     [Fact]
     public static int TestEntryPoint()
     {
@@ -387,7 +390,7 @@ public class Program
 
         AssertEquals("System.Collections.Generic.GenericEqualityComparer`1[System.Byte]", EqualityComparer<byte>.Default.GetType().ToString());
         AssertEquals("System.Collections.Generic.GenericEqualityComparer`1[System.Int32]", EqualityComparer<int>.Default.GetType().ToString());
-        AssertEquals("System.Collections.Generic.GenericEqualityComparer`1[System.String]", EqualityComparer<string>.Default.GetType().ToString());
+        AssertEquals("System.Collections.Generic.StringEqualityComparer", EqualityComparer<string>.Default.GetType().ToString());
         AssertEquals("System.Collections.Generic.GenericEqualityComparer`1[System.Guid]", EqualityComparer<Guid>.Default.GetType().ToString());
         AssertEquals("System.Collections.Generic.EnumEqualityComparer`1[System.Runtime.CompilerServices.MethodImplOptions]", EqualityComparer<MethodImplOptions>.Default.GetType().ToString());
         AssertEquals("System.Collections.Generic.EnumEqualityComparer`1[CharEnum]", EqualityComparer<CharEnum>.Default.GetType().ToString());

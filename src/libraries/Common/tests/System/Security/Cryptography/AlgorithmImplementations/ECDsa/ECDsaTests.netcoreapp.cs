@@ -188,7 +188,6 @@ namespace System.Security.Cryptography.EcDsa.Tests
         }
 
         [Theory, MemberData(nameof(TestNewCurves))]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/51332", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst)]
         public void TestRegenKeyExplicit(CurveDef curveDef)
         {
             ECParameters param, param2;
@@ -313,7 +312,7 @@ namespace System.Security.Cryptography.EcDsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(ECExplicitCurvesSupported))]
+        [ConditionalFact(typeof(ECDsaTests), nameof(ECExplicitCurvesSupported))]
         public void TestRegenKeyNistP256()
         {
             ECParameters param, param2;
@@ -361,7 +360,7 @@ namespace System.Security.Cryptography.EcDsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(ECExplicitCurvesSupported))]
+        [ConditionalFact(typeof(ECDsaTests), nameof(ECExplicitCurvesSupported))]
         public void TestPositive256WithExplicitParameters()
         {
             using (ECDsa ecdsa = ECDsaFactory.Create())

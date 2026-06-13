@@ -132,6 +132,14 @@ namespace System.IO
                 }
             }
 
+            public override void Write(Rune value)
+            {
+                foreach (TextWriter writer in _writers)
+                {
+                    writer.Write(value);
+                }
+            }
+
             public override void Write(char[] buffer, int index, int count)
             {
                 foreach (TextWriter writer in _writers)
@@ -268,6 +276,14 @@ namespace System.IO
                 }
             }
 
+            public override void Write([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, params ReadOnlySpan<object?> arg)
+            {
+                foreach (TextWriter writer in _writers)
+                {
+                    writer.Write(format, arg);
+                }
+            }
+
             public override void WriteLine()
             {
                 foreach (TextWriter writer in _writers)
@@ -277,6 +293,14 @@ namespace System.IO
             }
 
             public override void WriteLine(char value)
+            {
+                foreach (TextWriter writer in _writers)
+                {
+                    writer.WriteLine(value);
+                }
+            }
+
+            public override void WriteLine(Rune value)
             {
                 foreach (TextWriter writer in _writers)
                 {
@@ -428,7 +452,23 @@ namespace System.IO
                 }
             }
 
+            public override void WriteLine([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, params ReadOnlySpan<object?> arg)
+            {
+                foreach (TextWriter writer in _writers)
+                {
+                    writer.WriteLine(format, arg);
+                }
+            }
+
             public override async Task WriteAsync(char value)
+            {
+                foreach (TextWriter writer in _writers)
+                {
+                    await writer.WriteAsync(value).ConfigureAwait(false);
+                }
+            }
+
+            public override async Task WriteAsync(Rune value)
             {
                 foreach (TextWriter writer in _writers)
                 {
@@ -469,6 +509,14 @@ namespace System.IO
             }
 
             public override async Task WriteLineAsync(char value)
+            {
+                foreach (TextWriter writer in _writers)
+                {
+                    await writer.WriteLineAsync(value).ConfigureAwait(false);
+                }
+            }
+
+            public override async Task WriteLineAsync(Rune value)
             {
                 foreach (TextWriter writer in _writers)
                 {

@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Concurrent;
@@ -54,10 +54,7 @@ namespace System.Text.Json
         /// </remarks>
         public JsonTypeInfo GetTypeInfo(Type type)
         {
-            if (type is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(type));
-            }
+            ArgumentNullException.ThrowIfNull(type);
 
             if (JsonTypeInfo.IsInvalidForSerialization(type))
             {
@@ -82,10 +79,7 @@ namespace System.Text.Json
         /// </remarks>
         public bool TryGetTypeInfo(Type type, [NotNullWhen(true)] out JsonTypeInfo? typeInfo)
         {
-            if (type is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(type));
-            }
+            ArgumentNullException.ThrowIfNull(type);
 
             if (JsonTypeInfo.IsInvalidForSerialization(type))
             {
@@ -93,6 +87,36 @@ namespace System.Text.Json
             }
 
             typeInfo = GetTypeInfoInternal(type, ensureNotNull: null, resolveIfMutable: true);
+            return typeInfo is not null;
+        }
+
+        /// <summary>
+        /// Gets the <see cref="JsonTypeInfo{T}"/> contract metadata resolved by the current <see cref="JsonSerializerOptions"/> instance.
+        /// </summary>
+        /// <typeparam name="T">The type to resolve contract metadata for.</typeparam>
+        /// <returns>The contract metadata resolved for <typeparamref name="T"/>.</returns>
+        /// <exception cref="ArgumentException"><typeparamref name="T"/> is not valid for serialization.</exception>
+        /// <remarks>
+        /// If the <see cref="JsonSerializerOptions"/> instance is locked for modification, the method will return a cached instance for the metadata.
+        /// </remarks>
+        public JsonTypeInfo<T> GetTypeInfo<T>()
+        {
+            return (JsonTypeInfo<T>)GetTypeInfoInternal(typeof(T), resolveIfMutable: true);
+        }
+
+        /// <summary>
+        /// Tries to get the <see cref="JsonTypeInfo{T}"/> contract metadata resolved by the current <see cref="JsonSerializerOptions"/> instance.
+        /// </summary>
+        /// <typeparam name="T">The type to resolve contract metadata for.</typeparam>
+        /// <param name="typeInfo">The resolved contract metadata, or <see langword="null" /> if no contract could be resolved.</param>
+        /// <returns><see langword="true"/> if a contract for <typeparamref name="T"/> was found, or <see langword="false"/> otherwise.</returns>
+        /// <exception cref="ArgumentException"><typeparamref name="T"/> is not valid for serialization.</exception>
+        /// <remarks>
+        /// If the <see cref="JsonSerializerOptions"/> instance is locked for modification, the method will return a cached instance for the metadata.
+        /// </remarks>
+        public bool TryGetTypeInfo<T>([NotNullWhen(true)] out JsonTypeInfo<T>? typeInfo)
+        {
+            typeInfo = (JsonTypeInfo<T>?)GetTypeInfoInternal(typeof(T), ensureNotNull: null, resolveIfMutable: true);
             return typeInfo is not null;
         }
 
@@ -127,7 +151,7 @@ namespace System.Text.Json
                 typeInfo = GetTypeInfoNoCaching(type);
             }
 
-            if (typeInfo is null && ensureNotNull == true)
+            if (typeInfo is null && ensureNotNull is true)
             {
                 ThrowHelper.ThrowNotSupportedException_NoMetadataForType(type, TypeInfoResolver);
             }
@@ -213,7 +237,7 @@ namespace System.Text.Json
         internal sealed class CachingContext
         {
             private readonly ConcurrentDictionary<Type, CacheEntry> _cache = new();
-#if !NETCOREAPP
+#if !NET
             private readonly Func<Type, CacheEntry> _cacheEntryFactory;
 #endif
 
@@ -221,7 +245,7 @@ namespace System.Text.Json
             {
                 Options = options;
                 HashCode = hashCode;
-#if !NETCOREAPP
+#if !NET
                 _cacheEntryFactory = type => CreateCacheEntry(type, this);
 #endif
             }
@@ -254,7 +278,7 @@ namespace System.Text.Json
 
             private CacheEntry GetOrAddCacheEntry(Type type)
             {
-#if NETCOREAPP
+#if NET
                 return _cache.GetOrAdd(type, CreateCacheEntry, this);
 #else
                 return _cache.GetOrAdd(type, _cacheEntryFactory);
@@ -439,7 +463,7 @@ namespace System.Text.Json
                         }
                         else
                         {
-                            Debug.Assert(weakRef.TryGetTarget(out _) is false);
+                            Debug.Assert(!weakRef.TryGetTarget(out _));
                             weakRef.SetTarget(ctx);
                         }
                     }
@@ -504,8 +528,11 @@ namespace System.Text.Json
                     left._unmappedMemberHandling == right._unmappedMemberHandling &&
                     left._defaultBufferSize == right._defaultBufferSize &&
                     left._maxDepth == right._maxDepth &&
+                    left.NewLine == right.NewLine && // Read through property due to lazy initialization of the backing field
                     left._allowOutOfOrderMetadataProperties == right._allowOutOfOrderMetadataProperties &&
                     left._allowTrailingCommas == right._allowTrailingCommas &&
+                    left._respectNullableAnnotations == right._respectNullableAnnotations &&
+                    left._respectRequiredConstructorParameters == right._respectRequiredConstructorParameters &&
                     left._ignoreNullValues == right._ignoreNullValues &&
                     left._ignoreReadOnlyProperties == right._ignoreReadOnlyProperties &&
                     left._ignoreReadonlyFields == right._ignoreReadonlyFields &&
@@ -515,7 +542,9 @@ namespace System.Text.Json
                     left._indentCharacter == right._indentCharacter &&
                     left._indentSize == right._indentSize &&
                     left._typeInfoResolver == right._typeInfoResolver &&
-                    CompareLists(left._converters, right._converters);
+                    left._allowDuplicateProperties == right._allowDuplicateProperties &&
+                    CompareLists(left._converters, right._converters) &&
+                    CompareLists(left._typeClassifiers, right._typeClassifiers);
 
                 static bool CompareLists<TValue>(ConfigurationList<TValue>? left, ConfigurationList<TValue>? right)
                     where TValue : class?
@@ -561,8 +590,11 @@ namespace System.Text.Json
                 AddHashCode(ref hc, options._unmappedMemberHandling);
                 AddHashCode(ref hc, options._defaultBufferSize);
                 AddHashCode(ref hc, options._maxDepth);
+                AddHashCode(ref hc, options.NewLine); // Read through property due to lazy initialization of the backing field
                 AddHashCode(ref hc, options._allowOutOfOrderMetadataProperties);
                 AddHashCode(ref hc, options._allowTrailingCommas);
+                AddHashCode(ref hc, options._respectNullableAnnotations);
+                AddHashCode(ref hc, options._respectRequiredConstructorParameters);
                 AddHashCode(ref hc, options._ignoreNullValues);
                 AddHashCode(ref hc, options._ignoreReadOnlyProperties);
                 AddHashCode(ref hc, options._ignoreReadonlyFields);
@@ -572,7 +604,9 @@ namespace System.Text.Json
                 AddHashCode(ref hc, options._indentCharacter);
                 AddHashCode(ref hc, options._indentSize);
                 AddHashCode(ref hc, options._typeInfoResolver);
+                AddHashCode(ref hc, options._allowDuplicateProperties);
                 AddListHashCode(ref hc, options._converters);
+                AddListHashCode(ref hc, options._typeClassifiers);
 
                 return hc.ToHashCode();
 
@@ -591,19 +625,19 @@ namespace System.Text.Json
 
                 static void AddHashCode<TValue>(ref HashCode hc, TValue? value)
                 {
-                    if (typeof(TValue).IsValueType)
+                    if (typeof(TValue).IsSealed)
                     {
                         hc.Add(value);
                     }
                     else
                     {
-                        Debug.Assert(!typeof(TValue).IsSealed, "Sealed reference types like string should not use this method.");
+                        // Use the built-in hashcode for types that could be overriding GetHashCode().
                         hc.Add(RuntimeHelpers.GetHashCode(value));
                     }
                 }
             }
 
-#if !NETCOREAPP
+#if !NET
             /// <summary>
             /// Polyfill for System.HashCode.
             /// </summary>

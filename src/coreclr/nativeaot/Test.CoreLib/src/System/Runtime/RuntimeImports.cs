@@ -10,7 +10,7 @@ using Internal.Runtime;
 namespace System.Runtime
 {
     // CONTRACT with Runtime
-    // This class lists all the static methods that the redhawk runtime exports to a class library
+    // This class lists all the static methods that the NativeAOT runtime exports to a class library
     // These are not expected to change much but are needed by the class library to implement its functionality
     //
     //      The contents of this file can be modified if needed by the class library
@@ -20,7 +20,7 @@ namespace System.Runtime
 
     public static partial class RuntimeImports
     {
-        private const string RuntimeLibrary = "*";
+        internal const string RuntimeLibrary = "*";
 
         //
         // calls for GCHandle.
@@ -40,13 +40,13 @@ namespace System.Runtime
             return h;
         }
 
-        [DllImport(RuntimeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(RuntimeLibrary)]
         internal static extern unsafe IntPtr RhRegisterFrozenSegment(void* pSegmentStart, nuint allocSize, nuint commitSize, nuint reservedSize);
 
-        [DllImport(RuntimeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(RuntimeLibrary)]
         internal static extern unsafe void RhUpdateFrozenSegment(IntPtr seg, void* allocated, void* committed);
 
-        [DllImport(RuntimeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(RuntimeLibrary)]
         internal static extern void RhUnregisterFrozenSegment(IntPtr pSegmentHandle);
 
         [RuntimeImport(RuntimeLibrary, "RhpGetModuleSection")]
@@ -78,7 +78,10 @@ namespace System.Runtime
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         [RuntimeImport(RuntimeLibrary, "RhNewArray")]
-        private static extern unsafe Array RhNewArray(MethodTable* pEEType, int length);
+        private static extern unsafe Array RhNewArray(MethodTable* pEEType, nint length);
+
+        [DllImport(RuntimeLibrary)]
+        internal static extern unsafe void RhAllocateNewArray(MethodTable* pArrayEEType, uint numElements, uint flags, void* pResult);
 
         [DllImport(RuntimeLibrary)]
         internal static extern unsafe void RhAllocateNewObject(IntPtr pEEType, uint flags, void* pResult);
@@ -91,16 +94,12 @@ namespace System.Runtime
         // Interlocked helpers
         //
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        [RuntimeImport(RuntimeLibrary, "RhpLockCmpXchg8")]
-        internal static extern byte InterlockedCompareExchange(ref byte location1, byte value, byte comparand);
-
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        [RuntimeImport(RuntimeLibrary, "RhpLockCmpXchg16")]
-        internal static extern short InterlockedCompareExchange(ref short location1, short value, short comparand);
+        [RuntimeImport(RuntimeLibrary, "RhpLockCmpXchg32")]
+        internal static extern int InterlockedCompareExchange(ref int location1, int value, int comparand);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         [RuntimeImport(RuntimeLibrary, "RhpLockCmpXchg32")]
-        internal static extern int InterlockedCompareExchange(ref int location1, int value, int comparand);
+        internal static extern unsafe int InterlockedCompareExchange(int* location1, int value, int comparand);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         [RuntimeImport(RuntimeLibrary, "RhpLockCmpXchg64")]
@@ -112,5 +111,15 @@ namespace System.Runtime
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         [RuntimeImport(RuntimeLibrary, "RhBulkMoveWithWriteBarrier")]
         internal static extern unsafe void RhBulkMoveWithWriteBarrier(ref byte dmem, ref byte smem, nuint size);
+
+        // Get maximum GC generation number.
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        [RuntimeImport(RuntimeLibrary, "RhGetMaxGcGeneration")]
+        internal static extern int RhGetMaxGcGeneration();
+
+        // Get count of collections so far.
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        [RuntimeImport(RuntimeLibrary, "RhGetGcCollectionCount")]
+        internal static extern int RhGetGcCollectionCount(int generation, bool getSpecialGCCount);
     }
 }

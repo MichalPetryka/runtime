@@ -6,11 +6,13 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.DotNet.RemoteExecutor;
+using Microsoft.DotNet.XUnitExtensions;
 using Xunit;
 
 namespace System.Security.Cryptography.Tests
 {
-    public interface IShakeTrait<TShake> where TShake : IDisposable, new()
+    public interface IShakeTrait<TShake> where TShake : class, IDisposable, new()
     {
         static abstract TShake Create();
         static abstract bool IsSupported { get; }
@@ -20,6 +22,10 @@ namespace System.Security.Cryptography.Tests
         static abstract void GetHashAndReset(TShake shake, Span<byte> destination);
         static abstract byte[] GetCurrentHash(TShake shake, int outputLength);
         static abstract void GetCurrentHash(TShake shake, Span<byte> destination);
+        static abstract void Read(TShake shake, Span<byte> destination);
+        static abstract byte[] Read(TShake shake, int outputLength);
+        static abstract void Reset(TShake shake);
+        static abstract TShake Clone(TShake shake);
 
         static abstract byte[] HashData(byte[] source, int outputLength);
         static abstract byte[] HashData(ReadOnlySpan<byte> source, int outputLength);
@@ -35,15 +41,43 @@ namespace System.Security.Cryptography.Tests
 
     public abstract class ShakeTestDriver<TShakeTrait, TShake>
         where TShakeTrait : IShakeTrait<TShake>
-        where TShake : IDisposable, new()
+        where TShake : class, IDisposable, new()
     {
         protected abstract IEnumerable<(string Msg, string Output)> Fips202Kats { get; }
         public static bool IsSupported => TShakeTrait.IsSupported;
         public static bool IsNotSupported => !IsSupported;
 
-        [ConditionalFact(nameof(IsSupported))]
+        public static bool IsReadSupported
+        {
+            get
+            {
+                const long OpenSsl_3_3_0 = 0x30300000L;
+                return IsSupported && (PlatformDetection.IsWindows || SafeEvpPKeyHandle.OpenSslVersion >= OpenSsl_3_3_0);
+            }
+        }
+
+        private static void CheckIsSupported()
+        {
+            if (!IsSupported)
+                throw new SkipTestException(nameof(IsSupported));
+        }
+
+        private static void CheckIsNotSupported()
+        {
+            if (!IsNotSupported)
+                throw new SkipTestException(nameof(IsNotSupported));
+        }
+
+        private static void CheckIsReadSupported()
+        {
+            if (!IsReadSupported)
+                throw new SkipTestException(nameof(IsReadSupported));
+        }
+
+        [ConditionalFact]
         public void KnownAnswerTests_Allocated_AllAtOnce()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -64,9 +98,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_Allocated_Chunks()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -84,9 +119,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_Allocated_Reused()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -104,9 +140,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_Allocated_GetCurrentHash_ByteArray()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -126,9 +163,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_Allocated_Hash_Destination()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -149,9 +187,122 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
+        public void KnownAnswerTests_Allocated_Read_Twice()
+        {
+            CheckIsReadSupported();
+            foreach ((string Msg, string Output) kat in Fips202Kats)
+            {
+                byte[] message = Convert.FromHexString(kat.Msg);
+
+                using (TShake shake = new TShake())
+                {
+                    TShakeTrait.AppendData(shake, message);
+                    Span<byte> hash = new byte[kat.Output.Length / 2];
+                    ReadChunked(shake, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+
+                    TShakeTrait.Reset(shake);
+                    hash.Clear();
+
+                    TShakeTrait.AppendData(shake, message);
+                    ReadChunked(shake, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+                }
+            }
+        }
+
+        [ConditionalFact]
+        public void KnownAnswerTests_Allocated_Read_GetHashAndReset()
+        {
+            CheckIsReadSupported();
+            foreach ((string Msg, string Output) kat in Fips202Kats)
+            {
+                byte[] message = Convert.FromHexString(kat.Msg);
+
+                using (TShake shake = new TShake())
+                {
+                    TShakeTrait.AppendData(shake, message);
+                    Span<byte> hash = new byte[kat.Output.Length / 2];
+                    ReadChunked(shake, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+
+                    TShakeTrait.Reset(shake);
+                    hash.Clear();
+
+                    TShakeTrait.AppendData(shake, message);
+                    TShakeTrait.GetHashAndReset(shake, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+                }
+            }
+        }
+
+        [ConditionalFact]
+        public void KnownAnswerTests_Clone_Independent_Unobserved()
+        {
+            CheckIsSupported();
+            foreach ((string Msg, string Output) kat in Fips202Kats)
+            {
+                byte[] message = Convert.FromHexString(kat.Msg);
+                byte[] hash = new byte[kat.Output.Length / 2];
+
+                using (TShake shake = new TShake())
+                using (TShake clone = TShakeTrait.Clone(shake))
+                {
+                    TShakeTrait.AppendData(shake, "badbadbad"u8);
+
+                    TShakeTrait.AppendData(clone, message);
+                    TShakeTrait.GetCurrentHash(clone, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+                }
+            }
+        }
+
+        [ConditionalFact]
+        public void KnownAnswerTests_Clone_Independent_Disposed()
+        {
+            CheckIsSupported();
+            foreach ((string Msg, string Output) kat in Fips202Kats)
+            {
+                byte[] message = Convert.FromHexString(kat.Msg);
+                byte[] hash = new byte[kat.Output.Length / 2];
+
+                TShake shake = new TShake();
+                using (TShake clone = TShakeTrait.Clone(shake))
+                {
+                    shake.Dispose();
+
+                    TShakeTrait.AppendData(clone, message);
+                    TShakeTrait.GetCurrentHash(clone, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+                }
+            }
+        }
+
+        [ConditionalFact]
+        public void KnownAnswerTests_Reset()
+        {
+            CheckIsSupported();
+            foreach ((string Msg, string Output) kat in Fips202Kats)
+            {
+                byte[] message = Convert.FromHexString(kat.Msg);
+                byte[] hash = new byte[kat.Output.Length / 2];
+
+                using (TShake shake = new TShake())
+                {
+                    TShakeTrait.AppendData(shake, "badbadbad"u8);
+                    TShakeTrait.Reset(shake);
+                    TShakeTrait.AppendData(shake, message);
+                    TShakeTrait.GetCurrentHash(shake, hash);
+                    Assert.Equal(kat.Output, Convert.ToHexString(hash), ignoreCase: true);
+                }
+            }
+        }
+
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_ByteArray()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -160,9 +311,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_ByteArray_SpanInput()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 ReadOnlySpan<byte> message = Convert.FromHexString(kat.Msg);
@@ -171,9 +323,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_SpanBuffer_JustRight()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -183,9 +336,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_SpanBuffer_LargerWithOffset()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] message = Convert.FromHexString(kat.Msg);
@@ -200,9 +354,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_SpanBuffer_OverlapExact()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] buffer = new byte[Math.Max(kat.Msg.Length, kat.Output.Length) / 2];
@@ -216,9 +371,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_SpanBuffer_OverlapPartial_MessageBefore()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] buffer = new byte[Math.Max(kat.Msg.Length, kat.Output.Length) / 2 + 10];
@@ -232,9 +388,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_SpanBuffer_OverlapPartial_MessageAfter()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] buffer = new byte[Math.Max(kat.Msg.Length, kat.Output.Length) / 2 + 10];
@@ -248,9 +405,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_Stream_ByteArray()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 using (MemoryStream message = new MemoryStream(Convert.FromHexString(kat.Msg)))
@@ -261,9 +419,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void KnownAnswerTests_OneShot_HashData_Stream_Destination()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] hash = new byte[kat.Output.Length / 2];
@@ -276,9 +435,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public async Task KnownAnswerTests_OneShot_HashDataAsync_Stream_ByteArray()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 using (MemoryStream message = new MemoryStream(Convert.FromHexString(kat.Msg)))
@@ -289,9 +449,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public async Task KnownAnswerTests_OneShot_HashDataAsync_Stream_Destination()
         {
+            CheckIsSupported();
             foreach ((string Msg, string Output) kat in Fips202Kats)
             {
                 byte[] hash = new byte[kat.Output.Length / 2];
@@ -304,9 +465,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_Minimal()
         {
+            CheckIsSupported();
             byte[] source = Array.Empty<byte>();
 
             byte[] result = TShakeTrait.HashData(source, outputLength: 0);
@@ -322,18 +484,20 @@ namespace System.Security.Cryptography.Tests
             TShakeTrait.HashData(source, Span<byte>.Empty); // Assert.NoThrow
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public async Task HashDataAsync_Minimal()
         {
+            CheckIsSupported();
             byte[] result = await TShakeTrait.HashDataAsync(Stream.Null, outputLength: 0);
             Assert.Empty(result);
 
             await TShakeTrait.HashDataAsync(Stream.Null, Memory<byte>.Empty); // Assert.NoThrow
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void GetCurrentHash_Minimal()
         {
+            CheckIsSupported();
             using (TShake shake = new TShake())
             {
                 TShakeTrait.AppendData(shake, Array.Empty<byte>());
@@ -345,9 +509,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void GetHashAndReset_Minimal()
         {
+            CheckIsSupported();
             using (TShake shake = new TShake())
             {
                 TShakeTrait.AppendData(shake, Array.Empty<byte>());
@@ -359,9 +524,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void GetHashAndReset_ResetWithEmpty()
         {
+            CheckIsSupported();
             const int OutputLength = 64;
 
             using (TShake shake = new TShake())
@@ -396,9 +562,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_OneShot_HashData_OutputLengthNegative()
         {
+            CheckIsSupported();
             byte[] source = new byte[1];
 
             AssertExtensions.Throws<ArgumentOutOfRangeException>(
@@ -419,9 +586,10 @@ namespace System.Security.Cryptography.Tests
                 () => TShakeTrait.HashDataAsync(Stream.Null, outputLength: -1));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_OneShot_HashData_StreamNotReadable()
         {
+            CheckIsSupported();
             byte[] buffer = new byte[1];
 
             AssertExtensions.Throws<ArgumentException>(
@@ -441,9 +609,10 @@ namespace System.Security.Cryptography.Tests
                 () => TShakeTrait.HashDataAsync(UntouchableStream.Instance, outputLength: 1));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public async Task ArgValidation_OneShot_HashDataAsync_Cancelled()
         {
+            CheckIsSupported();
             byte[] buffer = new byte[1];
             CancellationToken cancelledToken = new CancellationToken(canceled: true);
 
@@ -454,9 +623,10 @@ namespace System.Security.Cryptography.Tests
                 async () => await TShakeTrait.HashDataAsync(Stream.Null, buffer, cancelledToken));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_OneShot_HashData_SourceNull()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>(
                 "source",
                 () => TShakeTrait.HashData((byte[])null, outputLength: 1));
@@ -466,9 +636,10 @@ namespace System.Security.Cryptography.Tests
                 () => TShakeTrait.HashData((Stream)null, outputLength: 1));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_Allocated_GetCurrentHash_OutputLengthNegative()
         {
+            CheckIsSupported();
             using (TShake shake = new TShake())
             {
                 AssertExtensions.Throws<ArgumentOutOfRangeException>(
@@ -477,9 +648,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_Allocated_GetHashAndReset_OutputLengthNegative()
         {
+            CheckIsSupported();
             using (TShake shake = new TShake())
             {
                 AssertExtensions.Throws<ArgumentOutOfRangeException>(
@@ -488,9 +660,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_Allocated_AppendData_DataNull()
         {
+            CheckIsSupported();
             using (TShake shake = new TShake())
             {
                 AssertExtensions.Throws<ArgumentNullException>(
@@ -499,9 +672,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ArgValidation_Allocated_UseAfterDispose()
         {
+            CheckIsSupported();
             byte[] buffer = new byte[1];
             TShake shake = new TShake();
             shake.Dispose();
@@ -513,11 +687,16 @@ namespace System.Security.Cryptography.Tests
             Assert.Throws<ObjectDisposedException>(() => TShakeTrait.GetHashAndReset(shake, buffer.AsSpan()));
             Assert.Throws<ObjectDisposedException>(() => TShakeTrait.GetCurrentHash(shake, outputLength: 1));
             Assert.Throws<ObjectDisposedException>(() => TShakeTrait.GetCurrentHash(shake, buffer.AsSpan()));
+            Assert.Throws<ObjectDisposedException>(() => TShakeTrait.Clone(shake));
+            Assert.Throws<ObjectDisposedException>(() => TShakeTrait.Reset(shake));
+            Assert.Throws<ObjectDisposedException>(() => TShakeTrait.Read(shake, buffer.AsSpan()));
+            Assert.Throws<ObjectDisposedException>(() => TShakeTrait.Read(shake, outputLength: 1));
         }
 
-        [ConditionalFact(nameof(IsNotSupported))]
+        [ConditionalFact]
         public void NotSupported_ThrowsPlatformNotSupportedException()
         {
+            CheckIsNotSupported();
             byte[] source = new byte[1];
             byte[] destination = new byte[0];
 
@@ -535,6 +714,164 @@ namespace System.Security.Cryptography.Tests
         public void IsSupported_AgreesWithPlatform()
         {
             Assert.Equal(TShakeTrait.IsSupported, PlatformDetection.SupportsSha3);
+        }
+
+        [ConditionalFact]
+        public void Clone_DifferentInstance()
+        {
+            CheckIsSupported();
+            using (TShake shake = new TShake())
+            using (TShake clone = TShakeTrait.Clone(shake))
+            {
+                Assert.NotSame(shake, clone);
+            }
+        }
+
+        [ConditionalFact]
+        public void Read_MixedAppendAfterRead()
+        {
+            CheckIsReadSupported();
+            using (TShake shake = new TShake())
+            {
+                TShakeTrait.Read(shake, Span<byte>.Empty);
+
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.AppendData(shake, ReadOnlySpan<byte>.Empty));
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.AppendData(shake, Array.Empty<byte>()));
+
+                TShakeTrait.Reset(shake);
+
+                // Assert.NoThrow
+                TShakeTrait.AppendData(shake, ReadOnlySpan<byte>.Empty);
+                TShakeTrait.AppendData(shake, Array.Empty<byte>());
+            }
+        }
+
+        [ConditionalFact]
+        public void Read_MixedCloneAfterRead()
+        {
+            CheckIsReadSupported();
+            using (TShake shake = new TShake())
+            {
+                TShakeTrait.Read(shake, Span<byte>.Empty);
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.Clone(shake));
+
+                TShakeTrait.Reset(shake);
+
+                using (TShake clone = TShakeTrait.Clone(shake))
+                {
+                    Assert.NotNull(clone);
+                }
+            }
+        }
+
+        [ConditionalFact]
+        public void Read_MixedGetHashAndReset()
+        {
+            CheckIsReadSupported();
+            using (TShake shake = new TShake())
+            {
+                TShakeTrait.Read(shake, Span<byte>.Empty);
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.GetHashAndReset(shake, Span<byte>.Empty));
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.GetHashAndReset(shake, outputLength: 0));
+
+                TShakeTrait.Reset(shake);
+
+                // Assert.NoThrow
+                TShakeTrait.GetHashAndReset(shake, Span<byte>.Empty);
+                TShakeTrait.GetHashAndReset(shake, outputLength: 0);
+            }
+        }
+
+        [ConditionalFact]
+        public void Read_MixedGetCurrentHash()
+        {
+            CheckIsReadSupported();
+            using (TShake shake = new TShake())
+            {
+                TShakeTrait.Read(shake, Span<byte>.Empty);
+
+                // Cannot GetCurrentHash while reading.
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.GetCurrentHash(shake, Span<byte>.Empty));
+                Assert.Throws<InvalidOperationException>(() => TShakeTrait.GetCurrentHash(shake, outputLength: 0));
+
+                TShakeTrait.Reset(shake);
+
+                // Assert.NoThrow
+                TShakeTrait.GetCurrentHash(shake, Span<byte>.Empty);
+                TShakeTrait.GetCurrentHash(shake, outputLength: 0);
+            }
+        }
+
+        [ConditionalFact]
+        public void Read_NotSupported()
+        {
+            CheckIsSupported();
+            // This is testing when a TShake can be created, but the platform does not have Read.
+            if (IsReadSupported)
+            {
+                return;
+            }
+
+            using (TShake shake = new TShake())
+            {
+                Assert.Throws<PlatformNotSupportedException>(() => TShakeTrait.Read(shake, Span<byte>.Empty));
+                Assert.Throws<PlatformNotSupportedException>(() => TShakeTrait.Read(shake, outputLength: 0));
+            }
+        }
+
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public void GetHashAndReset_ConcurrentUseDoesNotCrashProcess()
+        {
+            if (!IsSupported)
+            {
+                throw new SkipTestException("Algorithm is not supported on this platform.");
+            }
+
+            RemoteExecutor.Invoke(static () =>
+            {
+                using (TShake shake = TShakeTrait.Create())
+                {
+                    Thread thread1 = new(ThreadWork);
+                    Thread thread2 = new(ThreadWork);
+                    thread1.Start(shake);
+                    thread2.Start(shake);
+                    thread1.Join();
+                    thread2.Join();
+                }
+            }).Dispose();
+
+            static void ThreadWork(object obj)
+            {
+                TShake shake = (TShake)obj;
+
+                try
+                {
+                    byte[] input = new byte[128];
+
+                    for (int i = 0; i < 10_000; i++)
+                    {
+                        TShakeTrait.AppendData(shake, input);
+                        TShakeTrait.GetHashAndReset(shake, 128);
+                    }
+                }
+                catch
+                {
+                    // Ignore all managed exceptions. HashAlgorithm is not thread safe, but we don't want process crashes.
+                }
+            }
+        }
+
+        private static void ReadChunked(TShake shake, Span<byte> destination)
+        {
+            int read = 0;
+            int outputLength = destination.Length;
+
+            while (read < outputLength)
+            {
+                int size = Math.Min(Math.Max(outputLength / 4, 1), outputLength - read);
+                TShakeTrait.Read(shake, destination.Slice(read, size));
+                read += size;
+            }
         }
     }
 }

@@ -11,8 +11,6 @@
 include AsmMacros.inc
 
 DEFAULT_PROBE_SAVE_FLAGS        equ PTFF_SAVE_ALL_PRESERVED + PTFF_SAVE_RSP
-PROBE_SAVE_FLAGS_EVERYTHING     equ DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_ALL_SCRATCH
-PROBE_SAVE_FLAGS_RAX_IS_GCREF   equ DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_RAX + PTFF_RAX_IS_GCREF
 
 ;;
 ;; The prolog for all GC suspension hijackes (normal and stress). Sets up an EBP frame,
@@ -22,10 +20,10 @@ PROBE_SAVE_FLAGS_RAX_IS_GCREF   equ DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_RAX + P
 ;;  All registers correct for return to the original return address.
 ;;
 ;; Register state on exit:
-;;  EAX: not trashed or saved
+;;  EAX: saved at [ebp - 12]
 ;;  EBP: new EBP frame with correct return address
-;;  ESP: points to saved scratch registers (ECX & EDX)
-;;  ECX: trashed
+;;  ESP: points to saved scratch registers (ECX, EDX, EAX)
+;;  ECX: return value flags
 ;;  EDX: thread pointer
 ;;
 HijackFixupProlog macro
@@ -34,6 +32,7 @@ HijackFixupProlog macro
         mov         ebp, esp
         push        ecx         ; save scratch registers
         push        edx         ; save scratch registers
+        push        eax         ; save scratch registers
 
         ;; edx <- GetThread(), TRASHES ecx
         INLINE_GETTHREAD edx, ecx
@@ -44,11 +43,15 @@ HijackFixupProlog macro
         mov         ecx, [edx + OFFSETOF__Thread__m_pvHijackedReturnAddress]
         mov         [ebp + 4], ecx
 
+        ;; Fetch the return address flags
+        mov         ecx, [edx + OFFSETOF__Thread__m_uHijackedReturnValueFlags]
+
         ;;
         ;; Clear hijack state
         ;;
         mov         dword ptr [edx + OFFSETOF__Thread__m_ppvHijackedReturnAddressLocation], 0
         mov         dword ptr [edx + OFFSETOF__Thread__m_pvHijackedReturnAddress], 0
+        mov         dword ptr [edx + OFFSETOF__Thread__m_uHijackedReturnValueFlags], 0
 
 endm
 
@@ -66,6 +69,7 @@ endm
 ;;  All registers restored as they were when the hijack was first reached.
 ;;
 HijackFixupEpilog macro
+        pop         eax
         pop         edx
         pop         ecx
         pop         ebp
@@ -90,7 +94,8 @@ endm
 ;;  ECX is NOT trashed if BITMASK_REG_OR_VALUE is a literal value and not a register
 ;;
 PushProbeFrame macro BITMASK_REG_OR_VALUE
-        push        eax                     ; EAX
+        push        [ebp - 4]               ; ECX
+        push        [ebp - 12]              ; EAX
         lea         eax, [ebp + 8]                      ; get caller ESP
         push        eax                     ; ESP
         push        edi                     ; EDI
@@ -126,6 +131,7 @@ endm
 ;;  ESI: restored
 ;;  EDI: restored
 ;;  EAX: restored
+;;  ECX: restored
 ;;
 PopProbeFrame macro
         add         esp, 4*4h
@@ -133,11 +139,9 @@ PopProbeFrame macro
         pop         esi
         pop         edi
         pop         eax     ; discard ESP
-        pop         eax
+        pop         [ebp - 12]                          ; write updated EAX back to HijackFixupProlog save location
+        pop         [ebp - 4]                           ; write updated ECX back to HijackFixupProlog save location
 endm
-
-RhpThrowHwEx equ @RhpThrowHwEx@0
-extern RhpThrowHwEx : proc
 
 ;;
 ;; Main worker for our GC probes.  Do not call directly!! This assumes that HijackFixupProlog has been done.
@@ -148,7 +152,7 @@ extern RhpThrowHwEx : proc
 ;;  ECX: register bitmask
 ;;  EDX: thread pointer
 ;;  EBP: EBP frame
-;;  ESP: scratch registers pushed (ECX & EDX)
+;;  ESP: scratch registers pushed (ECX, EDX, EAX)
 ;;
 ;; Register state on exit:
 ;;  All registers restored as they were when the hijack was first reached.
@@ -159,25 +163,30 @@ RhpWaitForGC  proc
         mov         ecx, esp
         call        RhpWaitForGC2
 
-        mov         edx, [esp + OFFSETOF__PInvokeTransitionFrame__m_Flags]
         ;;
         ;; Restore preserved registers -- they may have been updated by GC
         ;;
         PopProbeFrame
 
-        test        edx, PTFF_THREAD_ABORT
-        jnz         Abort
-
         HijackFixupEpilog
-Abort:
-        mov         ecx, STATUS_REDHAWK_THREAD_ABORT
-        pop         edx
-        pop         eax         ;; ecx was pushed here, but we don't care for its value
-        pop         ebp
-        pop         edx         ;; return address as exception RIP
-        jmp         RhpThrowHwEx
 
 RhpWaitForGC  endp
+
+RhpGcPoll  proc
+        cmp         [RhpTrapThreads], TrapThreadsFlags_None
+        jne         @F                  ; forward branch - predicted not taken
+        ret
+@@:
+        jmp         RhpGcPollRare
+
+RhpGcPoll  endp
+
+RhpGcPollRare  proc
+        PUSH_COOP_PINVOKE_FRAME ecx
+        call        RhpGcPoll2
+        POP_COOP_PINVOKE_FRAME
+        ret
+RhpGcPollRare  endp
 
 ifdef FEATURE_GC_STRESS
 ;;
@@ -209,7 +218,7 @@ endm
 ;;  EDX: thread pointer
 ;;  ECX: register bitmask
 ;;  EBP: EBP frame
-;;  ESP: scratch registers pushed (ECX and EDX)
+;;  ESP: scratch registers pushed (ECX, EDX, EAX)
 ;;
 ;; Register state on exit:
 ;;  All registers restored as they were when the hijack was first reached.
@@ -230,28 +239,28 @@ RhpGcStressProbe  endp
 
 endif ;; FEATURE_GC_STRESS
 
-FASTCALL_FUNC RhpGcProbeHijack, 0
+_RhpGcProbeHijack@0  proc public
         HijackFixupProlog
         test        [RhpTrapThreads], TrapThreadsFlags_TrapThreads
         jnz         WaitForGC
         HijackFixupEpilog
 
 WaitForGC:
-        mov         ecx, DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_RAX
+        or          ecx, DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_RAX + PTFF_SAVE_RCX
         jmp         RhpWaitForGC
 
-FASTCALL_ENDFUNC
+_RhpGcProbeHijack@0  endp
 
 ifdef FEATURE_GC_STRESS
-FASTCALL_FUNC RhpGcStressHijack, 0
+_RhpGcStressHijack@0  proc public
 
         HijackFixupProlog
-        mov         ecx, DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_RAX
+        or          ecx, DEFAULT_PROBE_SAVE_FLAGS + PTFF_SAVE_RAX + PTFF_SAVE_RCX
         jmp         RhpGcStressProbe
 
-FASTCALL_ENDFUNC
+_RhpGcStressHijack@0  endp
 
-FASTCALL_FUNC RhpHijackForGcStress, 0
+_RhpHijackForGcStress@0  proc public
         push        ebp
         mov         ebp, esp
 
@@ -286,7 +295,7 @@ FASTCALL_FUNC RhpHijackForGcStress, 0
         pop         edx
         pop         ebp
         ret
-FASTCALL_ENDFUNC
+_RhpHijackForGcStress@0  endp
 endif ;; FEATURE_GC_STRESS
 
         end

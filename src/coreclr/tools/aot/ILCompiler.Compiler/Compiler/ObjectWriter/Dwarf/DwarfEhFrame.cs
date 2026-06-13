@@ -81,7 +81,7 @@ namespace ILCompiler.ObjectWriter
                 4u + // Length
                 4u + // CIE Offset (0)
                 1u + // Version
-                (uint)augmentationString.Length + 1u +
+                (uint)augmentationString.Length + 1u + // null-terminator
                 DwarfHelper.SizeOfULEB128(cie.CodeAlignFactor) +
                 DwarfHelper.SizeOfSLEB128(cie.DataAlignFactor) +
                 DwarfHelper.SizeOfULEB128(cie.ReturnAddressRegister) +
@@ -93,7 +93,8 @@ namespace ILCompiler.ObjectWriter
             _sectionWriter.WriteLittleEndian<uint>(0);
 
             _sectionWriter.WriteByte(cie.ReturnAddressRegister < 0x7F ? (byte)1u : (byte)3u); // Version
-            _sectionWriter.Write(augmentationString.UnderlyingArray);
+            _sectionWriter.Write(augmentationString.AsSpan());
+            _sectionWriter.WriteByte(0); // null-terminator
 
             _sectionWriter.WriteULEB128(cie.CodeAlignFactor);
             _sectionWriter.WriteSLEB128(cie.DataAlignFactor);
@@ -103,7 +104,7 @@ namespace ILCompiler.ObjectWriter
             if (cie.PersonalitySymbolName != null)
             {
                 _sectionWriter.WriteByte(cie.PersonalityEncoding);
-                WriteAddress(cie.PersonalityEncoding, cie.PersonalitySymbolName);
+                WriteAddress(cie.PersonalityEncoding, new Utf8String(cie.PersonalitySymbolName));
             }
             if (cie.LsdaEncoding != 0)
             {
@@ -170,9 +171,9 @@ namespace ILCompiler.ObjectWriter
             }
         }
 
-        private void WriteAddress(byte encoding, string symbolName, long symbolOffset = 0)
+        private void WriteAddress(byte encoding, Utf8String symbolName, long symbolOffset = 0)
         {
-            if (symbolName != null)
+            if (!symbolName.IsNull)
             {
                 RelocType relocationType = encoding switch
                 {

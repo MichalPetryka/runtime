@@ -28,6 +28,9 @@ namespace System.Text.Json
         public const byte UtcOffsetToken = (byte)'Z';
         public const byte TimePrefix = (byte)'T';
 
+        public const string NewLineLineFeed = "\n";
+        public const string NewLineCarriageReturnLineFeed = "\r\n";
+
         // \u2028 and \u2029 are considered respectively line and paragraph separators
         // UTF-8 representation for them is E2, 80, A8/A9
         public const byte StartingByteOfNonStandardSeparator = 0xE2;
@@ -40,6 +43,7 @@ namespace System.Text.Json
         public static ReadOnlySpan<byte> NaNValue => "NaN"u8;
         public static ReadOnlySpan<byte> PositiveInfinityValue => "Infinity"u8;
         public static ReadOnlySpan<byte> NegativeInfinityValue => "-Infinity"u8;
+        public const int MaximumFloatingPointConstantLength = 9;
 
         // Used to search for the end of a number
         public static ReadOnlySpan<byte> Delimiters => ",}] \n\r\t/"u8;
@@ -50,9 +54,14 @@ namespace System.Text.Json
         public const int RemoveFlagsBitMask = 0x7FFFFFFF;
 
         // In the worst case, an ASCII character represented as a single utf-8 byte could expand 6x when escaped.
-        // For example: '+' becomes '\u0043'
+        // For example: '+' becomes '\u002B'
         // Escaping surrogate pairs (represented by 3 or 4 utf-8 bytes) would expand to 12 bytes (which is still <= 6x).
         // The same factor applies to utf-16 characters.
+        // This factor also serves as an upper bound for the combined escaping-and-transcoding pipeline.
+        // A non-ASCII unicode character is either:
+        // - escaped into an ASCII sequence (e.g. \uXXXX), so 1 UTF-16 char -> at most 6 UTF-8 bytes, or
+        // - written directly as UTF-8 (e.g. when using a non-default encoder such as UnsafeRelaxedJsonEscaping),
+        //   expanding at most 3x (MaxExpansionFactorWhileTranscoding), which is <= 6.
         public const int MaxExpansionFactorWhileEscaping = 6;
 
         // In the worst case, a single UTF-16 character could be expanded to 3 UTF-8 bytes.
@@ -62,7 +71,7 @@ namespace System.Text.Json
 
         // When transcoding from UTF8 -> UTF16, the byte count threshold where we rent from the array pool before performing a normal alloc.
         public const long ArrayPoolMaxSizeBeforeUsingNormalAlloc =
-#if NET6_0_OR_GREATER
+#if NET
             1024 * 1024 * 1024; // ArrayPool limit increased in .NET 6
 #else
             1024 * 1024;

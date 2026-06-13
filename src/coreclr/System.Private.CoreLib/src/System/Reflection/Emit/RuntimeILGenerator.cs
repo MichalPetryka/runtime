@@ -536,17 +536,23 @@ namespace System.Reflection.Emit
             // If there is a non-void return type, push one.
             if (returnType != typeof(void))
                 stackchange++;
+
             // Pop off arguments if any.
             if (parameterTypes != null)
                 stackchange -= parameterTypes.Length;
+
             // Pop off vararg arguments.
             if (optionalParameterTypes != null)
                 stackchange -= optionalParameterTypes.Length;
-            // Pop the this parameter if the method has a this parameter.
-            if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis)
+
+            // Pop the this parameter if the method has an implicit this parameter.
+            if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis &&
+                (callingConvention & CallingConventions.ExplicitThis) == 0)
                 stackchange--;
+
             // Pop the native function pointer.
             stackchange--;
+
             UpdateStackSize(OpCodes.Calli, stackchange);
 
             RecordTokenFixup();
@@ -619,7 +625,7 @@ namespace System.Reflection.Emit
 
             // Pop the this parameter if the method is non-static and the
             // instruction is not newobj.
-            if (!(methodInfo is SymbolMethod) && !methodInfo.IsStatic && !opcode.Equals(OpCodes.Newobj))
+            if (methodInfo is not SymbolMethod && !methodInfo.IsStatic && !opcode.Equals(OpCodes.Newobj))
                 stackchange--;
             // Pop the optional parameters off the stack.
             if (optionalParameterTypes != null)
@@ -652,6 +658,10 @@ namespace System.Reflection.Emit
             {
                 Debug.Assert(opcode.Equals(OpCodes.Calli),
                                 "Unexpected opcode encountered for StackBehaviour VarPop.");
+
+                // If there is a non-void return type, push one.
+                if (signature.ReturnType is Type retType && retType != typeof(void))
+                    stackchange++;
                 // Pop the arguments..
                 stackchange -= signature.ArgumentCount;
                 // Pop native function pointer off the stack.
@@ -1369,9 +1379,9 @@ namespace System.Reflection.Emit
 
         internal void Done(int endAddr)
         {
-            Debug.Assert(m_currentCatch > 0, "m_currentCatch > 0");
-            Debug.Assert(m_catchAddr[m_currentCatch - 1] > 0, "m_catchAddr[m_currentCatch-1] > 0");
-            Debug.Assert(m_catchEndAddr[m_currentCatch - 1] == -1, "m_catchEndAddr[m_currentCatch-1] == -1");
+            Debug.Assert(m_currentCatch > 0);
+            Debug.Assert(m_catchAddr[m_currentCatch - 1] > 0);
+            Debug.Assert(m_catchEndAddr[m_currentCatch - 1] == -1);
             m_catchEndAddr[m_currentCatch - 1] = endAddr;
             m_currentState = State_Done;
         }
@@ -1447,8 +1457,8 @@ namespace System.Reflection.Emit
         internal bool IsInner(__ExceptionInfo exc)
         {
             Debug.Assert(exc != null);
-            Debug.Assert(m_currentCatch > 0, "m_currentCatch > 0");
-            Debug.Assert(exc.m_currentCatch > 0, "exc.m_currentCatch > 0");
+            Debug.Assert(m_currentCatch > 0);
+            Debug.Assert(exc.m_currentCatch > 0);
 
             int exclast = exc.m_currentCatch - 1;
             int last = m_currentCatch - 1;
@@ -1458,8 +1468,7 @@ namespace System.Reflection.Emit
 
             if (exc.m_catchEndAddr[exclast] != m_catchEndAddr[last])
                 return false;
-            Debug.Assert(exc.GetEndAddress() != GetEndAddress(),
-                "exc.GetEndAddress() != GetEndAddress()");
+            Debug.Assert(exc.GetEndAddress() != GetEndAddress());
 
             return exc.GetEndAddress() > GetEndAddress();
         }

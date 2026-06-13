@@ -2,8 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO.Pipelines;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
@@ -78,15 +78,12 @@ namespace System.Text.Json
         public Task? PendingTask;
 
         /// <summary>
-        /// List of completed IAsyncDisposables that have been scheduled for disposal by converters.
-        /// </summary>
-        public List<IAsyncDisposable>? CompletedAsyncDisposables;
-
-        /// <summary>
         /// The amount of bytes to write before the underlying Stream should be flushed and the
         /// current buffer adjusted to remove the processed bytes.
         /// </summary>
         public int FlushThreshold;
+
+        public PipeWriter? PipeWriter;
 
         /// <summary>
         /// Indicates that the state still contains suspended frames waiting re-entry.
@@ -155,12 +152,12 @@ namespace System.Text.Json
             SupportAsync = supportAsync;
 
             JsonSerializerOptions options = jsonTypeInfo.Options;
-            if (options.ReferenceHandlingStrategy != ReferenceHandlingStrategy.None)
+            if (options.ReferenceHandlingStrategy != JsonKnownReferenceHandler.Unspecified)
             {
                 Debug.Assert(options.ReferenceHandler != null);
                 ReferenceResolver = options.ReferenceHandler.CreateResolver(writing: true);
 
-                if (options.ReferenceHandlingStrategy == ReferenceHandlingStrategy.IgnoreCycles &&
+                if (options.ReferenceHandlingStrategy == JsonKnownReferenceHandler.IgnoreCycles &&
                     rootValueBoxed is not null && jsonTypeInfo.Type.IsValueType)
                 {
                     // Root object is a boxed value type, we need to push it to the reference stack before starting the serializer.
@@ -180,6 +177,8 @@ namespace System.Text.Json
 
         public void Push()
         {
+            Debug.Assert(_continuationCount == 0 || _count < _continuationCount);
+
             if (_continuationCount == 0)
             {
                 Debug.Assert(Current.PolymorphicSerializationState != PolymorphicSerializationState.PolymorphicReEntrySuspended);
@@ -231,6 +230,7 @@ namespace System.Text.Json
         public void Pop(bool success)
         {
             Debug.Assert(_count > 0);
+            Debug.Assert(_continuationCount == 0 || _count < _continuationCount);
 
             if (!success)
             {
@@ -271,51 +271,34 @@ namespace System.Text.Json
             }
         }
 
-        public void AddCompletedAsyncDisposable(IAsyncDisposable asyncDisposable)
-            => (CompletedAsyncDisposables ??= new List<IAsyncDisposable>()).Add(asyncDisposable);
-
-        // Asynchronously dispose of any AsyncDisposables that have been scheduled for disposal
-        public async ValueTask DisposeCompletedAsyncDisposables()
-        {
-            Debug.Assert(CompletedAsyncDisposables?.Count > 0);
-            Exception? exception = null;
-
-            foreach (IAsyncDisposable asyncDisposable in CompletedAsyncDisposables)
-            {
-                try
-                {
-                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-                }
-                catch (Exception e)
-                {
-                    exception = e;
-                }
-            }
-
-            if (exception is not null)
-            {
-                ExceptionDispatchInfo.Capture(exception).Throw();
-            }
-
-            CompletedAsyncDisposables.Clear();
-        }
-
         /// <summary>
         /// Walks the stack cleaning up any leftover IDisposables
         /// in the event of an exception on serialization
         /// </summary>
-        public void DisposePendingDisposablesOnException()
+        public readonly void DisposePendingDisposablesOnException()
         {
             Exception? exception = null;
 
-            Debug.Assert(Current.AsyncDisposable is null);
+            Debug.Assert(Current.AsyncEnumerator is null);
             DisposeFrame(Current.CollectionEnumerator, ref exception);
 
-            int stackSize = Math.Max(_count, _continuationCount);
-            for (int i = 0; i < stackSize - 1; i++)
+            if (_stack is not null)
             {
-                Debug.Assert(_stack[i].AsyncDisposable is null);
-                DisposeFrame(_stack[i].CollectionEnumerator, ref exception);
+                int currentIndex = _count - _indexOffset;
+                int stackSize = Math.Max(currentIndex, _continuationCount);
+                for (int i = 0; i < stackSize; i++)
+                {
+                    Debug.Assert(_stack[i].AsyncEnumerator is null);
+
+                    if (i == currentIndex)
+                    {
+                        // Matches the entry in Current, skip to avoid double disposal.
+                        Debug.Assert(_stack[i].CollectionEnumerator is null || ReferenceEquals(Current.CollectionEnumerator, _stack[i].CollectionEnumerator));
+                        continue;
+                    }
+
+                    DisposeFrame(_stack[i].CollectionEnumerator, ref exception);
+                }
             }
 
             if (exception is not null)
@@ -343,16 +326,29 @@ namespace System.Text.Json
         /// Walks the stack cleaning up any leftover I(Async)Disposables
         /// in the event of an exception on async serialization
         /// </summary>
-        public async ValueTask DisposePendingDisposablesOnExceptionAsync()
+        public readonly async ValueTask DisposePendingDisposablesOnExceptionAsync()
         {
             Exception? exception = null;
 
-            exception = await DisposeFrame(Current.CollectionEnumerator, Current.AsyncDisposable, exception).ConfigureAwait(false);
+            exception = await DisposeFrame(Current.CollectionEnumerator, Current.AsyncEnumerator, exception).ConfigureAwait(false);
 
-            int stackSize = Math.Max(_count, _continuationCount);
-            for (int i = 0; i < stackSize - 1; i++)
+            if (_stack is not null)
             {
-                exception = await DisposeFrame(_stack[i].CollectionEnumerator, _stack[i].AsyncDisposable, exception).ConfigureAwait(false);
+                Debug.Assert(_continuationCount == 0 || _count < _continuationCount);
+                int currentIndex = _count - _indexOffset;
+                int stackSize = Math.Max(currentIndex, _continuationCount);
+                for (int i = 0; i < stackSize; i++)
+                {
+                    if (i == currentIndex)
+                    {
+                        // Matches the entry in Current, skip to avoid double disposal.
+                        Debug.Assert(_stack[i].CollectionEnumerator is null || ReferenceEquals(Current.CollectionEnumerator, _stack[i].CollectionEnumerator));
+                        Debug.Assert(_stack[i].AsyncEnumerator is null || ReferenceEquals(Current.AsyncEnumerator, _stack[i].AsyncEnumerator));
+                        continue;
+                    }
+
+                    exception = await DisposeFrame(_stack[i].CollectionEnumerator, _stack[i].AsyncEnumerator, exception).ConfigureAwait(false);
+                }
             }
 
             if (exception is not null)
@@ -360,9 +356,9 @@ namespace System.Text.Json
                 ExceptionDispatchInfo.Capture(exception).Throw();
             }
 
-            static async ValueTask<Exception?> DisposeFrame(IEnumerator? collectionEnumerator, IAsyncDisposable? asyncDisposable, Exception? exception)
+            static async ValueTask<Exception?> DisposeFrame(IEnumerator? collectionEnumerator, object? asyncEnumerator, Exception? exception)
             {
-                Debug.Assert(!(collectionEnumerator is not null && asyncDisposable is not null));
+                Debug.Assert(!(collectionEnumerator is not null && asyncEnumerator is not null));
 
                 try
                 {
@@ -370,7 +366,7 @@ namespace System.Text.Json
                     {
                         disposable.Dispose();
                     }
-                    else if (asyncDisposable is not null)
+                    else if (asyncEnumerator is IAsyncDisposable asyncDisposable)
                     {
                         await asyncDisposable.DisposeAsync().ConfigureAwait(false);
                     }
@@ -427,7 +423,7 @@ namespace System.Text.Json
                     if (propertyName.AsSpan().ContainsSpecialCharacters())
                     {
                         sb.Append(@"['");
-                        sb.Append(propertyName);
+                        sb.AppendEscapedPropertyName(propertyName);
                         sb.Append(@"']");
                     }
                     else

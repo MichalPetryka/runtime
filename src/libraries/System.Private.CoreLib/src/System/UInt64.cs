@@ -44,6 +44,12 @@ namespace System
         /// <summary>Represents the number zero (0).</summary>
         private const ulong Zero = 0;
 
+        /// <summary>Produces the full product of two unsigned 64-bit numbers.</summary>
+        /// <param name="left">The first number to multiply.</param>
+        /// <param name="right">The second number to multiply.</param>
+        /// <returns>The number containing the product of the specified numbers.</returns>
+        public static UInt128 BigMul(ulong left, ulong right) => Math.BigMul(left, right);
+
         // Compares this object to another object, returning an integer that
         // indicates the relationship.
         // Returns a value less than zero if this  object
@@ -288,6 +294,43 @@ namespace System
         [Intrinsic]
         public static ulong LeadingZeroCount(ulong value) => (ulong)BitOperations.LeadingZeroCount(value);
 
+        /// <inheritdoc cref="IBinaryInteger{TSelf}.Log10(TSelf)" />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong Log10(ulong value)
+        {
+            // Approximate log10 via log2, then correct with a powers of 10 lookup table.
+            // http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog10
+            value |= 1;
+            uint log2 = (uint)BitOperations.Log2(value) + 1;
+            uint approx = (log2 * 1233) >> 12;
+            return value < PowersOf10[(int)approx] ? approx - 1 : approx;
+        }
+
+        // Lookup table for power-of-10 boundaries corrections
+        private static ReadOnlySpan<ulong> PowersOf10 =>
+        [
+            1,
+            10,
+            100,
+            1_000,
+            10_000,
+            100_000,
+            1_000_000,
+            10_000_000,
+            100_000_000,
+            1_000_000_000,
+            10_000_000_000,
+            100_000_000_000,
+            1_000_000_000_000,
+            10_000_000_000_000,
+            100_000_000_000_000,
+            1_000_000_000_000_000,
+            10_000_000_000_000_000,
+            100_000_000_000_000_000,
+            1_000_000_000_000_000_000,
+            10_000_000_000_000_000_000,
+        ];
+
         /// <inheritdoc cref="IBinaryInteger{TSelf}.PopCount(TSelf)" />
         [Intrinsic]
         public static ulong PopCount(ulong value) => (ulong)BitOperations.PopCount(value);
@@ -329,19 +372,10 @@ namespace System
                     return false;
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(ulong))
                 {
-                    sourceRef = ref Unsafe.Add(ref sourceRef, source.Length - sizeof(ulong));
-
                     // We have at least 8 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<ulong>(ref sourceRef);
-
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadUInt64BigEndian(source.Slice(source.Length - sizeof(ulong)));
                 }
                 else
                 {
@@ -352,7 +386,7 @@ namespace System
                     for (int i = 0; i < source.Length; i++)
                     {
                         result <<= 8;
-                        result |= Unsafe.Add(ref sourceRef, i);
+                        result |= source[i];
                     }
                 }
             }
@@ -386,17 +420,10 @@ namespace System
                     return false;
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(ulong))
                 {
                     // We have at least 8 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<ulong>(ref sourceRef);
-
-                    if (!BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadUInt64LittleEndian(source);
                 }
                 else
                 {
@@ -408,7 +435,7 @@ namespace System
 
                     for (int i = 0; i < source.Length; i++)
                     {
-                        ulong part = Unsafe.Add(ref sourceRef, i);
+                        ulong part = source[i];
                         part <<= (i * 8);
                         result |= part;
                     }
@@ -428,37 +455,27 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteBigEndian(Span{byte}, out int)" />
         bool IBinaryInteger<ulong>.TryWriteBigEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(ulong))
+            if (BinaryPrimitives.TryWriteUInt64BigEndian(destination, m_value))
             {
-                ulong value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(m_value) : m_value;
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(ulong);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteLittleEndian(Span{byte}, out int)" />
         bool IBinaryInteger<ulong>.TryWriteLittleEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(ulong))
+            if (BinaryPrimitives.TryWriteUInt64LittleEndian(destination, m_value))
             {
-                ulong value = BitConverter.IsLittleEndian ? m_value : BinaryPrimitives.ReverseEndianness(m_value);
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(ulong);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         //
@@ -738,6 +755,9 @@ namespace System
 
         /// <inheritdoc cref="INumberBase{TSelf}.MinMagnitudeNumber(TSelf, TSelf)" />
         static ulong INumberBase<ulong>.MinMagnitudeNumber(ulong x, ulong y) => Min(x, y);
+
+        /// <inheritdoc cref="INumberBase{TSelf}.MultiplyAddEstimate(TSelf, TSelf, TSelf)" />
+        static ulong INumberBase<ulong>.MultiplyAddEstimate(ulong left, ulong right, ulong addend) => (left * right) + addend;
 
         /// <inheritdoc cref="INumberBase{TSelf}.TryConvertFromChecked{TOther}(TOther, out TSelf)" />
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

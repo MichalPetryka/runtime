@@ -1,11 +1,25 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#include "pal_evp_pkey.h"
 #include "pal_evp_pkey_rsa.h"
 #include "pal_utilities.h"
+#include "openssl.h"
 #include <assert.h>
 
+#if defined(NEED_OPENSSL_1_0) || defined(NEED_OPENSSL_1_1)
 static int HasNoPrivateKey(const RSA* rsa);
+static int CheckLegacyPrivateKeyAvailable(EVP_PKEY* pkey);
+
+// RSA_F_RSA_NULL_PRIVATE_DECRYPT is always defined but its value is 0 in OpenSSL 3.0+ since it is no longer used for error reporting.
+// So to simplify the portable build, we'll avoid RSA_F_RSA_NULL_PRIVATE_DECRYPT and instead define a new constant with the old value to use for older OpenSSL versions.
+#define LEGACY_RSA_F_RSA_NULL_PRIVATE_DECRYPT 132
+
+#ifdef RSA_F_RSA_NULL_PRIVATE_DECRYPT
+c_static_assert(RSA_F_RSA_NULL_PRIVATE_DECRYPT == (OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_RTM ? LEGACY_RSA_F_RSA_NULL_PRIVATE_DECRYPT : 0));
+#endif
+
+#endif // NEED_OPENSSL_1_0 || NEED_OPENSSL_1_1
 
 EVP_PKEY* CryptoNative_EvpPKeyCreateRsa(RSA* currentKey)
 {
@@ -20,7 +34,7 @@ EVP_PKEY* CryptoNative_EvpPKeyCreateRsa(RSA* currentKey)
         return NULL;
     }
 
-    if (!EVP_PKEY_set1_RSA(pkey, currentKey))
+    if (!API_EXISTS(EVP_PKEY_set1_RSA) || !EVP_PKEY_set1_RSA(pkey, currentKey))
     {
         EVP_PKEY_free(pkey);
         return NULL;
@@ -77,7 +91,7 @@ static bool ConfigureEncryption(EVP_PKEY_CTX* ctx, RsaPaddingMode padding, const
 
         EVP_PKEY_CTX_ctrl_str(ctx, "rsa_pkcs1_implicit_rejection", "0");
 
-        // Undo any changes to the error queue that may have occured while configuring implicit rejection if the
+        // Undo any changes to the error queue that may have occurred while configuring implicit rejection if the
         // current version does not support implicit rejection.
         ERR_pop_to_mark();
     }
@@ -103,6 +117,7 @@ static bool ConfigureEncryption(EVP_PKEY_CTX* ctx, RsaPaddingMode padding, const
 }
 
 int32_t CryptoNative_RsaDecrypt(EVP_PKEY* pkey,
+                                void* extraHandle,
                                 const uint8_t* source,
                                 int32_t sourceLen,
                                 RsaPaddingMode padding,
@@ -116,9 +131,11 @@ int32_t CryptoNative_RsaDecrypt(EVP_PKEY* pkey,
     assert(padding >= RsaPaddingPkcs1 && padding <= RsaPaddingOaepOrPss);
     assert(digest != NULL || padding == RsaPaddingPkcs1);
 
+    size_t written;
+
     ERR_clear_error();
 
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    EVP_PKEY_CTX* ctx = EvpPKeyCtxCreateFromPKey(pkey, extraHandle);
 
     int ret = -1;
 
@@ -132,18 +149,22 @@ int32_t CryptoNative_RsaDecrypt(EVP_PKEY* pkey,
         goto done;
     }
 
-    // This check may no longer be needed on OpenSSL 3.0
+    // This check will not work with hardware keys coming from OpenSSL providers
+    // because providers don't seem to set RSA_FLAG_EXT_PKEY (the tpm2 most notably)
+    // ENGINE-s may or may not set it.
+    // This is needed only on OpenSSL < 3.0,
+    // see: https://github.com/dotnet/runtime/issues/53345
+#if defined(NEED_OPENSSL_1_0) || defined(NEED_OPENSSL_1_1)
+    if (CryptoNative_OpenSslVersionNumber() < OPENSSL_VERSION_3_0_RTM)
     {
-        const RSA* rsa = EVP_PKEY_get0_RSA(pkey);
-
-        if (rsa == NULL || HasNoPrivateKey(rsa))
+        if (!CheckLegacyPrivateKeyAvailable(pkey))
         {
-            ERR_PUT_error(ERR_LIB_RSA, RSA_F_RSA_NULL_PRIVATE_DECRYPT, RSA_R_VALUE_MISSING, __FILE__, __LINE__);
             goto done;
         }
     }
+#endif
 
-    size_t written = Int32ToSizeT(destinationLen);
+    written = Int32ToSizeT(destinationLen);
 
     if (EVP_PKEY_decrypt(ctx, destination, &written, source, Int32ToSizeT(sourceLen)) > 0)
     {
@@ -160,6 +181,7 @@ done:
 }
 
 int32_t CryptoNative_RsaEncrypt(EVP_PKEY* pkey,
+                                void* extraHandle,
                                 const uint8_t* source,
                                 int32_t sourceLen,
                                 RsaPaddingMode padding,
@@ -172,9 +194,11 @@ int32_t CryptoNative_RsaEncrypt(EVP_PKEY* pkey,
     assert(padding >= RsaPaddingPkcs1 && padding <= RsaPaddingOaepOrPss);
     assert(digest != NULL || padding == RsaPaddingPkcs1);
 
+    size_t written;
+
     ERR_clear_error();
 
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    EVP_PKEY_CTX* ctx = EvpPKeyCtxCreateFromPKey(pkey, extraHandle);
 
     int ret = -1;
 
@@ -188,7 +212,7 @@ int32_t CryptoNative_RsaEncrypt(EVP_PKEY* pkey,
         goto done;
     }
 
-    size_t written = Int32ToSizeT(destinationLen);
+    written = Int32ToSizeT(destinationLen);
 
     if (EVP_PKEY_encrypt(ctx, destination, &written, source, Int32ToSizeT(sourceLen)) > 0)
     {
@@ -206,6 +230,15 @@ done:
 
 static bool ConfigureSignature(EVP_PKEY_CTX* ctx, RsaPaddingMode padding, const EVP_MD* digest)
 {
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-qual"
+    if (EVP_PKEY_CTX_set_signature_md(ctx, digest) <= 0)
+#pragma clang diagnostic pop
+    {
+        return false;
+    }
+
     if (padding == RsaPaddingPkcs1)
     {
         if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
@@ -224,18 +257,11 @@ static bool ConfigureSignature(EVP_PKEY_CTX* ctx, RsaPaddingMode padding, const 
         }
     }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcast-qual"
-    if (EVP_PKEY_CTX_set_signature_md(ctx, digest) <= 0)
-#pragma clang diagnostic pop
-    {
-        return false;
-    }
-
     return true;
 }
 
 int32_t CryptoNative_RsaSignHash(EVP_PKEY* pkey,
+                                 void* extraHandle,
                                  RsaPaddingMode padding,
                                  const EVP_MD* digest,
                                  const uint8_t* hash,
@@ -248,9 +274,11 @@ int32_t CryptoNative_RsaSignHash(EVP_PKEY* pkey,
     assert(padding >= RsaPaddingPkcs1 && padding <= RsaPaddingOaepOrPss);
     assert(digest != NULL || padding == RsaPaddingPkcs1);
 
+    size_t written;
+
     ERR_clear_error();
 
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    EVP_PKEY_CTX* ctx = EvpPKeyCtxCreateFromPKey(pkey, extraHandle);
 
     int ret = -1;
 
@@ -264,18 +292,22 @@ int32_t CryptoNative_RsaSignHash(EVP_PKEY* pkey,
         goto done;
     }
 
-    // This check may no longer be needed on OpenSSL 3.0
+    // This check will not work with hardware keys coming from OpenSSL providers
+    // because providers don't seem to set RSA_FLAG_EXT_PKEY (the tpm2 most notably)
+    // ENGINE-s may or may not set it.
+    // This is needed only on OpenSSL < 3.0,
+    // see: https://github.com/dotnet/runtime/issues/53345
+#if defined(NEED_OPENSSL_1_0) || defined(NEED_OPENSSL_1_1)
+    if (CryptoNative_OpenSslVersionNumber() < OPENSSL_VERSION_3_0_RTM)
     {
-        const RSA* rsa = EVP_PKEY_get0_RSA(pkey);
-
-        if (rsa == NULL || HasNoPrivateKey(rsa))
+        if (!CheckLegacyPrivateKeyAvailable(pkey))
         {
-            ERR_PUT_error(ERR_LIB_RSA, RSA_F_RSA_NULL_PRIVATE_DECRYPT, RSA_R_VALUE_MISSING, __FILE__, __LINE__);
             goto done;
         }
     }
+#endif
 
-    size_t written = Int32ToSizeT(destinationLen);
+    written = Int32ToSizeT(destinationLen);
 
     if (EVP_PKEY_sign(ctx, destination, &written, hash, Int32ToSizeT(hashLen)) > 0)
     {
@@ -292,6 +324,7 @@ done:
 }
 
 int32_t CryptoNative_RsaVerifyHash(EVP_PKEY* pkey,
+                                   void* extraHandle,
                                    RsaPaddingMode padding,
                                    const EVP_MD* digest,
                                    const uint8_t* hash,
@@ -306,7 +339,7 @@ int32_t CryptoNative_RsaVerifyHash(EVP_PKEY* pkey,
 
     ERR_clear_error();
 
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    EVP_PKEY_CTX* ctx = EvpPKeyCtxCreateFromPKey(pkey, extraHandle);
 
     int ret = -1;
 
@@ -337,6 +370,32 @@ done:
     }
 
     return ret;
+}
+
+#if defined(NEED_OPENSSL_1_0) || defined(NEED_OPENSSL_1_1)
+// On OpenSSL < 3.0, check that the legacy RSA key has a private key available.
+// Only call this for OpenSSL < 3.0.
+// Returns 1 if the check passes, 0 if no private key.
+static int CheckLegacyPrivateKeyAvailable(EVP_PKEY* pkey)
+{
+    // This function is only called for OpenSSL < 3.0, where EVP_PKEY_get0_RSA is guaranteed
+    // to exist. The API_EXISTS check is a defensive guard that produces a proper error rather
+    // than a crash in the unexpected case that it is somehow unavailable.
+    if (!API_EXISTS(EVP_PKEY_get0_RSA))
+    {
+        ERR_PUT_error(ERR_LIB_RSA, LEGACY_RSA_F_RSA_NULL_PRIVATE_DECRYPT, RSA_R_VALUE_MISSING, __FILE__, __LINE__);
+        return 0;
+    }
+
+    const RSA* rsa = EVP_PKEY_get0_RSA(pkey);
+
+    if (rsa == NULL || HasNoPrivateKey(rsa))
+    {
+        ERR_PUT_error(ERR_LIB_RSA, LEGACY_RSA_F_RSA_NULL_PRIVATE_DECRYPT, RSA_R_VALUE_MISSING, __FILE__, __LINE__);
+        return 0;
+    }
+
+    return 1;
 }
 
 static int HasNoPrivateKey(const RSA* rsa)
@@ -392,3 +451,4 @@ static int HasNoPrivateKey(const RSA* rsa)
 
     return 0;
 }
+#endif // NEED_OPENSSL_1_0 || NEED_OPENSSL_1_1

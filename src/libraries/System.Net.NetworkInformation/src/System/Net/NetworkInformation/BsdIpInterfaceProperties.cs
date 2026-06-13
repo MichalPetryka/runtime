@@ -6,8 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
-#pragma warning disable 8500 // taking address of managed types
-
 namespace System.Net.NetworkInformation
 {
     internal sealed class BsdIpInterfaceProperties : UnixIPInterfaceProperties
@@ -95,7 +93,7 @@ namespace System.Net.NetworkInformation
         {
             Context* context = (Context*)pContext;
 
-            IPAddress ipAddress = new IPAddress(new ReadOnlySpan<byte>(gatewayAddressInfo->AddressBytes, gatewayAddressInfo->NumAddressBytes));
+            IPAddress ipAddress = new IPAddress(((ReadOnlySpan<byte>)gatewayAddressInfo->AddressBytes)[..gatewayAddressInfo->NumAddressBytes]);
             if (ipAddress.IsIPv6LinkLocal)
             {
                 // For Link-Local addresses add ScopeId as that is not part of the route entry.

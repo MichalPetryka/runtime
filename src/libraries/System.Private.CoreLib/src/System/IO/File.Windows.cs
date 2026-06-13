@@ -7,7 +7,8 @@ namespace System.IO
 {
     public static partial class File
     {
-#pragma warning disable IDE0060
+        private const string NullDevicePath = "NUL";
+
         private static UnixFileMode GetUnixFileModeCore(string path)
             => throw new PlatformNotSupportedException(SR.PlatformNotSupported_UnixFileMode);
 
@@ -19,6 +20,5 @@ namespace System.IO
 
         private static void SetUnixFileModeCore(SafeFileHandle fileHandle, UnixFileMode mode)
             => throw new PlatformNotSupportedException(SR.PlatformNotSupported_UnixFileMode);
-#pragma warning restore IDE0060
     }
 }

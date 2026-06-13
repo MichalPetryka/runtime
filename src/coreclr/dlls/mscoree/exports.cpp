@@ -26,7 +26,7 @@
 #define ASSERTE_ALL_BUILDS(expr) _ASSERTE_ALL_BUILDS((expr))
 
 #ifdef TARGET_UNIX
-#define NO_HOSTING_API_RETURN_ADDRESS ((void*)ULONG_PTR_MAX)
+#define NO_HOSTING_API_RETURN_ADDRESS ((void*)UINTPTR_MAX)
 void* g_hostingApiReturnAddress = NO_HOSTING_API_RETURN_ADDRESS;
 
 class HostingApiFrameHolder
@@ -110,9 +110,7 @@ static LPCWSTR* StringArrayToUnicode(int argc, LPCSTR* argv)
 
 static void InitializeStartupFlags(STARTUP_FLAGS* startupFlagsRef)
 {
-    STARTUP_FLAGS startupFlags = static_cast<STARTUP_FLAGS>(
-            STARTUP_FLAGS::STARTUP_LOADER_OPTIMIZATION_SINGLE_DOMAIN |
-            STARTUP_FLAGS::STARTUP_SINGLE_APPDOMAIN);
+    STARTUP_FLAGS startupFlags = static_cast<STARTUP_FLAGS>(0);
 
     if (Configuration::GetKnobBooleanValue(W("System.GC.Concurrent"), CLRConfig::UNSUPPORTED_gcConcurrent))
     {
@@ -264,7 +262,7 @@ int coreclr_initialize(
         &hostContract);
 
 #ifdef TARGET_UNIX
-    DWORD error = PAL_InitializeCoreCLR(exePath, g_coreclr_embedded);
+    DWORD error = PAL_InitializeCoreCLR(g_coreclr_embedded);
     hr = HRESULT_FROM_WIN32(error);
 
     // If PAL initialization failed, then we should return right away and avoid
@@ -290,8 +288,6 @@ int coreclr_initialize(
     hr = CorHost2::CreateObject(IID_ICLRRuntimeHost4, (void**)&host);
     IfFailRet(hr);
 
-    ConstWStringHolder appDomainFriendlyNameW = StringToUnicode(appDomainFriendlyName);
-
     if (bundleProbe != nullptr)
     {
         static Bundle bundle(exePath, bundleProbe);
@@ -300,6 +296,13 @@ int coreclr_initialize(
 
     // This will take ownership of propertyKeysWTemp and propertyValuesWTemp
     Configuration::InitializeConfigurationKnobs(propertyCount, propertyKeysW, propertyValuesW);
+
+#ifdef TARGET_UNIX
+    if (Configuration::GetKnobBooleanValue(W("System.Runtime.CrashReportBeforeSignalChaining"), CLRConfig::INTERNAL_CrashReportBeforeSignalChaining))
+    {
+        PAL_EnableCrashReportBeforeSignalChaining();
+    }
+#endif
 
     STARTUP_FLAGS startupFlags;
     InitializeStartupFlags(&startupFlags);
@@ -310,9 +313,10 @@ int coreclr_initialize(
     hr = host->Start();
     IfFailRet(hr);
 
+    ConstWStringHolder appDomainFriendlyNameW = StringToUnicode(appDomainFriendlyName);
     hr = host->CreateAppDomainWithManager(
         appDomainFriendlyNameW,
-        APPDOMAIN_SECURITY_DEFAULT,
+        0,
         NULL,                    // Name of the assembly that contains the AppDomainManager implementation
         NULL,                    // The AppDomainManager implementation type name
         propertyCount,

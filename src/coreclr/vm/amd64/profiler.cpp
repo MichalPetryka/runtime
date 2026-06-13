@@ -56,7 +56,7 @@ void ProfileSetFunctionIDInPlatformSpecificHandle(void * pPlatformSpecificHandle
 {
     LIMITED_METHOD_CONTRACT;
     _ASSERTE(pPlatformSpecificHandle != NULL);
-    _ASSERTE(functionID != NULL);
+    _ASSERTE(functionID != 0);
 
     PROFILE_PLATFORM_SPECIFIC_DATA * pData = reinterpret_cast<PROFILE_PLATFORM_SPECIFIC_DATA *>(pPlatformSpecificHandle);
     pData->functionId = functionID;
@@ -156,7 +156,7 @@ ProfileArgIterator::ProfileArgIterator(MetaSig * pSig, void * platformSpecificHa
             EECodeInfo codeInfo((PCODE)pData->ip);
 
             // We want to pass the caller SP here.
-            pData->hiddenArg = EECodeManager::GetExactGenericsToken((SIZE_T)(pData->profiledRsp), &codeInfo);
+            pData->hiddenArg = EECodeManager::GetExactGenericsToken((TADDR)(pData->probeRsp), (TADDR)(pData->rbp), &codeInfo);
         }
     }
 }
@@ -195,13 +195,12 @@ LPVOID ProfileArgIterator::CopyStructFromRegisters()
     int fieldBytes = th.AsMethodTable()->GetNumInstanceFieldBytes();
     INDEBUG(int remainingBytes = fieldBytes;)
 
-    EEClass* eeClass = argLocDesc->m_eeClass;
-    _ASSERTE(eeClass != NULL);
+    _ASSERTE(argLocDesc->m_eightByteInfo.GetNumEightBytes() > 0);
 
-    for (int i = 0; i < eeClass->GetNumberEightBytes(); i++)
+    for (int i = 0; i < argLocDesc->m_eightByteInfo.GetNumEightBytes(); i++)
     {
-        int eightByteSize = eeClass->GetEightByteSize(i);
-        SystemVClassificationType eightByteClassification = eeClass->GetEightByteClassification(i);
+        int eightByteSize = argLocDesc->m_eightByteInfo.GetEightByteSize(i);
+        SystemVClassificationType eightByteClassification = argLocDesc->m_eightByteInfo.GetEightByteClassification(i);
 
         _ASSERTE(remainingBytes >= eightByteSize);
 
@@ -467,7 +466,7 @@ LPVOID ProfileArgIterator::GetReturnBufferAddr(void)
         EEClass* eeClass = pMT->GetClass();
         UINT fpReturnSize = m_argIterator.GetFPReturnSize();
 
-        if (eeClass->GetNumberEightBytes() == 1)
+        if (eeClass->GetEightByteRegistersInfo().GetNumEightBytes() == 1)
         {
             if (fpReturnSize != 0)
             {

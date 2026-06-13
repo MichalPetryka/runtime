@@ -15,8 +15,9 @@ namespace System.Net.Security
 {
     public partial class SslStream
     {
-        private readonly SslAuthenticationOptions _sslAuthenticationOptions = new SslAuthenticationOptions();
-        private int _nestedAuth;
+        internal readonly SslAuthenticationOptions _sslAuthenticationOptions = new SslAuthenticationOptions();
+        internal new Stream InnerStream => base.InnerStream;
+        private NestedState _nestedAuth;
         private bool _isRenego;
 
         private TlsFrameHelper.TlsFrameInfo _lastFrame;
@@ -32,10 +33,14 @@ namespace System.Net.Security
         private bool _receivedEOF;
 
         // Used by Telemetry to ensure we log connection close exactly once
-        // 0 = no handshake
-        // 1 = handshake completed, connection opened
-        // 2 = SslStream disposed, connection closed
-        private int _connectionOpenedStatus;
+        private enum ConnectionStatus
+        {
+            NoHandshake = 0,
+            HandshakeCompleted = 1, // connection opened
+            Disposed = 2, // connection closed
+        }
+
+        private ConnectionStatus _connectionOpenedStatus;
 
         private void SetException(Exception e)
         {
@@ -56,10 +61,10 @@ namespace System.Net.Security
 
             // Ensure a Read or Auth operation is not in progress,
             // block potential future read and auth operations since SslStream is disposing.
-            // This leaves the _nestedRead = 2 and _nestedAuth = 2, but that's ok, since
+            // This leaves the _nestedRead = StreamDisposed and _nestedAuth = StreamDisposed, but that's ok, since
             // subsequent operations check the _exception sentinel first
-            if (Interlocked.Exchange(ref _nestedRead, StreamDisposed) == StreamNotInUse &&
-                Interlocked.Exchange(ref _nestedAuth, StreamDisposed) == StreamNotInUse)
+            if (Interlocked.Exchange(ref _nestedRead, NestedState.StreamDisposed) == NestedState.StreamNotInUse &&
+                Interlocked.Exchange(ref _nestedAuth, NestedState.StreamDisposed) == NestedState.StreamNotInUse)
             {
                 _buffer.ReturnBuffer();
             }
@@ -73,28 +78,10 @@ namespace System.Net.Security
             if (NetSecurityTelemetry.Log.IsEnabled())
             {
                 // Set the status to disposed. If it was opened before, log ConnectionClosed
-                if (Interlocked.Exchange(ref _connectionOpenedStatus, 2) == 1)
+                if (Interlocked.Exchange(ref _connectionOpenedStatus, ConnectionStatus.Disposed) == ConnectionStatus.HandshakeCompleted)
                 {
                     NetSecurityTelemetry.Log.ConnectionClosed(GetSslProtocolInternal());
                 }
-            }
-        }
-
-        private ProtocolToken EncryptData(ReadOnlyMemory<byte> buffer)
-        {
-            ThrowIfExceptionalOrNotAuthenticated();
-
-            lock (_handshakeLock)
-            {
-                if (_handshakeWaiter != null)
-                {
-                    ProtocolToken token = default;
-                    // avoid waiting under lock.
-                    token.Status = new SecurityStatusPal(SecurityStatusPalErrorCode.TryAgain);
-                    return token;
-                }
-
-                return Encrypt(buffer);
             }
         }
 
@@ -106,7 +93,7 @@ namespace System.Net.Security
         {
             ThrowIfExceptional();
 
-            if (NetSecurityTelemetry.Log.IsEnabled())
+            if (NetSecurityTelemetry.AnyTelemetryEnabled())
             {
                 return ProcessAuthenticationWithTelemetryAsync(isAsync, cancellationToken);
             }
@@ -120,9 +107,19 @@ namespace System.Net.Security
 
         private async Task ProcessAuthenticationWithTelemetryAsync(bool isAsync, CancellationToken cancellationToken)
         {
-            NetSecurityTelemetry.Log.HandshakeStart(IsServer, _sslAuthenticationOptions.TargetHost);
-            long startingTimestamp = Stopwatch.GetTimestamp();
+            long startingTimestamp;
+            if (NetSecurityTelemetry.Log.IsEnabled())
+            {
+                NetSecurityTelemetry.Log.HandshakeStart(IsServer, _sslAuthenticationOptions.TargetHost);
+                startingTimestamp = Stopwatch.GetTimestamp();
+            }
+            else
+            {
+                startingTimestamp = 0;
+            }
 
+            Activity? activity = NetSecurityTelemetry.StartActivity(this);
+            Exception? exception = null;
             try
             {
                 Task task = isAsync ?
@@ -131,16 +128,28 @@ namespace System.Net.Security
 
                 await task.ConfigureAwait(false);
 
-                // SslStream could already have been disposed at this point, in which case _connectionOpenedStatus == 2
-                // Make sure that we increment the open connection counter only if it is guaranteed to be decremented in dispose/finalize
-                bool connectionOpen = Interlocked.CompareExchange(ref _connectionOpenedStatus, 1, 0) == 0;
-
-                NetSecurityTelemetry.Log.HandshakeCompleted(GetSslProtocolInternal(), startingTimestamp, connectionOpen);
+                if (startingTimestamp is not 0)
+                {
+                    // SslStream could already have been disposed at this point, in which case _connectionOpenedStatus == ConnectionStatus.Disposed
+                    // Make sure that we increment the open connection counter only if it is guaranteed to be decremented in dispose/finalize
+                    bool connectionOpen = Interlocked.CompareExchange(ref _connectionOpenedStatus, ConnectionStatus.HandshakeCompleted, ConnectionStatus.NoHandshake) == ConnectionStatus.NoHandshake;
+                    SslProtocols protocol = GetSslProtocolInternal();
+                    NetSecurityTelemetry.Log.HandshakeCompleted(protocol, startingTimestamp, connectionOpen);
+                }
             }
             catch (Exception ex)
             {
-                NetSecurityTelemetry.Log.HandshakeFailed(IsServer, startingTimestamp, ex.Message);
+                exception = ex;
+                if (startingTimestamp is not 0)
+                {
+                    NetSecurityTelemetry.Log.HandshakeFailed(IsServer, startingTimestamp, ex.Message);
+                }
+
                 throw;
+            }
+            finally
+            {
+                NetSecurityTelemetry.StopActivity(activity, exception, this);
             }
         }
 
@@ -165,22 +174,22 @@ namespace System.Net.Security
         private async Task RenegotiateAsync<TIOAdapter>(CancellationToken cancellationToken)
             where TIOAdapter : IReadWriteAdapter
         {
-            if (Interlocked.CompareExchange(ref _nestedAuth, StreamInUse, StreamNotInUse) != StreamNotInUse)
+            if (Interlocked.CompareExchange(ref _nestedAuth, NestedState.StreamInUse, NestedState.StreamNotInUse) != NestedState.StreamNotInUse)
             {
-                ObjectDisposedException.ThrowIf(_nestedAuth == StreamDisposed, this);
+                ObjectDisposedException.ThrowIf(_nestedAuth == NestedState.StreamDisposed, this);
                 throw new InvalidOperationException(SR.Format(SR.net_io_invalidnestedcall, "authenticate"));
             }
 
-            if (Interlocked.CompareExchange(ref _nestedRead, StreamInUse, StreamNotInUse) != StreamNotInUse)
+            if (Interlocked.CompareExchange(ref _nestedRead, NestedState.StreamInUse, NestedState.StreamNotInUse) != NestedState.StreamNotInUse)
             {
-                ObjectDisposedException.ThrowIf(_nestedRead == StreamDisposed, this);
+                ObjectDisposedException.ThrowIf(_nestedRead == NestedState.StreamDisposed, this);
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, "read"));
             }
 
             // Write is different since we do not do anything special in Dispose
-            if (Interlocked.Exchange(ref _nestedWrite, StreamInUse) != StreamNotInUse)
+            if (Interlocked.Exchange(ref _nestedWrite, NestedState.StreamInUse) != NestedState.StreamNotInUse)
             {
-                _nestedRead = StreamNotInUse;
+                _nestedRead = NestedState.StreamNotInUse;
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, "write"));
             }
 
@@ -243,8 +252,8 @@ namespace System.Net.Security
 
                 token.ReleasePayload();
 
-                _nestedRead = StreamNotInUse;
-                _nestedWrite = StreamNotInUse;
+                _nestedRead = NestedState.StreamNotInUse;
+                _nestedWrite = NestedState.StreamNotInUse;
                 _isRenego = false;
                 // We will not release _nestedAuth at this point to prevent another renegotiation attempt.
             }
@@ -262,16 +271,41 @@ namespace System.Net.Security
             if (reAuthenticationData == null)
             {
                 // prevent nesting only when authentication functions are called explicitly. e.g. handle renegotiation transparently.
-                if (Interlocked.Exchange(ref _nestedAuth, StreamInUse) == StreamInUse)
+                if (Interlocked.Exchange(ref _nestedAuth, NestedState.StreamInUse) == NestedState.StreamInUse)
                 {
                     throw new InvalidOperationException(SR.Format(SR.net_io_invalidnestedcall, "authenticate"));
                 }
             }
             try
             {
+#if TARGET_APPLE
+                if (SslStreamPal.ShouldUseAsyncSecurityContext(_sslAuthenticationOptions))
+                {
+                    Debug.Assert(_sslAuthenticationOptions.IsClient);
+                    byte[]? dummy = null;
+                    AcquireClientCredentials(ref dummy, true);
+
+                    Task<Exception?> handshakeTask = SslStreamPal.AsyncHandshakeAsync(ref _securityContext, this, cancellationToken);
+                    await TIOAdapter.WaitAsync(handshakeTask).ConfigureAwait(false);
+                    if (await handshakeTask.ConfigureAwait(false) is Exception ex)
+                    {
+                        if (NetEventSource.Log.IsEnabled()) NetEventSource.Error(this, ex, "Async handshake failed");
+                        if (ex is ArgumentException or IOException)
+                        {
+                            throw ex;
+                        }
+                        throw new AuthenticationException(SR.net_auth_SSPI, ex);
+                    }
+
+                    CompleteHandshake(_sslAuthenticationOptions);
+                    return;
+                }
+#endif // TARGET_APPLE
+
                 if (!receiveFirst)
                 {
-                    token = NextMessage(reAuthenticationData);
+                    token = NextMessage(reAuthenticationData, out int consumed);
+                    Debug.Assert(consumed == (reAuthenticationData?.Length ?? 0));
 
                     if (token.Size > 0)
                     {
@@ -340,6 +374,14 @@ namespace System.Net.Security
                             throw new AuthenticationException(SR.Format(SR.net_auth_tls_alert, _lastFrame.AlertDescription.ToString()), token.GetException());
                         }
 
+                        if (token.Status.ErrorCode == SecurityStatusPalErrorCode.CertValidationFailed && token.GetException() is Exception certException)
+                        {
+                            // The cert-validation path carries the user-visible exception directly;
+                            // throw it without wrapping to preserve parity with the SendAuthResetSignal
+                            // path used after handshake completion on all platforms.
+                            ExceptionDispatchInfo.Throw(certException);
+                        }
+
                         throw new AuthenticationException(SR.net_auth_SSPI, token.GetException());
                     }
                     else if (token.Status.ErrorCode == SecurityStatusPalErrorCode.OK)
@@ -355,13 +397,17 @@ namespace System.Net.Security
             {
                 if (reAuthenticationData == null)
                 {
-                    _nestedAuth = StreamNotInUse;
+                    _nestedAuth = NestedState.StreamNotInUse;
                     _isRenego = false;
                 }
 
                 token.ReleasePayload();
+
+                // reset the cached flag which has potentially outdated value.
+                _localClientCertificateUsed = -1;
             }
 
+#pragma warning disable SYSLIB0058 // Use NegotiatedCipherSuite.
             if (NetEventSource.Log.IsEnabled())
                 NetEventSource.Log.SspiSelectedCipherSuite(nameof(ForceAuthenticationAsync),
                                                                     SslProtocol,
@@ -371,7 +417,7 @@ namespace System.Net.Security
                                                                     HashStrength,
                                                                     KeyExchangeAlgorithm,
                                                                     KeyExchangeStrength);
-
+#pragma warning restore SYSLIB0058 // Use NegotiatedCipherSuite.
         }
 
         // This method will make sure we have at least one full TLS frame buffered.
@@ -401,14 +447,25 @@ namespace System.Net.Security
                         _sslAuthenticationOptions!.IsServer) // guard against malicious endpoints. We should not see ClientHello on client.
 #pragma warning restore CS0618
                     {
-                        TlsFrameHelper.ProcessingOptions options = NetEventSource.Log.IsEnabled() ?
-                                                                    TlsFrameHelper.ProcessingOptions.All :
-                                                                    TlsFrameHelper.ProcessingOptions.ServerName;
+                        TlsFrameHelper.ProcessingOptions options = TlsFrameHelper.ProcessingOptions.ServerName;
+
                         if (OperatingSystem.IsMacOS() && _sslAuthenticationOptions.IsServer)
                         {
                             // macOS cannot process ALPN on server at the moment.
                             // We fallback to our own process similar to SNI bellow.
+                            // This will allocate.
                             options |= TlsFrameHelper.ProcessingOptions.RawApplicationProtocol;
+                        }
+
+                        if (NetEventSource.Log.IsEnabled())
+                        {
+                            options |= TlsFrameHelper.ProcessingOptions.ApplicationProtocol | TlsFrameHelper.ProcessingOptions.Versions;
+                        }
+
+                        if (_sslAuthenticationOptions.ServerOptionDelegate != null)
+                        {
+                            // We need to process supported versions extension to pass it to user callback.
+                            options |= TlsFrameHelper.ProcessingOptions.Versions;
                         }
 
                         // Process SNI from Client Hello message
@@ -450,6 +507,21 @@ namespace System.Net.Security
 
             }
 
+            // Per TLS spec, the first message from the client must be ClientHello.
+            // If we are the server and haven't started the security context yet
+            // (_securityContext == null), reject any frame that is not a ClientHello.
+            if (_sslAuthenticationOptions!.IsServer && _securityContext == null)
+            {
+#pragma warning disable CS0618
+                bool isClientHello = _lastFrame.Header.Type == TlsContentType.Handshake &&
+                    _buffer.EncryptedReadOnlySpan[_lastFrame.Header.Version == SslProtocols.Ssl2 ? HandshakeTypeOffsetSsl2 : HandshakeTypeOffsetTls] == (byte)TlsHandshakeType.ClientHello;
+#pragma warning restore CS0618
+                if (!isClientHello)
+                {
+                    throw new AuthenticationException(SR.net_ssl_io_frame);
+                }
+            }
+
             return frameSize;
         }
 
@@ -459,16 +531,13 @@ namespace System.Net.Security
             int chunkSize = frameSize;
 
             ReadOnlySpan<byte> availableData = _buffer.EncryptedReadOnlySpan;
-            // DiscardEncrypted() does not touch data, it just increases start index so next
-            // EncryptedSpan will exclude the "discarded" data.
-            _buffer.DiscardEncrypted(frameSize);
 
             // Often more TLS messages fit into same packet. Get as many complete frames as we can.
-            while (_buffer.EncryptedLength > TlsFrameHelper.HeaderSize)
+            while (_buffer.EncryptedLength - chunkSize > TlsFrameHelper.HeaderSize)
             {
                 TlsFrameHeader nextHeader = default;
 
-                if (!TlsFrameHelper.TryGetFrameHeader(_buffer.EncryptedReadOnlySpan, ref nextHeader))
+                if (!TlsFrameHelper.TryGetFrameHeader(availableData.Slice(chunkSize), ref nextHeader))
                 {
                     break;
                 }
@@ -477,17 +546,18 @@ namespace System.Net.Security
 
                 // Can process more handshake frames in single step or during TLS1.3 post-handshake auth, but we should
                 // avoid processing too much so as to preserve API boundary between handshake and I/O.
-                if ((nextHeader.Type != TlsContentType.Handshake && nextHeader.Type != TlsContentType.ChangeCipherSpec) && !_isRenego || frameSize > _buffer.EncryptedLength)
+                if ((nextHeader.Type != TlsContentType.Handshake && nextHeader.Type != TlsContentType.ChangeCipherSpec) && !_isRenego || frameSize > availableData.Length - chunkSize)
                 {
                     // We don't have full frame left or we already have app data which needs to be processed by decrypt.
                     break;
                 }
 
                 chunkSize += frameSize;
-                _buffer.DiscardEncrypted(frameSize);
             }
 
-            return NextMessage(availableData.Slice(0, chunkSize));
+            ProtocolToken token = NextMessage(availableData.Slice(0, chunkSize), out int consumed);
+            _buffer.DiscardEncrypted(consumed);
+            return token;
         }
 
         //
@@ -523,7 +593,7 @@ namespace System.Net.Security
         {
             ProcessHandshakeSuccess();
 
-            if (_nestedAuth != StreamInUse)
+            if (_nestedAuth != NestedState.StreamInUse)
             {
                 if (NetEventSource.Log.IsEnabled()) NetEventSource.Error(this, $"Ignoring unsolicited renegotiated certificate.");
                 // ignore certificates received outside of handshake or requested renegotiation.
@@ -547,11 +617,35 @@ namespace System.Net.Security
             }
 #endif
 
-            if (!VerifyRemoteCertificate(_sslAuthenticationOptions.CertValidationDelegate, _sslAuthenticationOptions.CertificateContext?.Trust, ref alertToken, out sslPolicyErrors, out chainStatus))
+#pragma warning disable CS0162 // unreachable code on some platforms
+            if (!SslStreamPal.CertValidationInCallback)
             {
-                _handshakeCompleted = false;
-                return false;
+                if (!VerifyRemoteCertificate(_sslAuthenticationOptions.CertificateContext?.Trust, ref alertToken, out sslPolicyErrors, out chainStatus))
+                {
+                    _handshakeCompleted = false;
+                    return false;
+                }
             }
+            else if (_remoteCertificate is null)
+            {
+                // CertVerifyCallback was not called during the handshake. This happens when:
+                // 1. The session was resumed — the cert is available from the SSL handle
+                //    but OpenSSL skips the verify callback.
+                // 2. The peer didn't provide a certificate at all.
+                // In both cases, run VerifyRemoteCertificate to invoke the user's callback
+                // and perform full validation.
+                if (!VerifyRemoteCertificate(_sslAuthenticationOptions.CertificateContext?.Trust, ref alertToken, out sslPolicyErrors, out chainStatus))
+                {
+                    _handshakeCompleted = false;
+                    return false;
+                }
+            }
+            else
+            {
+                sslPolicyErrors = SslPolicyErrors.None;
+                chainStatus = X509ChainStatusFlags.NoError;
+            }
+#pragma warning restore CS0162 // unreachable code on some platforms
 
             _handshakeCompleted = true;
             return true;
@@ -562,21 +656,26 @@ namespace System.Net.Security
             ProtocolToken alertToken = default;
             if (!CompleteHandshake(ref alertToken, out SslPolicyErrors sslPolicyErrors, out X509ChainStatusFlags chainStatus))
             {
-                if (sslAuthenticationOptions!.CertValidationDelegate != null)
-                {
-                    // there may be some chain errors but the decision was made by custom callback. Details should be tracing if enabled.
-                    SendAuthResetSignal(new ReadOnlySpan<byte>(alertToken.Payload), ExceptionDispatchInfo.Capture(new AuthenticationException(SR.net_ssl_io_cert_custom_validation, null)));
-                }
-                else if (sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors && chainStatus != X509ChainStatusFlags.NoError)
-                {
-                    // We failed only because of chain and we have some insight.
-                    SendAuthResetSignal(new ReadOnlySpan<byte>(alertToken.Payload), ExceptionDispatchInfo.Capture(new AuthenticationException(SR.Format(SR.net_ssl_io_cert_chain_validation, chainStatus), null)));
-                }
-                else
-                {
-                    // Simple add sslPolicyErrors as crude info.
-                    SendAuthResetSignal(new ReadOnlySpan<byte>(alertToken.Payload), ExceptionDispatchInfo.Capture(new AuthenticationException(SR.Format(SR.net_ssl_io_cert_validation, sslPolicyErrors), null)));
-                }
+                SendAuthResetSignal(new ReadOnlySpan<byte>(alertToken.Payload), ExceptionDispatchInfo.Capture(CreateCertificateValidationException(sslAuthenticationOptions, sslPolicyErrors, chainStatus)));
+            }
+        }
+
+        internal static Exception CreateCertificateValidationException(SslAuthenticationOptions options, SslPolicyErrors sslPolicyErrors, X509ChainStatusFlags chainStatus)
+        {
+            if (options.CertValidationDelegate != null)
+            {
+                // there may be some chain errors but the decision was made by custom callback. Details should be tracing if enabled.
+                return ExceptionDispatchInfo.SetCurrentStackTrace(new AuthenticationException(SR.net_ssl_io_cert_custom_validation, null));
+            }
+            else if (sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors && chainStatus != X509ChainStatusFlags.NoError)
+            {
+                // We failed only because of chain and we have some insight.
+                return ExceptionDispatchInfo.SetCurrentStackTrace(new AuthenticationException(SR.Format(SR.net_ssl_io_cert_chain_validation, chainStatus), null));
+            }
+            else
+            {
+                // Simple add sslPolicyErrors as crude info.
+                return ExceptionDispatchInfo.SetCurrentStackTrace(new AuthenticationException(SR.Format(SR.net_ssl_io_cert_validation, sslPolicyErrors), null));
             }
         }
 
@@ -700,6 +799,7 @@ namespace System.Net.Security
         }
 
         [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
+        [RuntimeAsyncMethodGeneration(false)]
         private async ValueTask<int> EnsureFullTlsFrameAsync<TIOAdapter>(CancellationToken cancellationToken, int estimatedSize)
             where TIOAdapter : IReadWriteAdapter
         {
@@ -747,63 +847,32 @@ namespace System.Net.Security
             return frameSize;
         }
 
-        private SecurityStatusPal DecryptData(int frameSize)
-        {
-            SecurityStatusPal status;
-
-            lock (_handshakeLock)
-            {
-                ThrowIfExceptionalOrNotAuthenticated();
-
-                // Decrypt will decrypt in-place and modify these to point to the actual decrypted data, which may be smaller.
-                status = Decrypt(_buffer.EncryptedSpanSliced(frameSize), out int decryptedOffset, out int decryptedCount);
-                _buffer.OnDecrypted(decryptedOffset, decryptedCount, frameSize);
-
-                if (status.ErrorCode == SecurityStatusPalErrorCode.Renegotiate)
-                {
-                    // The status indicates that peer wants to renegotiate. (Windows only)
-                    // In practice, there can be some other reasons too - like TLS1.3 session creation
-                    // of alert handling. We need to pass the data to lsass and it is not safe to do parallel
-                    // write any more as that can change TLS state and the EncryptData() can fail in strange ways.
-
-                    // To handle this we call DecryptData() under lock and we create TCS waiter.
-                    // EncryptData() checks that under same lock and if it exist it will not call low-level crypto.
-                    // Instead it will wait synchronously or asynchronously and it will try again after the wait.
-                    // The result will be set when ReplyOnReAuthenticationAsync() is finished e.g. lsass business is over.
-                    // If that happen before EncryptData() runs, _handshakeWaiter will be set to null
-                    // and EncryptData() will work normally e.g. no waiting, just exclusion with DecryptData()
-
-                    if (_sslAuthenticationOptions.AllowRenegotiation || SslProtocol == SslProtocols.Tls13 || _nestedAuth != 0)
-                    {
-                        // create TCS only if we plan to proceed. If not, we will throw later outside of the lock.
-                        // Tls1.3 does not have renegotiation. However on Windows this error code is used
-                        // for session management e.g. anything lsass needs to see.
-                        // We also allow it when explicitly requested using RenegotiateAsync().
-                        _handshakeWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    }
-                }
-            }
-
-            return status;
-        }
-
         [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
+        [RuntimeAsyncMethodGeneration(false)]
         private async ValueTask<int> ReadAsyncInternal<TIOAdapter>(Memory<byte> buffer, CancellationToken cancellationToken)
             where TIOAdapter : IReadWriteAdapter
         {
-
             // Throw first if we already have exception.
             // Check for disposal is not atomic so we will check again below.
             ThrowIfExceptionalOrNotAuthenticated();
 
-            if (Interlocked.CompareExchange(ref _nestedRead, StreamInUse, StreamNotInUse) != StreamNotInUse)
+            if (Interlocked.CompareExchange(ref _nestedRead, NestedState.StreamInUse, NestedState.StreamNotInUse) != NestedState.StreamNotInUse)
             {
-                ObjectDisposedException.ThrowIf(_nestedRead == StreamDisposed, this);
+                ObjectDisposedException.ThrowIf(_nestedRead == NestedState.StreamDisposed, this);
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, "read"));
             }
 
             try
             {
+
+#if TARGET_APPLE
+                if (SslStreamPal.IsAsyncSecurityContext(_securityContext!))
+                {
+                    ValueTask<int> task = SslStreamPal.AsyncReadAsync(_securityContext!, buffer, cancellationToken);
+                    return await TIOAdapter.WaitAsync(task).ConfigureAwait(false);
+                }
+#endif // TARGET_APPLE
+
                 int processedLength = 0;
                 int nextTlsFrameLength = UnknownTlsFrameLength;
 
@@ -838,7 +907,13 @@ namespace System.Net.Security
                         break;
                     }
 
-                    SecurityStatusPal status = DecryptData(payloadBytes);
+                    // Pass the user buffer to DecryptData so PALs that support it can decrypt directly
+                    // into the destination, avoiding a CopyDecryptedData memcpy. When the renegotiate
+                    // path is in flight we suppress the direct path by passing an empty span - the PAL
+                    // will fall back to in-place decrypt and the existing CopyDecryptedData path runs.
+                    Span<byte> destination = _handshakeWaiter == null ? buffer.Span : default;
+                    SecurityStatusPal status = DecryptData(payloadBytes, destination, out int directWritten);
+
                     if (status.ErrorCode != SecurityStatusPalErrorCode.OK)
                     {
                         byte[]? extraBuffer = null;
@@ -873,7 +948,16 @@ namespace System.Net.Security
                         }
                     }
 
-                    if (_buffer.DecryptedLength > 0)
+                    if (directWritten > 0)
+                    {
+                        processedLength += directWritten;
+                        buffer = buffer.Slice(directWritten);
+                        if (buffer.IsEmpty)
+                        {
+                            break;
+                        }
+                    }
+                    else if (_buffer.DecryptedLength > 0)
                     {
                         // This will either copy data from rented buffer or adjust final buffer as needed.
                         // In both cases _decryptedBytesOffset and _decryptedBytesCount will be updated as needed.
@@ -923,7 +1007,7 @@ namespace System.Net.Security
             finally
             {
                 ReturnReadBufferIfEmpty();
-                _nestedRead = StreamNotInUse;
+                _nestedRead = NestedState.StreamNotInUse;
             }
         }
 
@@ -938,13 +1022,22 @@ namespace System.Net.Security
                 return;
             }
 
-            if (Interlocked.Exchange(ref _nestedWrite, StreamInUse) == StreamInUse)
+            if (Interlocked.Exchange(ref _nestedWrite, NestedState.StreamInUse) == NestedState.StreamInUse)
             {
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, "write"));
             }
 
             try
             {
+#if TARGET_APPLE
+                if (SslStreamPal.IsAsyncSecurityContext(_securityContext!))
+                {
+                    Task task = SslStreamPal.AsyncWriteAsync(_securityContext!, buffer, cancellationToken);
+                    await TIOAdapter.WaitAsync(task).ConfigureAwait(false);
+                    return;
+                }
+#endif // TARGET_APPLE
+
                 ValueTask t = buffer.Length < MaxDataSize ?
                     WriteSingleChunk<TIOAdapter>(buffer, cancellationToken) :
                     WriteAsyncChunked<TIOAdapter>(buffer, cancellationToken);
@@ -961,7 +1054,7 @@ namespace System.Net.Security
             }
             finally
             {
-                _nestedWrite = StreamNotInUse;
+                _nestedWrite = NestedState.StreamNotInUse;
             }
         }
 

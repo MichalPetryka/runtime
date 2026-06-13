@@ -9,12 +9,13 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <minipal/thread.h>
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -82,7 +83,7 @@ static bool IsSigIgn(struct sigaction* action)
             action->sa_handler == SIG_IGN;
 }
 
-static bool TryConvertSignalCodeToPosixSignal(int signalCode, PosixSignal* posixSignal)
+bool TryConvertSignalCodeToPosixSignal(int signalCode, PosixSignal* posixSignal)
 {
     assert(posixSignal != NULL);
 
@@ -128,8 +129,12 @@ static bool TryConvertSignalCodeToPosixSignal(int signalCode, PosixSignal* posix
             *posixSignal = PosixSignalSIGTSTP;
             return true;
 
+        case SIGKILL:
+            *posixSignal = PosixSignalSIGKILL;
+            return true;
+
         default:
-            *posixSignal = signalCode;
+            *posixSignal = (PosixSignal)signalCode;
             return false;
     }
 }
@@ -168,6 +173,9 @@ int32_t SystemNative_GetPlatformSignalNumber(PosixSignal signal)
         case PosixSignalSIGTSTP:
             return SIGTSTP;
 
+        case PosixSignalSIGKILL:
+            return SIGKILL;
+
         case PosixSignalInvalid:
             break;
     }
@@ -178,6 +186,11 @@ int32_t SystemNative_GetPlatformSignalNumber(PosixSignal signal)
     }
 
     return 0;
+}
+
+int32_t SystemNative_GetPlatformSIGSTOP(void)
+{
+    return SIGSTOP;
 }
 
 void SystemNative_SetPosixSignalHandler(PosixSignalHandler signalHandler)
@@ -309,17 +322,16 @@ static void* SignalHandlerLoop(void* arg)
     // Passed in argument is a ptr to the file descriptor
     // for the read end of the pipe.
     assert(arg != NULL);
+
     int pipeFd = *(int*)arg;
+
     free(arg);
     assert(pipeFd >= 0);
 
-    char* threadName = ".NET SigHandler";
-#if defined(__linux__) || defined(__FreeBSD__)
-    pthread_setname_np(pthread_self(), threadName);
-#endif
-#if defined(__APPLE__)
-    pthread_setname_np(threadName);
-#endif
+    // set thread name
+    int setNameResult = minipal_set_thread_name(pthread_self(), ".NET SigHandler");
+    (void)setNameResult; // used
+    assert(setNameResult == 0);
 
     // Continually read a signal code from the signal pipe and process it,
     // until the pipe is closed.

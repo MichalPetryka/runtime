@@ -42,9 +42,9 @@ namespace System.Net.Security
         private int _readBufferCount;
         private ArrayBufferWriter<byte>? _writeBuffer;
 
-        private volatile int _writeInProgress;
-        private volatile int _readInProgress;
-        private volatile int _authInProgress;
+        private volatile bool _writeInProgress;
+        private volatile bool _readInProgress;
+        private volatile bool _authInProgress;
 
         private ExceptionDispatchInfo? _exception;
         private StreamFramer? _framer;
@@ -340,7 +340,7 @@ namespace System.Net.Security
         {
             Debug.Assert(_context is not null);
 
-            if (Interlocked.Exchange(ref _readInProgress, 1) == 1)
+            if (Interlocked.Exchange(ref _readInProgress, true))
             {
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, "read"));
             }
@@ -381,17 +381,22 @@ namespace System.Net.Security
 
                     // Always pass InternalBuffer for SSPI "in place" decryption.
                     // A user buffer can be shared by many threads in that case decryption/integrity check may fail cause of data corruption.
-                    _readBufferCount = readBytes;
-                    _readBufferOffset = 0;
                     if (_readBuffer.Length < readBytes)
                     {
                         _readBuffer = new byte[readBytes];
                     }
 
+                    // Note: do not assign _readBufferCount/_readBufferOffset before the read completes successfully.
+                    // If the read throws (e.g. due to the connection closing), a subsequent Read call would otherwise
+                    // observe a non-zero _readBufferCount and return stale/undecrypted buffer contents.
                     readBytes = await ReadAllAsync(InnerStream, new Memory<byte>(_readBuffer, 0, readBytes), allowZeroRead: false, cancellationToken).ConfigureAwait(false);
 
                     // Decrypt into the same buffer (decrypted data size can be shrunk after decryption).
+                    // Use locals so that on failure we do not leave _readBufferOffset/_readBufferCount in a state that
+                    // would expose stale or undecrypted data on a subsequent Read call.
                     NegotiateAuthenticationStatusCode statusCode;
+                    int decryptedOffset = 0;
+                    int decryptedCount = 0;
                     if (isNtlm && !_context.IsEncrypted)
                     {
                         // Non-encrypted NTLM uses an encoding quirk
@@ -404,14 +409,14 @@ namespace System.Net.Security
                         }
                         else
                         {
-                            _readBufferOffset = NtlmSignatureLength;
-                            _readBufferCount = readBytes - NtlmSignatureLength;
+                            decryptedOffset = NtlmSignatureLength;
+                            decryptedCount = readBytes - NtlmSignatureLength;
                             statusCode = NegotiateAuthenticationStatusCode.Completed;
                         }
                     }
                     else
                     {
-                        statusCode = _context.UnwrapInPlace(_readBuffer.AsSpan(0, readBytes), out _readBufferOffset, out _readBufferCount, out _);
+                        statusCode = _context.UnwrapInPlace(_readBuffer.AsSpan(0, readBytes), out decryptedOffset, out decryptedCount, out _);
                     }
 
                     if (statusCode != NegotiateAuthenticationStatusCode.Completed)
@@ -419,6 +424,9 @@ namespace System.Net.Security
                         // TODO: Better exception
                         throw new IOException(SR.net_io_read);
                     }
+
+                    _readBufferOffset = decryptedOffset;
+                    _readBufferCount = decryptedCount;
 
                     // Decrypted data can be shrunk after decryption.
                     if (_readBufferCount == 0 && buffer.Length != 0)
@@ -441,7 +449,7 @@ namespace System.Net.Security
             }
             finally
             {
-                _readInProgress = 0;
+                _readInProgress = false;
             }
 
             static async ValueTask<int> ReadAllAsync(Stream stream, Memory<byte> buffer, bool allowZeroRead, CancellationToken cancellationToken)
@@ -506,7 +514,7 @@ namespace System.Net.Security
             Debug.Assert(_context is not null);
             Debug.Assert(_writeBuffer is not null);
 
-            if (Interlocked.Exchange(ref _writeInProgress, 1) == 1)
+            if (Interlocked.Exchange(ref _writeInProgress, true))
             {
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, "write"));
             }
@@ -556,7 +564,7 @@ namespace System.Net.Security
             finally
             {
                 _writeBuffer.Clear();
-                _writeInProgress = 0;
+                _writeInProgress = false;
             }
         }
 
@@ -724,7 +732,7 @@ namespace System.Net.Security
             Debug.Assert(_context != null);
 
             ThrowIfFailed(authSuccessCheck: false);
-            if (Interlocked.Exchange(ref _authInProgress, 1) == 1)
+            if (Interlocked.Exchange(ref _authInProgress, true))
             {
                 throw new InvalidOperationException(SR.Format(SR.net_io_invalidnestedcall, "authenticate"));
             }
@@ -742,7 +750,7 @@ namespace System.Net.Security
             }
             finally
             {
-                _authInProgress = 0;
+                _authInProgress = false;
             }
         }
 
@@ -883,7 +891,16 @@ namespace System.Net.Security
 
             if (_framer.ReadHeader.MessageId == FrameHeader.HandshakeDoneId)
             {
-                _remoteOk = true;
+                if (HandshakeComplete && message.Length > 0)
+                {
+                    Debug.Assert(_context != null);
+                    _context.GetOutgoingBlob(message, out NegotiateAuthenticationStatusCode statusCode);
+                    _remoteOk = statusCode is NegotiateAuthenticationStatusCode.Completed;
+                }
+                else
+                {
+                    _remoteOk = true;
+                }
             }
             else if (_framer.ReadHeader.MessageId != FrameHeader.HandshakeId)
             {

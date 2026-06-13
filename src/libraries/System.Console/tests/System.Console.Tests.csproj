@@ -6,10 +6,12 @@
     <StringResourcesPath>..\src\Resources\Strings.resx</StringResourcesPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="BeepByBellChar.cs" />
     <Compile Include="CancelKeyPress.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="ReadAndWrite.cs" />
     <Compile Include="ConsoleKeyInfoTests.cs" />
+    <Compile Include="ConsoleHandles.cs" />
     <Compile Include="ConsoleStream.cs" />
     <Compile Include="SetError.cs" />
     <Compile Include="SetIn.cs" />

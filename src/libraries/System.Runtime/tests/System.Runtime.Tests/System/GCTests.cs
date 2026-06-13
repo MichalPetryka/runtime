@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Runtime;
 using Microsoft.DotNet.RemoteExecutor;
 using Xunit;
@@ -80,6 +81,7 @@ namespace System.Tests
         }
 
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsPreciseGcSupported))]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/123011", typeof(PlatformDetection), nameof(PlatformDetection.IsBrowser), nameof(PlatformDetection.IsCoreCLR))]
         public static void Collect_CallsFinalizer()
         {
             FinalizerTest.Run();
@@ -87,7 +89,7 @@ namespace System.Tests
 
         private class FinalizerTest
         {
-            [System.Runtime.CompilerServices.MethodImplAttribute(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+            [MethodImpl(MethodImplOptions.NoInlining)]
             private static void MakeAndDropTest()
             {
                 new TestObject();
@@ -137,6 +139,7 @@ namespace System.Tests
         }
 
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsPreciseGcSupported))]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/123011", typeof(PlatformDetection), nameof(PlatformDetection.IsBrowser), nameof(PlatformDetection.IsCoreCLR))]
         public static void KeepAlive()
         {
             KeepAliveTest.Run();
@@ -144,7 +147,7 @@ namespace System.Tests
 
         private class KeepAliveTest
         {
-            [System.Runtime.CompilerServices.MethodImplAttribute(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+            [MethodImpl(MethodImplOptions.NoInlining)]
             private static void MakeAndDropDNKA()
             {
                 new DoNotKeepAliveObject();
@@ -187,6 +190,7 @@ namespace System.Tests
         }
 
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsPreciseGcSupported))]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/123011", typeof(PlatformDetection), nameof(PlatformDetection.IsBrowser), nameof(PlatformDetection.IsCoreCLR))]
         public static void KeepAlive_Null()
         {
             KeepAliveNullTest.Run();
@@ -194,7 +198,7 @@ namespace System.Tests
 
         private class KeepAliveNullTest
         {
-            [System.Runtime.CompilerServices.MethodImplAttribute(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+            [MethodImpl(MethodImplOptions.NoInlining)]
             private static void MakeAndNull()
             {
                 var obj = new TestObject();
@@ -292,6 +296,55 @@ namespace System.Tests
             }
         }
 
+        [OuterLoop]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsPreciseGcSupported))]
+        public static void WaitForPendingFinalizersRaces()
+        {
+            Task.Run(Test);
+            Task.Run(Test);
+            Task.Run(Test);
+            Task.Run(Test);
+            Task.Run(Test);
+            Task.Run(Test);
+            Test();
+
+            static void Test()
+            {
+                for (int i = 0; i < 20000; i++)
+                {
+                    BoxedFinalized flag = new BoxedFinalized();
+                    MakeAndNull(flag);
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    Assert.True(flag.finalized);
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static void MakeAndNull(BoxedFinalized flag)
+            {
+                var deadObj = new TestObjectWithFinalizer(flag);
+                // it's dead here
+            };
+        }
+
+        class BoxedFinalized
+        {
+            public bool finalized;
+        }
+
+        class TestObjectWithFinalizer
+        {
+            BoxedFinalized _flag;
+
+            public TestObjectWithFinalizer(BoxedFinalized flag)
+            {
+                _flag = flag;
+            }
+
+            ~TestObjectWithFinalizer() => _flag.finalized = true;
+        }
+
         [Fact]
         public static void SuppressFinalizer_NullObject_ThrowsArgumentNullException()
         {
@@ -299,6 +352,7 @@ namespace System.Tests
         }
 
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsPreciseGcSupported))]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/123011", typeof(PlatformDetection), nameof(PlatformDetection.IsBrowser), nameof(PlatformDetection.IsCoreCLR))]
         public static void ReRegisterForFinalize()
         {
             ReRegisterForFinalizeTest.Run();
@@ -323,6 +377,7 @@ namespace System.Tests
                 Assert.True(TestObject.Finalized);
             }
 
+            [MethodImpl(MethodImplOptions.NoInlining)]
             private static void CreateObject()
             {
                 using (var obj = new TestObject())
@@ -819,7 +874,7 @@ namespace System.Tests
         private static bool IsNotArmProcessAndRemoteExecutorSupported => PlatformDetection.IsNotArmProcess && RemoteExecutor.IsSupported;
 
         [ActiveIssue("https://github.com/dotnet/runtime/issues/73167", TestRuntimes.Mono)]
-        [ConditionalFact(nameof(IsNotArmProcessAndRemoteExecutorSupported))] // [ActiveIssue("https://github.com/dotnet/runtime/issues/29434")]
+        [ConditionalFact(typeof(GCExtendedTests), nameof(IsNotArmProcessAndRemoteExecutorSupported))] // [ActiveIssue("https://github.com/dotnet/runtime/issues/29434")]
         public static void GetGCMemoryInfo()
         {
             RemoteExecutor.Invoke(() =>
@@ -1096,8 +1151,10 @@ namespace System.Tests
             var rng = new Random(0xAF);
 
             EmbeddedValueType<string>[] array = uninitialized ? GC.AllocateUninitializedArray<EmbeddedValueType<string>>(length, pinned: true) : GC.AllocateArray<EmbeddedValueType<string>>(length, pinned: true);
-            byte* pointer = (byte*)Unsafe.AsPointer(ref array[0]);
-            var size = Unsafe.SizeOf<EmbeddedValueType<string>>();
+            byte* pointer = (byte*)Unsafe.AsPointer(ref array[0]); // Unsafe.AsPointer is safe since array is pinned
+            int size = sizeof(EmbeddedValueType<string>);
+
+            GC.Collect();
 
             for(int i = 0; i < length; ++i)
             {

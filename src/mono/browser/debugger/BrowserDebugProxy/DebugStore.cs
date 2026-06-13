@@ -358,7 +358,7 @@ namespace Microsoft.WebAssembly.Diagnostics
         public int KickOffMethod { get; }
         internal bool IsCompilerGenerated { get; }
         private AsyncScopeDebugInformation[] _asyncScopes { get; set; }
-        private static SignatureTypeProvider _signatureTypeProvider = new();
+        private static readonly SignatureTypeProvider _signatureTypeProvider = new();
 
         public MethodInfo(AssemblyInfo assembly, string methodName, int methodToken, TypeInfo type, MethodAttributes attrs)
         {
@@ -894,7 +894,7 @@ namespace Microsoft.WebAssembly.Diagnostics
             {
                 try
                 {
-                    // First try to read it as a PE file, otherwise try it as a WebCIL file
+                    // First try to read it as a PE file, otherwise try it as a Webcil file
                     var peReader = new PEReader(asmStream);
                     if (!peReader.HasMetadata)
                         throw new BadImageFormatException();
@@ -970,6 +970,7 @@ namespace Microsoft.WebAssembly.Diagnostics
 
             LoadAssemblyInfo(peReader, name, asmMetadataReader, summary, logger);
         }
+
         private void FromWebcilReader(MonoProxy monoProxy, SessionId sessionId, WebcilReader wcReader, byte[] pdb, ILogger logger, CancellationToken token)
         {
             var debugProvider = new WebcilDebugMetadataProvider(wcReader);
@@ -1374,7 +1375,7 @@ namespace Microsoft.WebAssembly.Diagnostics
     internal sealed partial class SourceFile
     {
         [GeneratedRegex(@"([:/])")]
-        private static partial Regex RegexForEscapeFileName();
+        private static partial Regex RegexForEscapeFileName { get; }
 
         private readonly Dictionary<int, MethodInfo> methods;
         private readonly AssemblyInfo assembly;
@@ -1446,7 +1447,7 @@ namespace Microsoft.WebAssembly.Diagnostics
             {
                 string key = sourceLinkDocument.Key;
 
-                if (!key.EndsWith("*", StringComparison.OrdinalIgnoreCase))
+                if (!key.EndsWith('*'))
                 {
                     continue;
                 }
@@ -1476,7 +1477,7 @@ namespace Microsoft.WebAssembly.Diagnostics
         private static string EscapePathForUri(string path)
         {
             var builder = new StringBuilder();
-            foreach (var part in RegexForEscapeFileName().Split(path))
+            foreach (var part in RegexForEscapeFileName.Split(path))
             {
                 if (part == ":" || part == "/")
                     builder.Append(part);
@@ -1683,6 +1684,9 @@ namespace Microsoft.WebAssembly.Diagnostics
             var asm_files = new List<string>();
             List<DebugItem> steps = new List<DebugItem>();
 
+            // Use System.Private.CoreLib to determine if we have a fingerprinted assemblies or not.
+            bool isFingerprinted = Path.GetFileNameWithoutExtension(loaded_files.FirstOrDefault(f => f.Contains("System.Private.CoreLib"))) != "System.Private.CoreLib";
+
             if (!useDebuggerProtocol)
             {
                 var pdb_files = new List<string>();
@@ -1698,8 +1702,17 @@ namespace Microsoft.WebAssembly.Diagnostics
                 {
                     try
                     {
-                        string candidate_pdb = Path.ChangeExtension(url, "pdb");
-                        string pdb = pdb_files.FirstOrDefault(n => n == candidate_pdb);
+                        string pdb;
+                        if (isFingerprinted)
+                        {
+                            string noFingerprintPdbFileName = string.Concat(Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(url)), ".pdb");
+                            pdb = pdb_files.FirstOrDefault(n => string.Concat(Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(n)), Path.GetExtension(n)) == noFingerprintPdbFileName);
+                        }
+                        else
+                        {
+                            string candidate_pdb = Path.ChangeExtension(url, "pdb");
+                            pdb = pdb_files.FirstOrDefault(n => n == candidate_pdb);
+                        }
 
                         steps.Add(
                             new DebugItem
@@ -1722,12 +1735,14 @@ namespace Microsoft.WebAssembly.Diagnostics
                         continue;
                     try
                     {
-                        string unescapedFileName = Uri.UnescapeDataString(file_name);
+                        string unescapedFileName = Path.GetFileName(Uri.UnescapeDataString(file_name));
+                        if (isFingerprinted)
+                            unescapedFileName = string.Concat(Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(unescapedFileName)), Path.GetExtension(unescapedFileName));
                         steps.Add(
                             new DebugItem
                             {
                                 Url = file_name,
-                                DataTask = context.SdbAgent.GetDataFromAssemblyAndPdbAsync(Path.GetFileName(unescapedFileName), false, token)
+                                DataTask = context.SdbAgent.GetDataFromAssemblyAndPdbAsync(unescapedFileName, false, token)
                             });
                     }
                     catch (Exception e)
@@ -1755,6 +1770,8 @@ namespace Microsoft.WebAssembly.Diagnostics
                     if (assemblyAndPdbData == null || assemblyAndPdbData.AsmBytes == null)
                     {
                         var unescapedFileName = Uri.UnescapeDataString(step.Url);
+                        if (isFingerprinted)
+                            unescapedFileName = string.Concat(Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(unescapedFileName)), Path.GetExtension(unescapedFileName));
                         assemblies.Add(AssemblyInfo.WithoutDebugInfo(Path.GetFileName(unescapedFileName), logger));
                         logger.LogDebug($"Bytes from assembly {step.Url} is NULL");
                         continue;

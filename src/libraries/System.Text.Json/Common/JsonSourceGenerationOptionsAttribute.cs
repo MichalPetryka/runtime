@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 namespace System.Text.Json.Serialization
@@ -33,6 +33,13 @@ namespace System.Text.Json.Serialization
                 PropertyNameCaseInsensitive = true;
                 PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase;
                 NumberHandling = JsonNumberHandling.AllowReadingFromString;
+            }
+            else if (defaults is JsonSerializerDefaults.Strict)
+            {
+                UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
+                AllowDuplicateProperties = false;
+                RespectNullableAnnotations = true;
+                RespectRequiredConstructorParameters = true;
             }
             else if (defaults is not JsonSerializerDefaults.General)
             {
@@ -116,6 +123,26 @@ namespace System.Text.Json.Serialization
         public JsonCommentHandling ReadCommentHandling { get; set; }
 
         /// <summary>
+        /// Specifies the default value of <see cref="JsonSerializerOptions.ReferenceHandler"/> when set.
+        /// </summary>
+        public JsonKnownReferenceHandler ReferenceHandler { get; set; }
+
+        /// <summary>
+        /// Specifies the default value of <see cref="JsonSerializerOptions.RespectNullableAnnotations"/> when set.
+        /// </summary>
+        public bool RespectNullableAnnotations { get; set; }
+
+        /// <summary>
+        /// Specifies the default value of <see cref="JsonSerializerOptions.RespectRequiredConstructorParameters"/> when set.
+        /// </summary>
+        public bool RespectRequiredConstructorParameters { get; set; }
+
+        /// <summary>
+        /// Specifies the default value of <see cref="JsonSerializerOptions.TypeClassifiers"/> when set.
+        /// </summary>
+        public Type[]? TypeClassifiers { get; set; }
+
+        /// <summary>
         /// Specifies the default value of <see cref="JsonSerializerOptions.UnknownTypeHandling"/> when set.
         /// </summary>
         public JsonUnknownTypeHandling UnknownTypeHandling { get; set; }
@@ -150,5 +177,15 @@ namespace System.Text.Json.Serialization
         /// instead of numeric serialization for all enum types encountered in its type graph.
         /// </summary>
         public bool UseStringEnumConverter { get; set; }
+
+        /// <summary>
+        /// Specifies the default value of <see cref="JsonSerializerOptions.NewLine"/> when set.
+        /// </summary>
+        public string? NewLine { get; set; }
+
+        /// <summary>
+        /// Specifies the default value of <see cref="JsonSerializerOptions.AllowDuplicateProperties"/> when set.
+        /// </summary>
+        public bool AllowDuplicateProperties { get; set; }
     }
 }

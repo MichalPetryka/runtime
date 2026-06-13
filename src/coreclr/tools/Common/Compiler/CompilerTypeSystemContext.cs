@@ -17,7 +17,7 @@ namespace ILCompiler
     public partial class CompilerTypeSystemContext : MetadataTypeSystemContext, IMetadataStringDecoderProvider
     {
         private readonly MetadataRuntimeInterfacesAlgorithm _metadataRuntimeInterfacesAlgorithm = new MetadataRuntimeInterfacesAlgorithm();
-        private readonly MetadataVirtualMethodAlgorithm _virtualMethodAlgorithm = new MetadataVirtualMethodAlgorithm();
+        private readonly AsyncAwareVirtualMethodResolutionAlgorithm _virtualMethodAlgorithm;
 
         private MetadataStringDecoder _metadataStringDecoder;
 
@@ -98,7 +98,7 @@ namespace ILCompiler
             set;
         }
 
-        public override ModuleDesc ResolveAssembly(System.Reflection.AssemblyName name, bool throwIfNotFound)
+        public override ModuleDesc ResolveAssembly(AssemblyNameInfo name, bool throwIfNotFound)
         {
             // TODO: catch typesystem BadImageFormatException and throw a new one that also captures the
             // assembly name that caused the failure. (Along with the reason, which makes this rather annoying).
@@ -194,13 +194,23 @@ namespace ILCompiler
                     filePath = Path.GetFullPath(filePath);
                     peReader = OpenPEFile(filePath, out mappedViewAccessor);
 
+                    try
+                    {
+                        // Ensure the PEHeaders can be read
+                        _ = peReader.PEHeaders;
+
 #if !READYTORUN
-                if (peReader.HasMetadata && (peReader.PEHeaders.CorHeader.Flags & (CorFlags.ILLibrary | CorFlags.ILOnly)) == 0)
-                    throw new NotSupportedException($"Error: C++/CLI is not supported: '{filePath}'");
+                        if (peReader.HasMetadata && (peReader.PEHeaders.CorHeader.Flags & (CorFlags.ILLibrary | CorFlags.ILOnly)) == 0)
+                            throw new NotSupportedException($"Error: C++/CLI is not supported: '{filePath}'");
 #endif
 
-                    pdbReader = PortablePdbSymbolReader.TryOpenEmbedded(peReader, GetMetadataStringDecoder())
-                                ?? OpenAssociatedSymbolFile(filePath, peReader);
+                        pdbReader = PortablePdbSymbolReader.TryOpenEmbedded(peReader, GetMetadataStringDecoder())
+                                    ?? OpenAssociatedSymbolFile(filePath, peReader);
+                    }
+                    catch (BadImageFormatException ex)
+                    {
+                        throw new BadImageFormatException(ex.Message, filePath);
+                    }
                 }
                 else
                 {

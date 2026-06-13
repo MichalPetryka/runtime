@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Text.Json.Nodes;
+using System.Text.Json.Schema;
 
 namespace System.Text.Json.Serialization.Converters
 {
@@ -14,11 +16,22 @@ namespace System.Text.Json.Serialization.Converters
 
         public override short Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            if (options?.NumberHandling is not null and not JsonNumberHandling.Strict)
+            {
+                return ReadNumberWithCustomHandling(ref reader, options.NumberHandling, options);
+            }
+
             return reader.GetInt16();
         }
 
         public override void Write(Utf8JsonWriter writer, short value, JsonSerializerOptions options)
         {
+            if (options?.NumberHandling is not null and not JsonNumberHandling.Strict)
+            {
+                WriteNumberWithCustomHandling(writer, value, options.NumberHandling);
+                return;
+            }
+
             // For performance, lift up the writer implementation.
             writer.WriteNumberValue((long)value);
         }
@@ -57,5 +70,11 @@ namespace System.Text.Json.Serialization.Converters
                 writer.WriteNumberValue((long)value);
             }
         }
+
+        internal override JsonSchema? GetSchema(JsonNumberHandling numberHandling) =>
+            GetSchemaForNumericType(JsonSchemaType.Integer, numberHandling);
+
+        internal override JsonValueType GetSupportedJsonValueTypes(JsonNumberHandling numberHandling) =>
+            GetSupportedJsonValueTypesForNumericType(numberHandling);
     }
 }

@@ -3,6 +3,8 @@
 
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -30,6 +32,19 @@ namespace System.IO.Tests
                     tw.Write(TestDataProvider.CharData[count]);
                 }
                 Assert.Equal(new string(TestDataProvider.CharData), tw.Text);
+            }
+        }
+
+        [Fact]
+        public void WriteRuneTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                for (int count = 0; count < TestDataProvider.RuneData.Length; ++count)
+                {
+                    tw.Write(TestDataProvider.RuneData[count]);
+                }
+                Assert.Equal(string.Concat(TestDataProvider.RuneData), tw.Text);
             }
         }
 
@@ -226,15 +241,24 @@ namespace System.IO.Tests
         }
 
         [Fact]
-        public void WriteStringMultipleObjectsTest()
+        public void WriteStringMultipleObjectsArrayTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
             {
-                tw.Write(TestDataProvider.FormatStringMultipleObjects, TestDataProvider.MultipleObjects);
+                tw.Write(TestDataProvider.FormatStringMultipleObjects, (object[])TestDataProvider.MultipleObjects);
                 Assert.Equal(string.Format(TestDataProvider.FormatStringMultipleObjects, TestDataProvider.MultipleObjects), tw.Text);
             }
         }
 
+        [Fact]
+        public void WriteStringMultipleObjectsSpanTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                tw.Write(TestDataProvider.FormatStringMultipleObjects, (ReadOnlySpan<object>)TestDataProvider.MultipleObjects);
+                Assert.Equal(string.Format(TestDataProvider.FormatStringMultipleObjects, TestDataProvider.MultipleObjects), tw.Text);
+            }
+        }
         #endregion
 
         #region WriteLine Overloads
@@ -259,6 +283,19 @@ namespace System.IO.Tests
                     tw.WriteLine(TestDataProvider.CharData[count]);
                 }
                 Assert.Equal(string.Join(tw.NewLine, TestDataProvider.CharData.Select(ch => ch.ToString()).ToArray()) + tw.NewLine, tw.Text);
+            }
+        }
+
+        [Fact]
+        public void WriteLineRuneTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                for (int count = 0; count < TestDataProvider.RuneData.Length; ++count)
+                {
+                    tw.WriteLine(TestDataProvider.RuneData[count]);
+                }
+                Assert.Equal(string.Join(tw.NewLine, TestDataProvider.RuneData.Select(r => r.ToString()).ToArray()) + tw.NewLine, tw.Text);
             }
         }
 
@@ -454,11 +491,21 @@ namespace System.IO.Tests
         }
 
         [Fact]
-        public void WriteLineStringMultipleObjectsTest()
+        public void WriteLineStringMultipleObjectsArrayTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
             {
-                tw.WriteLine(TestDataProvider.FormatStringMultipleObjects, TestDataProvider.MultipleObjects);
+                tw.WriteLine(TestDataProvider.FormatStringMultipleObjects, (object[])TestDataProvider.MultipleObjects);
+                Assert.Equal(string.Format(TestDataProvider.FormatStringMultipleObjects + tw.NewLine, TestDataProvider.MultipleObjects), tw.Text);
+            }
+        }
+
+        [Fact]
+        public void WriteLineStringMultipleObjectsSpanTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                tw.WriteLine(TestDataProvider.FormatStringMultipleObjects, (ReadOnlySpan<object>)TestDataProvider.MultipleObjects);
                 Assert.Equal(string.Format(TestDataProvider.FormatStringMultipleObjects + tw.NewLine, TestDataProvider.MultipleObjects), tw.Text);
             }
         }
@@ -467,7 +514,7 @@ namespace System.IO.Tests
 
         #region Write Async Overloads
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteAsyncCharTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -477,7 +524,17 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteAsyncRuneTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                await tw.WriteAsync(new Rune(0x01F600));
+                Assert.Equal("\U0001F600", tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteAsyncStringTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -488,7 +545,7 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteAsyncCharArrayIndexCountTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -502,7 +559,7 @@ namespace System.IO.Tests
 
         #region WriteLineAsync Overloads
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteLineAsyncTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -512,7 +569,7 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteLineAsyncCharTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -522,7 +579,17 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteLineAsyncRuneTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                await tw.WriteLineAsync(new Rune(0x01F600));
+                Assert.Equal("\U0001F600" + tw.NewLine, tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteLineAsyncStringTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -533,7 +600,7 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteLineAsyncCharArrayIndexCount()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -567,7 +634,7 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteCharMemoryTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -578,7 +645,7 @@ namespace System.IO.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task WriteLineCharMemoryTest()
         {
             using (CharArrayTextWriter tw = NewTextWriter)
@@ -591,8 +658,10 @@ namespace System.IO.Tests
 
         [Theory]
         [MemberData(nameof(GetStringBuilderTestData))]
-        public void WriteStringBuilderTest(bool isSynchronized, StringBuilder testData)
+        public void WriteStringBuilderTest(bool isSynchronized, TestStringBuilderKind testStringBuilderKind)
         {
+            StringBuilder testData = GetTestStringBuilder(testStringBuilderKind);
+
             using (CharArrayTextWriter ctw = NewTextWriter)
             {
                 TextWriter tw = isSynchronized ? TextWriter.Synchronized(ctw) : ctw;
@@ -604,8 +673,10 @@ namespace System.IO.Tests
 
         [Theory]
         [MemberData(nameof(GetStringBuilderTestData))]
-        public void WriteLineStringBuilderTest(bool isSynchronized, StringBuilder testData)
+        public void WriteLineStringBuilderTest(bool isSynchronized, TestStringBuilderKind testStringBuilderKind)
         {
+            StringBuilder testData = GetTestStringBuilder(testStringBuilderKind);
+
             using (CharArrayTextWriter ctw = NewTextWriter)
             {
                 TextWriter tw = isSynchronized ? TextWriter.Synchronized(ctw) : ctw;
@@ -617,11 +688,13 @@ namespace System.IO.Tests
 
         [ConditionalTheory]
         [MemberData(nameof(GetStringBuilderTestData))]
-        public async Task WriteAsyncStringBuilderTest(bool isSynchronized, StringBuilder testData)
+        public async Task WriteAsyncStringBuilderTest(bool isSynchronized, TestStringBuilderKind testStringBuilderKind)
         {
-            if (!isSynchronized && !PlatformDetection.IsThreadingSupported)
+            StringBuilder testData = GetTestStringBuilder(testStringBuilderKind);
+
+            if (!isSynchronized && !PlatformDetection.IsMultithreadingSupported)
             {
-                throw new SkipTestException(nameof(PlatformDetection.IsThreadingSupported));
+                throw new SkipTestException(nameof(PlatformDetection.IsMultithreadingSupported));
             }
 
             using (CharArrayTextWriter ctw = NewTextWriter)
@@ -635,11 +708,13 @@ namespace System.IO.Tests
 
         [ConditionalTheory]
         [MemberData(nameof(GetStringBuilderTestData))]
-        public async Task WriteLineAsyncStringBuilderTest(bool isSynchronized, StringBuilder testData)
+        public async Task WriteLineAsyncStringBuilderTest(bool isSynchronized, TestStringBuilderKind testStringBuilderKind)
         {
-            if (!isSynchronized && !PlatformDetection.IsThreadingSupported)
+            StringBuilder testData = GetTestStringBuilder(testStringBuilderKind);
+
+            if (!isSynchronized && !PlatformDetection.IsMultithreadingSupported)
             {
-                throw new SkipTestException(nameof(PlatformDetection.IsThreadingSupported));
+                throw new SkipTestException(nameof(PlatformDetection.IsMultithreadingSupported));
             }
 
             using (CharArrayTextWriter ctw = NewTextWriter)
@@ -648,6 +723,91 @@ namespace System.IO.Tests
                 await tw.WriteLineAsync(testData);
                 tw.Flush();
                 Assert.Equal(testData + tw.NewLine, ctw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteAsyncStringWithCancellationTokenTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                var toWrite = new string(TestDataProvider.CharData);
+                await tw.WriteAsync(toWrite, CancellationToken.None);
+                Assert.Equal(toWrite, tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteAsyncStringWithCancellationTokenNullTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                await tw.WriteAsync((string?)null, CancellationToken.None);
+                Assert.Equal(string.Empty, tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteAsyncStringWithCancellationTokenCanceledTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                var cts = new CancellationTokenSource();
+                cts.Cancel();
+                await Assert.ThrowsAsync<TaskCanceledException>(() => tw.WriteAsync("test", cts.Token));
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteLineAsyncWithCancellationTokenTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                await tw.WriteLineAsync(CancellationToken.None);
+                Assert.Equal(tw.NewLine, tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteLineAsyncWithCancellationTokenCanceledTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                var cts = new CancellationTokenSource();
+                cts.Cancel();
+                await Assert.ThrowsAsync<TaskCanceledException>(() => tw.WriteLineAsync(cts.Token));
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteLineAsyncStringWithCancellationTokenTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                var toWrite = new string(TestDataProvider.CharData);
+                await tw.WriteLineAsync(toWrite, CancellationToken.None);
+                Assert.Equal(toWrite + tw.NewLine, tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteLineAsyncStringWithCancellationTokenNullTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                await tw.WriteLineAsync((string?)null, CancellationToken.None);
+                Assert.Equal(tw.NewLine, tw.Text);
+            }
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public async Task WriteLineAsyncStringWithCancellationTokenCanceledTest()
+        {
+            using (CharArrayTextWriter tw = NewTextWriter)
+            {
+                var cts = new CancellationTokenSource();
+                cts.Cancel();
+                await Assert.ThrowsAsync<TaskCanceledException>(() => tw.WriteLineAsync("test", cts.Token));
             }
         }
 
@@ -671,7 +831,8 @@ namespace System.IO.Tests
             Assert.Same(e, vt.AsTask().Exception.InnerException);
         }
 
-        [Fact]
+        // single-threaded WASM bypasses SyncTextWriter for faster startup
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public async Task FlushAsync_Precanceled()
         {
             Assert.Equal(TaskStatus.RanToCompletion, TextWriter.Null.FlushAsync(new CancellationToken(true)).Status);
@@ -772,8 +933,11 @@ namespace System.IO.Tests
             oracle.Write(" {0} {1}  {2}", TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(2), TimeSpan.FromDays(3));
             broadcasting.Write(" {0} {1}  {2}", TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(2), TimeSpan.FromDays(3));
 
-            oracle.Write(" {0} {1}  {2}    {3}", (Int128)4, (UInt128)5, (nint)6, (nuint)7);
-            broadcasting.Write(" {0} {1}  {2}    {3}", (Int128)4, (UInt128)5, (nint)6, (nuint)7);
+            oracle.Write(" {0} {1}  {2}    {3}", new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7 });
+            broadcasting.Write(" {0} {1}  {2}    {3}", new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7 });
+
+            oracle.Write(" {0} {1}  {2}    {3}        {4}", (ReadOnlySpan<object>)new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7, "8" });
+            broadcasting.Write(" {0} {1}  {2}    {3}        {4}", (ReadOnlySpan<object>)new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7, "8" });
 
             oracle.WriteLine();
             broadcasting.WriteLine();
@@ -835,8 +999,11 @@ namespace System.IO.Tests
             oracle.WriteLine(" {0} {1}  {2}", TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(2), TimeSpan.FromDays(3));
             broadcasting.WriteLine(" {0} {1}  {2}", TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(2), TimeSpan.FromDays(3));
 
-            oracle.WriteLine(" {0} {1}  {2}    {3}", (Int128)4, (UInt128)5, (nint)6, (nuint)7);
-            broadcasting.WriteLine(" {0} {1}  {2}    {3}", (Int128)4, (UInt128)5, (nint)6, (nuint)7);
+            oracle.WriteLine(" {0} {1}  {2}    {3}", new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7 });
+            broadcasting.WriteLine(" {0} {1}  {2}    {3}", new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7 });
+
+            oracle.WriteLine(" {0} {1}  {2}    {3}        {4}", (ReadOnlySpan<object>)new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7, "8" });
+            broadcasting.WriteLine(" {0} {1}  {2}    {3}        {4}", (ReadOnlySpan<object>)new object[] { (Int128)4, (UInt128)5, (nint)6, (nuint)7, "8" });
 
             await oracle.WriteAsync('a');
             await broadcasting.WriteAsync('a');
@@ -883,6 +1050,7 @@ namespace System.IO.Tests
         }
 
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBuiltWithAggressiveTrimming))]
+        [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Test is skipped under trimming via IsNotBuiltWithAggressiveTrimming.")]
         public void CreateBroadcasting_AllMethodsOverridden()
         {
             HashSet<string> exempted = ["Close", "Dispose", "get_NewLine", "set_NewLine"];
@@ -922,20 +1090,44 @@ namespace System.IO.Tests
             protected override void Dispose(bool disposing) => DisposeAction?.Invoke();
         }
 
+        public enum TestStringBuilderKind
+        {
+            Empty,
+            Simple,
+            Complex
+        }
+
+        private static StringBuilder GetTestStringBuilder(TestStringBuilderKind kind)
+        {
+            switch (kind)
+            {
+                case TestStringBuilderKind.Empty:
+                    return new StringBuilder("");
+                case TestStringBuilderKind.Simple:
+                    return new StringBuilder(new string(TestDataProvider.CharData));
+                case TestStringBuilderKind.Complex:
+                {
+                    // Make a string that has 10 or so 8K chunks (probably).
+                    StringBuilder complexStringBuilder = new StringBuilder();
+                    for (int i = 0; i < 4000; i++)
+                        complexStringBuilder.Append(TestDataProvider.CharData); // CharData ~ 25 chars
+                    return complexStringBuilder;
+                }
+                default:
+                    throw new UnreachableException();
+            }
+        }
+
         // Generate data for TextWriter.Write* methods that take a stringBuilder.
         // We test both the synchronized and unsynchronized variation, on strinbuilder with 0, small and large values.
+        // We use an enum to represent the test StringBuilder to avoid logging the lengthy contents of the complex case.
         public static IEnumerable<object[]> GetStringBuilderTestData()
         {
-            // Make a string that has 10 or so 8K chunks (probably).
-            StringBuilder complexStringBuilder = new StringBuilder();
-            for (int i = 0; i < 4000; i++)
-                complexStringBuilder.Append(TestDataProvider.CharData); // CharData ~ 25 chars
-
-            foreach (StringBuilder testData in new StringBuilder[] { new StringBuilder(""), new StringBuilder(new string(TestDataProvider.CharData)), complexStringBuilder })
+            foreach (TestStringBuilderKind testStringBuilderKind in new[] { TestStringBuilderKind.Empty, TestStringBuilderKind.Simple, TestStringBuilderKind.Complex })
             {
                 foreach (bool isSynchronized in new bool[] { true, false })
                 {
-                    yield return new object[] { isSynchronized, testData };
+                    yield return new object[] { isSynchronized, testStringBuilderKind };
                 }
             }
         }

@@ -225,6 +225,7 @@ namespace System.Management
             if (pWbemClassObject == IntPtr.Zero)
                 throw new ObjectDisposedException(name);
             int res = WmiNetUtilsHelper.CompareTo_f(16, pWbemClassObject, lFlags, pCompareTo.pWbemClassObject);
+            GC.KeepAlive(pCompareTo);
             GC.KeepAlive(this);
             return res;
         }
@@ -270,6 +271,8 @@ namespace System.Management
             if (pWbemClassObject == IntPtr.Zero)
                 throw new ObjectDisposedException(name);
             int res = WmiNetUtilsHelper.PutMethod_f(20, pWbemClassObject, wszName, lFlags, pInSignature, pOutSignature);
+            GC.KeepAlive(pInSignature);
+            GC.KeepAlive(pOutSignature);
             GC.KeepAlive(this);
             return res;
         }
@@ -366,7 +369,7 @@ namespace System.Management
     internal sealed class IWbemQualifierSetFreeThreaded : IDisposable
     {
         private static readonly string name = typeof(IWbemQualifierSetFreeThreaded).FullName;
-        public static Guid IID_IWbemClassObject = new Guid("DC12A681-737F-11CF-884D-00AA004B2E24");
+        public static readonly Guid IID_IWbemClassObject = new Guid("DC12A681-737F-11CF-884D-00AA004B2E24");
 
         private IntPtr pWbemQualifierSet = IntPtr.Zero;
         public IWbemQualifierSetFreeThreaded(IntPtr pWbemQualifierSet)
@@ -387,7 +390,7 @@ namespace System.Management
                 Marshal.Release(pWbemQualifierSet);
                 pWbemQualifierSet = IntPtr.Zero;
             }
-            if (finalization == false)
+            if (!finalization)
             {
                 GC.KeepAlive(this);
             }
@@ -1224,7 +1227,7 @@ namespace System.Management
             lock (critSec)
             {
                 // Make sure worker thread is initialized
-                if (workerThreadInitialized == false)
+                if (!workerThreadInitialized)
                 {
                     InitWorkerThread();
                     workerThreadInitialized = true;
@@ -1232,7 +1235,7 @@ namespace System.Management
 
                 ndx = reqList.Add(myReq);
 
-                if (evtGo.Set() == false)
+                if (!evtGo.Set())
                 {
                     reqList.RemoveAt(ndx);
                     throw new ManagementException(SR.WorkerThreadWakeupFailed);

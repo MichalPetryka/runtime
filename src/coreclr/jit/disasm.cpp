@@ -1,12 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 /***********************************************************************
-*
-* File: disasm.cpp
-*
-*  This file handles disassembly for the "late disassembler".
-*
-***********************************************************************/
+ *
+ * File: disasm.cpp
+ *
+ *  This file handles disassembly for the "late disassembler".
+ *
+ ***********************************************************************/
 
 #include "jitpch.h"
 #ifdef _MSC_VER
@@ -23,7 +23,7 @@ FILE* g_disAsmFileCorDisTools;
 #endif // USE_COREDISTOOLS
 
 // Define DISASM_DEBUG to get verbose output of late disassembler inner workings.
-//#define DISASM_DEBUG
+// #define DISASM_DEBUG
 #ifdef DISASM_DEBUG
 #ifdef DEBUG
 #define DISASM_DUMP(...)                                                                                               \
@@ -96,12 +96,12 @@ typedef struct codeFix
 {
     codeFix* cfNext;
     unsigned cfFixup;
-} * codeFixPtr;
+}* codeFixPtr;
 
 typedef struct codeBlk
 {
     codeFix* cbFixupLst;
-} * codeBlkPtr;
+}* codeBlkPtr;
 
 #ifdef USE_MSVCDIS
 
@@ -139,7 +139,7 @@ size_t DisAssembler::disCchAddrMember(
 
     switch (terminationType)
     {
-        // int disCallSize;
+            // int disCallSize;
 
         case DISX86::trmtaJmpShort:
         case DISX86::trmtaJmpCcShort:
@@ -228,7 +228,7 @@ size_t DisAssembler::disCchAddrMember(
 
     switch (terminationType)
     {
-        // int disCallSize;
+            // int disCallSize;
 
         case DISARM64::TRMTA::trmtaBra:
         case DISARM64::TRMTA::trmtaBraCase:
@@ -620,12 +620,12 @@ size_t DisAssembler::disCchRegRelMember(
 
         case DISX86::trmtaFallThrough:
 
-        /* some instructions like division have a TRAP termination type - ignore it */
+            /* some instructions like division have a TRAP termination type - ignore it */
 
         case DISX86::trmtaTrap:
         case DISX86::trmtaTrapCc:
 
-            var = disComp->codeGen->siStackVarName((size_t)(pdis->Addr() - disStartAddr), pdis->Cb(), reg, disp);
+            var = m_compiler->codeGen->siStackVarName((size_t)(pdis->Addr() - disStartAddr), pdis->Cb(), reg, disp);
             if (var)
             {
                 swprintf_s(wz, cchMax, W("%hs+%Xh '%hs'"), getRegName(reg), disp, var);
@@ -715,12 +715,12 @@ size_t DisAssembler::disCchRegRelMember(
 
         case DISARM64::TRMTA::trmtaFallThrough:
 
-        /* some instructions like division have a TRAP termination type - ignore it */
+            /* some instructions like division have a TRAP termination type - ignore it */
 
         case DISARM64::TRMTA::trmtaTrap:
         case DISARM64::TRMTA::trmtaTrapCc:
 
-            var = disComp->codeGen->siStackVarName((size_t)(pdis->Addr() - disStartAddr), pdis->Cb(), reg, disp);
+            var = m_compiler->codeGen->siStackVarName((size_t)(pdis->Addr() - disStartAddr), pdis->Cb(), reg, disp);
             if (var)
             {
                 swprintf_s(wz, cchMax, W("%hs+%Xh '%hs'"), getRegName(reg), disp, var);
@@ -824,7 +824,7 @@ size_t DisAssembler::disCchRegMember(const DIS* pdis, DIS::REGA reg, _In_reads_(
     return 0;
 
 #if 0
-    const char * var = disComp->codeGen->siRegVarName(
+    const char * var = m_compiler->codeGen->siRegVarName(
                                             (size_t)(pdis->Addr() - disStartAddr),
                                             pdis->Cb(),
                                             reg);
@@ -872,7 +872,7 @@ AddrToMethodHandleMap* DisAssembler::GetAddrToMethodHandleMap()
 {
     if (disAddrToMethodHandleMap == nullptr)
     {
-        disAddrToMethodHandleMap = new (disComp->getAllocator()) AddrToMethodHandleMap(disComp->getAllocator());
+        disAddrToMethodHandleMap = new (m_compiler->getAllocator()) AddrToMethodHandleMap(m_compiler->getAllocator());
     }
     return disAddrToMethodHandleMap;
 }
@@ -884,7 +884,8 @@ AddrToMethodHandleMap* DisAssembler::GetHelperAddrToMethodHandleMap()
 {
     if (disHelperAddrToMethodHandleMap == nullptr)
     {
-        disHelperAddrToMethodHandleMap = new (disComp->getAllocator()) AddrToMethodHandleMap(disComp->getAllocator());
+        disHelperAddrToMethodHandleMap =
+            new (m_compiler->getAllocator()) AddrToMethodHandleMap(m_compiler->getAllocator());
     }
     return disHelperAddrToMethodHandleMap;
 }
@@ -896,7 +897,7 @@ AddrToAddrMap* DisAssembler::GetRelocationMap()
 {
     if (disRelocationMap == nullptr)
     {
-        disRelocationMap = new (disComp->getAllocator()) AddrToAddrMap(disComp->getAllocator());
+        disRelocationMap = new (m_compiler->getAllocator()) AddrToAddrMap(m_compiler->getAllocator());
     }
     return disRelocationMap;
 }
@@ -1261,7 +1262,7 @@ void DisAssembler::DisasmBuffer(FILE* pfile, bool printit)
 #elif defined(TARGET_AMD64)
     pdis = DIS::PdisNew(DIS::distX8664);
 #elif defined(TARGET_ARM64)
-    pdis                      = DIS::PdisNew(DIS::distArm64);
+    pdis = DIS::PdisNew(DIS::distArm64);
 #else // TARGET*
 #error Unsupported or unset target architecture
 #endif
@@ -1340,7 +1341,7 @@ void DisAssembler::DisasmBuffer(FILE* pfile, bool printit)
 #else
                            false // Display code bytes?
 #endif
-                           );
+        );
 
         ibCur += (unsigned)cb;
     }
@@ -1401,13 +1402,13 @@ const char* DisAssembler::disGetMethodFullName(size_t addr)
     // First check the JIT helper table: they're very common.
     if (GetHelperAddrToMethodHandleMap()->Lookup(addr, &res))
     {
-        return disComp->eeGetMethodFullName(res);
+        return m_compiler->eeGetMethodFullName(res);
     }
 
     // Next check the "normal" registered call targets
     if (GetAddrToMethodHandleMap()->Lookup(addr, &res))
     {
-        return disComp->eeGetMethodFullName(res);
+        return m_compiler->eeGetMethodFullName(res);
     }
 
     return nullptr;
@@ -1423,12 +1424,12 @@ const char* DisAssembler::disGetMethodFullName(size_t addr)
 
 void DisAssembler::disSetMethod(size_t addr, CORINFO_METHOD_HANDLE methHnd)
 {
-    if (!disComp->opts.doLateDisasm)
+    if (!m_compiler->opts.doLateDisasm)
     {
         return;
     }
 
-    if (disComp->eeGetHelperNum(methHnd))
+    if (m_compiler->eeGetHelperNum(methHnd))
     {
         DISASM_DUMP("Helper function: %p => %p\n", addr, methHnd);
         GetHelperAddrToMethodHandleMap()->Set(addr, methHnd, AddrToMethodHandleMap::SetKind::Overwrite);
@@ -1450,7 +1451,7 @@ void DisAssembler::disSetMethod(size_t addr, CORINFO_METHOD_HANDLE methHnd)
 
 void DisAssembler::disRecordRelocation(size_t relocAddr, size_t targetAddr)
 {
-    if (!disComp->opts.doLateDisasm)
+    if (!m_compiler->opts.doLateDisasm)
     {
         return;
     }
@@ -1471,7 +1472,7 @@ void DisAssembler::disAsmCode(BYTE*  hotCodePtr,
                               BYTE*  coldCodePtrRW,
                               size_t coldCodeSize)
 {
-    if (!disComp->opts.doLateDisasm)
+    if (!m_compiler->opts.doLateDisasm)
     {
         return;
     }
@@ -1482,21 +1483,17 @@ void DisAssembler::disAsmCode(BYTE*  hotCodePtr,
 
 #ifdef DEBUG
     // Should we make it diffable?
-    disDiffable = disComp->opts.dspDiffable;
+    disDiffable = m_compiler->opts.dspDiffable;
 #else  // !DEBUG
     // NOTE: non-debug builds are always diffable!
     disDiffable = true;
 #endif // !DEBUG
 
 #ifdef DEBUG
-    const WCHAR* fileName = JitConfig.JitLateDisasmTo();
+    const char* fileName = JitConfig.JitLateDisasmTo();
     if (fileName != nullptr)
     {
-        errno_t ec = _wfopen_s(&disAsmFile, fileName, W("a+"));
-        if (ec != 0)
-        {
-            disAsmFile = nullptr;
-        }
+        disAsmFile = fopen_utf8(fileName, "a+");
     }
 #else  // !DEBUG
     // NOTE: non-DEBUG builds always use jitstdout currently!
@@ -1536,7 +1533,7 @@ void DisAssembler::disAsmCode(BYTE*  hotCodePtr,
 
     disTotalCodeSize = disHotCodeSize + disColdCodeSize;
 
-    disLabels = new (disComp, CMK_DebugOnly) BYTE[disTotalCodeSize]();
+    disLabels = new (m_compiler, CMK_DebugOnly) BYTE[disTotalCodeSize]();
 
     DisasmBuffer(disAsmFile, /* printIt */ true);
 
@@ -1558,7 +1555,7 @@ void DisAssembler::disAsmCode(BYTE*  hotCodePtr,
 
 void DisAssembler::disOpenForLateDisAsm(const char* curMethodName, const char* curClassName, PCCOR_SIGNATURE sig)
 {
-    if (!disComp->opts.doLateDisasm)
+    if (!m_compiler->opts.doLateDisasm)
     {
         return;
     }
@@ -1680,7 +1677,7 @@ bool DisAssembler::InitCoredistoolsLibrary()
 
     s_disCoreDisToolsLibraryLoadSuccessful = true; // We made it!
 
-// done initializing
+    // done initializing
 
 FinishedInitializing:
     InterlockedExchange(&s_disCoreDisToolsLibraryInitializing, 0); // unlock initialization
@@ -1703,11 +1700,15 @@ bool DisAssembler::InitCoredistoolsDisasm()
 #if defined(TARGET_ARM64)
     coreDisTargetArchitecture = Target_Arm64;
 #elif defined(TARGET_ARM)
-    coreDisTargetArchitecture        = Target_Thumb;
+    coreDisTargetArchitecture = Target_Thumb;
 #elif defined(TARGET_X86)
     coreDisTargetArchitecture = Target_X86;
 #elif defined(TARGET_AMD64)
     coreDisTargetArchitecture = Target_X64;
+#elif defined(TARGET_LOONGARCH64)
+    coreDisTargetArchitecture = Target_LoongArch64;
+#elif defined(TARGET_RISCV64)
+    coreDisTargetArchitecture = Target_RiscV64;
 #else
 #error Unsupported target for LATE_DISASM with USE_COREDISTOOLS
 #endif
@@ -1788,7 +1789,7 @@ void DisAssembler::DisasmBuffer(FILE* pfile, bool printit)
 void DisAssembler::disInit(Compiler* pComp)
 {
     assert(pComp);
-    disComp                        = pComp;
+    m_compiler                     = pComp;
     disHasName                     = false;
     disLabels                      = nullptr;
     disAddrToMethodHandleMap       = nullptr;

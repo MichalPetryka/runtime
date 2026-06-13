@@ -15,11 +15,12 @@ namespace System.Text.Json.Serialization.Metadata
         private static JsonTypeInfo<T> CreateCore<T>(JsonConverter converter, JsonSerializerOptions options)
         {
             var typeInfo = new JsonTypeInfo<T>(converter, options);
-            typeInfo.PopulatePolymorphismMetadata();
+            PopulatePolymorphismMetadata(typeInfo, polymorphismOptions: null, typeClassifierFactory: null);
             typeInfo.MapInterfaceTypesToCallbacks();
 
             // Plug in any converter configuration -- should be run last.
             converter.ConfigureJsonTypeInfo(typeInfo, options);
+            typeInfo.IsCustomized = false;
             return typeInfo;
         }
 
@@ -32,6 +33,8 @@ namespace System.Text.Json.Serialization.Metadata
             var typeInfo = new JsonTypeInfo<T>(converter, options);
             if (objectInfo.ObjectWithParameterizedConstructorCreator != null)
             {
+                // NB parameter metadata must be populated *before* property metadata
+                // so that properties can be linked to their associated parameters.
                 typeInfo.CreateObjectWithArgs = objectInfo.ObjectWithParameterizedConstructorCreator;
                 PopulateParameterInfoValues(typeInfo, objectInfo.ConstructorParameterMetadataInitializer);
             }
@@ -50,13 +53,17 @@ namespace System.Text.Json.Serialization.Metadata
                 typeInfo.PropertyMetadataSerializationNotSupported = true;
             }
 
+            typeInfo.ConstructorAttributeProviderFactory = objectInfo.ConstructorAttributeProviderFactory;
             typeInfo.SerializeHandler = objectInfo.SerializeHandler;
             typeInfo.NumberHandling = objectInfo.NumberHandling;
-            typeInfo.PopulatePolymorphismMetadata();
+
+            PopulatePolymorphismMetadata(typeInfo, objectInfo.PolymorphismOptions, objectInfo.TypeClassifierFactory);
+
             typeInfo.MapInterfaceTypesToCallbacks();
 
             // Plug in any converter configuration -- should be run last.
             converter.ConfigureJsonTypeInfo(typeInfo, options);
+            typeInfo.IsCustomized = false;
             return typeInfo;
         }
 
@@ -70,10 +77,7 @@ namespace System.Text.Json.Serialization.Metadata
             object? createObjectWithArgs = null,
             object? addFunc = null)
         {
-            if (collectionInfo is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(collectionInfo));
-            }
+            ArgumentNullException.ThrowIfNull(collectionInfo);
 
             converter = collectionInfo.SerializeHandler != null
                 ? new JsonMetadataServicesConverter<T>(converter)
@@ -89,11 +93,12 @@ namespace System.Text.Json.Serialization.Metadata
             typeInfo.CreateObjectWithArgs = createObjectWithArgs;
             typeInfo.AddMethodDelegate = addFunc;
             typeInfo.SetCreateObjectIfCompatible(collectionInfo.ObjectCreator);
-            typeInfo.PopulatePolymorphismMetadata();
+            PopulatePolymorphismMetadata(typeInfo, collectionInfo.PolymorphismOptions, collectionInfo.TypeClassifierFactory);
             typeInfo.MapInterfaceTypesToCallbacks();
 
             // Plug in any converter configuration -- should be run last.
             converter.ConfigureJsonTypeInfo(typeInfo, options);
+            typeInfo.IsCustomized = false;
             return typeInfo;
         }
 
@@ -110,14 +115,44 @@ namespace System.Text.Json.Serialization.Metadata
                 : converter;
         }
 
+        private static void PopulatePolymorphismMetadata(
+            JsonTypeInfo typeInfo,
+            JsonPolymorphismOptions? polymorphismOptions,
+            JsonTypeClassifierFactory? typeClassifierFactory)
+        {
+            if (polymorphismOptions is null)
+            {
+                // Older versions of the source generator do not populate polymorphism options,
+                // so attempt to populate it from attributes at runtime.
+                polymorphismOptions = JsonPolymorphismOptions.CreateFromAttributeDeclarations(typeInfo.Type, out _);
+                typeClassifierFactory = null;
+            }
+            else if (polymorphismOptions.IsEmpty)
+            {
+                // An empty options instance indicates no polymorphism metadata was provided at compile time.
+                polymorphismOptions = null;
+                typeClassifierFactory = null;
+            }
+
+            if (polymorphismOptions is not null)
+            {
+                typeInfo.SetPolymorphismOptions(polymorphismOptions);
+                if (typeClassifierFactory is not null || typeInfo.Options.TypeClassifiers.Count > 0)
+                {
+                    typeInfo.TypeClassifierFactory = typeClassifierFactory;
+                    typeInfo.TypeClassifierResolutionPending = true;
+                }
+            }
+        }
+
         private static void PopulateParameterInfoValues(JsonTypeInfo typeInfo, Func<JsonParameterInfoValues[]?>? paramFactory)
         {
             Debug.Assert(typeInfo.Kind is JsonTypeInfoKind.Object);
             Debug.Assert(!typeInfo.IsReadOnly);
 
-            if (paramFactory?.Invoke() is JsonParameterInfoValues[] array)
+            if (paramFactory?.Invoke() is JsonParameterInfoValues[] parameterInfoValues)
             {
-                typeInfo.ParameterInfoValues = array;
+                typeInfo.PopulateParameterInfoValues(parameterInfoValues);
             }
             else
             {
@@ -145,11 +180,21 @@ namespace System.Text.Json.Serialization.Metadata
                 {
                     if (jsonPropertyInfo.SrcGen_HasJsonInclude)
                     {
-                        Debug.Assert(jsonPropertyInfo.MemberName != null, "MemberName is not set by source gen");
-                        ThrowHelper.ThrowInvalidOperationException_JsonIncludeOnInaccessibleProperty(jsonPropertyInfo.MemberName, jsonPropertyInfo.DeclaringType);
-                    }
+                        if (jsonPropertyInfo.Get is null && jsonPropertyInfo.Set is null)
+                        {
+                            // [JsonInclude] property is inaccessible and the source generator
+                            // did not provide getter/setter delegates (e.g. older generator).
+                            Debug.Assert(jsonPropertyInfo.MemberName != null, "MemberName is not set by source gen");
+                            ThrowHelper.ThrowInvalidOperationException_JsonIncludeOnInaccessibleProperty(jsonPropertyInfo.MemberName, jsonPropertyInfo.DeclaringType);
+                        }
 
-                    continue;
+                        // Non-public [JsonInclude] property with getter/setter delegates provided
+                        // via UnsafeAccessor or reflection fallback — treat it as a valid property.
+                    }
+                    else
+                    {
+                        continue;
+                    }
                 }
 
                 if (jsonPropertyInfo.MemberType == MemberTypes.Field && !jsonPropertyInfo.SrcGen_HasJsonInclude && !typeInfo.Options.IncludeFields)
@@ -190,6 +235,7 @@ namespace System.Text.Json.Serialization.Metadata
             propertyInfo.IgnoreCondition = propertyInfoValues.IgnoreCondition;
             propertyInfo.JsonTypeInfo = propertyInfoValues.PropertyTypeInfo;
             propertyInfo.NumberHandling = propertyInfoValues.NumberHandling;
+            propertyInfo.AttributeProviderFactory = propertyInfoValues.AttributeProviderFactory;
 
             return propertyInfo;
         }

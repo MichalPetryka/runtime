@@ -82,13 +82,13 @@ namespace
 
     void PopulateBindRequest(/*inout*/ BinderTracing::AssemblyBindOperation::BindRequest &request)
     {
-        AssemblySpec *spec = request.AssemblySpec;
+        AssemblySpec *spec = request.AssemblySpecPtr;
         _ASSERTE(spec != nullptr);
 
         if (spec->GetName() != nullptr)
             spec->GetDisplayName(ASM_DISPLAYF_VERSION | ASM_DISPLAYF_CULTURE | ASM_DISPLAYF_PUBLIC_KEY_TOKEN, request.AssemblyName);
 
-        DomainAssembly *parentAssembly = spec->GetParentAssembly();
+        ::Assembly *parentAssembly = spec->GetParentAssembly();
         if (parentAssembly != nullptr)
         {
             PEAssembly *pPEAssembly = parentAssembly->GetPEAssembly();
@@ -172,7 +172,7 @@ namespace BinderTracing
 
         // ActivityTracker or EventSource may have triggered the system satellite load, or load of System.Private.CoreLib
         // Don't track such bindings to avoid potential infinite recursion.
-        m_ignoreBind = t_AssemblyLoadStartInProgress && (m_bindRequest.AssemblySpec->IsCoreLib() || m_bindRequest.AssemblySpec->IsCoreLibSatellite());
+        m_ignoreBind = t_AssemblyLoadStartInProgress && (m_bindRequest.AssemblySpecPtr->IsCoreLib() || m_bindRequest.AssemblySpecPtr->IsCoreLibSatellite());
         m_checkedIgnoreBind = true;
         return m_ignoreBind;
     }
@@ -214,19 +214,52 @@ namespace BinderTracing
         if (!m_tracingEnabled)
             return;
 
+        const BindResult::AttemptResult *inContextAttempt = bindResult.GetAttempt(true /*foundInContext*/);
+        const BindResult::AttemptResult *appAssembliesAttempt = bindResult.GetAttempt(false /*foundInContext*/);
+
         // Use the error message that would be reported in the file load exception
         StackSString errorMsg;
         if (mvidMismatch)
         {
+            PathString loadedAssemblyName;
+            if (inContextAttempt != nullptr && inContextAttempt->AssemblyHolder != nullptr)
+            {
+                inContextAttempt->AssemblyHolder->GetAssemblyName()->GetDisplayName(loadedAssemblyName, AssemblyName::INCLUDE_VERSION | AssemblyName::INCLUDE_PUBLIC_KEY_TOKEN);
+            }
+
             StackSString format;
-            format.LoadResource(CCompRC::Error, IDS_EE_FILELOAD_ERROR_GENERIC);
+            format.LoadResource(IDS_EE_FILELOAD_ERROR_GENERIC);
             StackSString details;
-            details.LoadResource(CCompRC::Error, IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_IN_CONTEXT);
+            if (!loadedAssemblyName.IsEmpty())
+            {
+                StackSString simpleName;
+                if (m_assemblyNameObject != nullptr)
+                {
+                    simpleName.Set(m_assemblyNameObject->GetSimpleName());
+                }
+                else
+                {
+                    simpleName.Set(m_assemblyName);
+                }
+                PathString loadedPath{ inContextAttempt->AssemblyHolder->GetPEImage()->GetPath() };
+                SString versionFormat;
+                if (!loadedPath.IsEmpty())
+                {
+                    versionFormat.LoadResource(IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_WITH_VERSION_AND_PATH);
+                    details.FormatMessage(FORMAT_MESSAGE_FROM_STRING, versionFormat.GetUnicode(), 0, 0, simpleName, loadedAssemblyName, loadedPath);
+                }
+                else
+                {
+                    versionFormat.LoadResource(IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_WITH_VERSION);
+                    details.FormatMessage(FORMAT_MESSAGE_FROM_STRING, versionFormat.GetUnicode(), 0, 0, simpleName, loadedAssemblyName);
+                }
+            }
+            else
+            {
+                details.LoadResource(IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_IN_CONTEXT);
+            }
             errorMsg.FormatMessage(FORMAT_MESSAGE_FROM_STRING, format.GetUnicode(), 0, 0, m_assemblyName, details);
         }
-
-        const BindResult::AttemptResult *inContextAttempt = bindResult.GetAttempt(true /*foundInContext*/);
-        const BindResult::AttemptResult *appAssembliesAttempt = bindResult.GetAttempt(false /*foundInContext*/);
 
         if (inContextAttempt != nullptr)
         {
@@ -234,12 +267,12 @@ namespace BinderTracing
             bool isLastAttempt = appAssembliesAttempt == nullptr;
             TraceStage(Stage::FindInLoadContext,
                 isLastAttempt && FAILED(m_hr) && SUCCEEDED(inContextAttempt->HResult) ? m_hr : inContextAttempt->HResult,
-                inContextAttempt->Assembly,
+                inContextAttempt->AssemblyHolder,
                 mvidMismatch && isLastAttempt ? errorMsg.GetUnicode() : nullptr);
         }
 
         if (appAssembliesAttempt != nullptr)
-            TraceStage(Stage::ApplicationAssemblies, FAILED(m_hr) && SUCCEEDED(appAssembliesAttempt->HResult) ? m_hr : appAssembliesAttempt->HResult, appAssembliesAttempt->Assembly, mvidMismatch ? errorMsg.GetUnicode() : nullptr);
+            TraceStage(Stage::ApplicationAssemblies, FAILED(m_hr) && SUCCEEDED(appAssembliesAttempt->HResult) ? m_hr : appAssembliesAttempt->HResult, appAssembliesAttempt->AssemblyHolder, mvidMismatch ? errorMsg.GetUnicode() : nullptr);
     }
 
     void ResolutionAttemptedOperation::TraceStage(Stage stage, HRESULT hr, BINDER_SPACE::Assembly *resultAssembly, const WCHAR *customError)

@@ -1,7 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -47,8 +50,8 @@ namespace System.Collections.Tests
                     new ("[\"Two\"]", "2"),
                 }
             };
-            CustomKeyedCollection<string, int> collection = new ();
-            collection.GetKeyForItemHandler = value =>  (2 * value).ToString();
+            CustomKeyedCollection<string, int> collection = new();
+            collection.GetKeyForItemHandler = value => (2 * value).ToString();
             collection.InsertItem(0, 1);
             collection.InsertItem(1, 3);
             yield return new object[] { collection,
@@ -56,6 +59,53 @@ namespace System.Collections.Tests
                 {
                     new ("[\"2\"]", "1"),
                     new ("[\"6\"]", "3"),
+                }
+            };
+
+            yield return new object[] { new ConcurrentDictionary<int, string>(new KeyValuePair<int, string>[] { new(1, "One"), new(2, "Two") }),
+                new KeyValuePair<string, string>[]
+                {
+                    new ("[1]", "\"One\""),
+                    new ("[2]", "\"Two\""),
+                }
+            };
+        }
+
+        private static IEnumerable<object[]> TestDebuggerAttributes_AdditionalGenericDictionaries()
+        {
+            yield return new object[] { new Dictionary<int, string> { { 1, "One" }, { 2, "Two" } }.ToFrozenDictionary(),
+                new KeyValuePair<string, string>[]
+                {
+                    new ("[1]", "\"One\""),
+                    new ("[2]", "\"Two\""),
+                }
+            };
+            yield return new object[] { new Dictionary<int, string> { { 1, "One" }, { 2, "Two" } }.ToImmutableDictionary(),
+                new KeyValuePair<string, string>[]
+                {
+                    new ("[1]", "\"One\""),
+                    new ("[2]", "\"Two\""),
+                }
+            };
+            yield return new object[] { new Dictionary<int, string> { { 1, "One" }, { 2, "Two" } }.ToImmutableDictionary().ToBuilder(),
+                new KeyValuePair<string, string>[]
+                {
+                    new ("[1]", "\"One\""),
+                    new ("[2]", "\"Two\""),
+                }
+            };
+            yield return new object[] { new Dictionary<int, string> { { 1, "One" }, { 2, "Two" } }.ToImmutableSortedDictionary(),
+                new KeyValuePair<string, string>[]
+                {
+                    new ("[1]", "\"One\""),
+                    new ("[2]", "\"Two\""),
+                }
+            };
+            yield return new object[] { new Dictionary<int, string> { { 1, "One" }, { 2, "Two" } }.ToImmutableSortedDictionary().ToBuilder(),
+                new KeyValuePair<string, string>[]
+                {
+                    new ("[1]", "\"One\""),
+                    new ("[2]", "\"Two\""),
                 }
             };
         }
@@ -116,6 +166,9 @@ namespace System.Collections.Tests
             yield return new object[] { new SortedList<int, string>() };
             yield return new object[] { new SortedSet<int>() };
             yield return new object[] { new Stack<object>() };
+#if !NETFRAMEWORK
+            yield return new object[] { new OrderedDictionary<string, string>() };
+#endif
 
             yield return new object[] { new Dictionary<double, float>().Keys };
             yield return new object[] { new Dictionary<float, double>().Values };
@@ -143,6 +196,10 @@ namespace System.Collections.Tests
             stack.Push(2);
             yield return new object[] { stack };
 
+#if !NETFRAMEWORK
+            yield return new object[] { new OrderedDictionary<string, string> { { "One", "1" }, { "Two", "2" } } };
+#endif
+
             yield return new object[] { new SortedList<string, int> { { "One", 1 }, { "Two", 2 } }.Keys };
             yield return new object[] { new SortedList<float, long> { { 1f, 1L }, { 2f, 2L } }.Values };
 
@@ -162,12 +219,14 @@ namespace System.Collections.Tests
 
         public static IEnumerable<object[]> TestDebuggerAttributes_InputsPresentedAsDictionary()
         {
+            var testCases = TestDebuggerAttributes_NonGenericDictionaries()
+                .Concat(TestDebuggerAttributes_AdditionalGenericDictionaries());
 #if !NETFRAMEWORK
-            return TestDebuggerAttributes_NonGenericDictionaries()
+            return testCases
                 .Concat(TestDebuggerAttributes_GenericDictionaries());
 #else
-            // In .Net Framework only non-generic dictionaries are displayed in a dictionary format by the debugger.
-            return TestDebuggerAttributes_NonGenericDictionaries();
+            // In .Net Framework, the generic dictionaries that are part of the framework are displayed in a list format by the debugger.
+            return testCases;
 #endif
         }
 
@@ -224,6 +283,33 @@ namespace System.Collections.Tests
             TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => DebuggerAttributes.CreateDebuggerTypeProxyWithNullArgument(obj.GetType()));
             Assert.IsType<ArgumentNullException>(tie.InnerException);
         }
+
+#if !NETFRAMEWORK
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsDebuggerTypeProxyAttributeSupported))]
+        public static void TestDebuggerAttributes_OrderedDictionary()
+        {
+            // Validate that OrderedDictionary displays as a list of KeyValuePairs with implicit indexing
+            var dict = new OrderedDictionary<string, string> { { "One", "1" }, { "Two", "2" }, { "Three", "3" } };
+            
+            DebuggerAttributes.ValidateDebuggerDisplayReferences(dict);
+            DebuggerAttributeInfo info = DebuggerAttributes.ValidateDebuggerTypeProxyProperties(dict);
+            PropertyInfo itemProperty = info.Properties.Single(pr => pr.GetCustomAttribute<DebuggerBrowsableAttribute>().State == DebuggerBrowsableState.RootHidden);
+            
+            // The debug view should return a KeyValuePair array
+            var items = itemProperty.GetValue(info.Instance) as Array;
+            Assert.NotNull(items);
+            Assert.Equal(3, items.Length);
+            
+            // Verify the items are KeyValuePairs in the correct order
+            var kvpArray = items.Cast<KeyValuePair<string, string>>().ToArray();
+            Assert.Equal("One", kvpArray[0].Key);
+            Assert.Equal("1", kvpArray[0].Value);
+            Assert.Equal("Two", kvpArray[1].Key);
+            Assert.Equal("2", kvpArray[1].Value);
+            Assert.Equal("Three", kvpArray[2].Key);
+            Assert.Equal("3", kvpArray[2].Value);
+        }
+#endif
 
         private class CustomKeyedCollection<TKey, TValue> : KeyedCollection<TKey, TValue> where TKey : notnull
         {

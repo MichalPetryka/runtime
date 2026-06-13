@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using Microsoft.DotNet.RemoteExecutor;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Test.Console;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -173,7 +174,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             };
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void LogsWhenMessageIsNotProvided()
         {
             // Arrange
@@ -205,7 +206,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
                 GetMessage(sink.Writes.GetRange(2 * t.WritesPerMsg, t.WritesPerMsg)));
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void DoesNotLog_NewLine_WhenNoExceptionIsProvided()
         {
             // Arrange
@@ -233,12 +234,12 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(expected2, GetMessage(sink.Writes.GetRange(3 * t.WritesPerMsg, t.WritesPerMsg)));
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [InlineData(null, 0)]
         [InlineData(null, 1)]
         [InlineData("missingFormatter", 0)]
         [InlineData("missingFormatter", 1)]
-        public void Options_FormatterNameNull_UsesDeprecatedProperties(string formatterName, int formatNumber)
+        public void Options_FormatterNameNull_UsesDeprecatedProperties(string? formatterName, int formatNumber)
         {
             // Arrange
             ConsoleLoggerFormat format = (ConsoleLoggerFormat)formatNumber;
@@ -274,7 +275,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [InlineData("Route with name 'Simple' was not found.")]
         public void Writes_NewLine_WhenExceptionIsProvided(string message)
         {
@@ -298,7 +299,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(expectedHeader + expectedMessage + expectedExceptionMessage, sink.Writes[1].Message);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ThrowsException_WhenNoFormatterIsProvided()
         {
             // Arrange
@@ -309,7 +310,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Throws<ArgumentNullException>(() => logger.Log<object>(LogLevel.Trace, 1, "empty", new Exception(), null));
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void LogsWhenNullFilterGiven()
         {
             // Arrange
@@ -330,7 +331,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(expectedHeader + expectedMessage, sink.Writes[1].Message);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteCritical_LogsCorrectColors()
         {
             // Arrange
@@ -351,7 +352,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteError_LogsCorrectColors()
         {
             // Arrange
@@ -372,7 +373,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteWarning_LogsCorrectColors()
         {
             // Arrange
@@ -393,7 +394,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteInformation_LogsCorrectColors()
         {
             // Arrange
@@ -414,7 +415,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(nameof(IsThreadingAndRemoteExecutorSupported))]
+        [ConditionalFact(typeof(ConsoleLoggerTest), nameof(IsThreadingAndRemoteExecutorSupported))]
         public void AddConsole_IsOutputRedirected_ColorDisabled()
         {
             RemoteExecutor.Invoke(() =>
@@ -444,7 +445,43 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }, new RemoteInvokeOptions { StartInfo = new ProcessStartInfo() { RedirectStandardOutput = true } }).Dispose();
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(ConsoleLoggerTest), nameof(IsThreadingAndRemoteExecutorSupported))]
+        [InlineData("FORCE_COLOR", "1", null, null, true)]
+        [InlineData("DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION", "1", null, null, true)]
+        [InlineData(null, null, "NO_COLOR", "1", false)]
+        [InlineData("FORCE_COLOR", "1", "NO_COLOR", "1", true)]
+        public void DoesConsoleSupportAnsi_RespectsColorEnvVars(
+            string? envVarName1, string? envVarValue1,
+            string? envVarName2, string? envVarValue2,
+            bool expectAnsiEscapes)
+        {
+            var psi = new ProcessStartInfo { RedirectStandardOutput = true };
+            if (envVarName1 is not null)
+            {
+                psi.Environment[envVarName1] = envVarValue1;
+            }
+            if (envVarName2 is not null)
+            {
+                psi.Environment[envVarName2] = envVarValue2;
+            }
+
+            using RemoteInvokeHandle remote = RemoteExecutor.Invoke(static () =>
+            {
+                using ServiceProvider sp = new ServiceCollection()
+                    .AddLogging(builder => builder.AddSimpleConsole(options =>
+                    {
+                        options.ColorBehavior = LoggerColorBehavior.Enabled;
+                    }))
+                    .BuildServiceProvider();
+
+                sp.GetRequiredService<ILoggerProvider>().CreateLogger("Test").LogError("TestMessage");
+            }, new RemoteInvokeOptions { StartInfo = psi });
+
+            string stdout = remote.Process.StandardOutput.ReadToEnd();
+            Assert.Equal(expectAnsiEscapes, stdout.Contains('\x1B'));
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteDebug_LogsCorrectColors()
         {
             // Arrange
@@ -465,7 +502,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteTrace_LogsCorrectColors()
         {
             // Arrange
@@ -486,7 +523,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WriteAllLevelsDisabledColors_LogsNoColors()
         {
             // Arrange
@@ -510,7 +547,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(FormatsAndLevels))]
         public void Log_LogsCorrectTimestamp(ConsoleLoggerFormat format, LogLevel level)
         {
@@ -551,7 +588,70 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        private sealed class BufferedLogRecordImpl : BufferedLogRecord
+        {
+            private readonly DateTimeOffset _timestamp;
+            private readonly LogLevel _level;
+            private readonly string _exception;
+
+            public BufferedLogRecordImpl(DateTimeOffset timestamp, LogLevel level, string exception)
+            {
+                _timestamp = timestamp;
+                _level = level;
+                _exception = exception;
+            }
+
+            public override DateTimeOffset Timestamp => _timestamp;
+            public override LogLevel LogLevel => _level;
+            public override EventId EventId => new EventId(0);
+            public override string? Exception => _exception;
+        }
+
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        [MemberData(nameof(FormatsAndLevels))]
+        public void Log_LogsCorrectOverrideTimestamp(ConsoleLoggerFormat format, LogLevel level)
+        {
+            // Arrange
+            using var t = SetUp(new ConsoleLoggerOptions { TimestampFormat = "yyyy-MM-ddTHH:mm:sszz ", Format = format, UseUtcTimestamp = false });
+            var levelPrefix = t.GetLevelPrefix(level);
+            var logger = t.Logger;
+            var sink = t.Sink;
+            var ex = new Exception("Exception message" + Environment.NewLine + "with a second line");
+            var now = new DateTimeOffset(DateTime.Now);
+            var round_now = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Offset);
+            var bufferedRecord = new BufferedLogRecordImpl(now, level, ex.ToString());
+
+            // Act
+            logger.LogRecords(new [] { bufferedRecord });
+
+            // Assert
+            switch (format)
+            {
+                case ConsoleLoggerFormat.Default:
+                {
+                    Assert.Equal(3, sink.Writes.Count);
+                    Assert.StartsWith(levelPrefix, sink.Writes[1].Message);
+                    Assert.Matches(@"^\d{4}\D\d{2}\D\d{2}\D\d{2}\D\d{2}\D\d{2}\D\d{2}\s$", sink.Writes[0].Message);
+                    var parsedDateTime = DateTimeOffset.Parse(sink.Writes[0].Message.Trim());
+                    Assert.Equal(round_now, parsedDateTime);
+                }
+                break;
+                case ConsoleLoggerFormat.Systemd:
+                {
+                    Assert.Single(sink.Writes);
+                    Assert.StartsWith(levelPrefix, sink.Writes[0].Message);
+                    var regexMatch = Regex.Match(sink.Writes[0].Message, @"^<\d>(\d{4}\D\d{2}\D\d{2}\D\d{2}\D\d{2}\D\d{2}\D\d{2})\s[^\s]");
+                    Assert.True(regexMatch.Success);
+                    var parsedDateTime = DateTimeOffset.Parse(regexMatch.Groups[1].Value);
+                    Assert.Equal(round_now, parsedDateTime);
+                }
+                break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(format));
+            }
+        }
+
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(FormatsAndLevels))]
         public void WriteCore_LogsCorrectTimestampInUtc(ConsoleLoggerFormat format, LogLevel level)
         {
@@ -592,7 +692,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(FormatsAndLevels))]
         public void WriteCore_LogsCorrectMessages(ConsoleLoggerFormat format, LogLevel level)
         {
@@ -636,7 +736,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void NoLogScope_DoesNotWriteAnyScopeContentToOutput()
         {
             // Arrange
@@ -657,7 +757,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void WritingScopes_LogsWithCorrectColors()
         {
             // Arrange
@@ -683,7 +783,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(TestConsole.DefaultForegroundColor, write.ForegroundColor);
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(Formats))]
         public void WritingScopes_LogsExpectedMessage(ConsoleLoggerFormat format)
         {
@@ -734,7 +834,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(Formats))]
         public void WritingNestedScope_LogsNullScopeName(ConsoleLoggerFormat format)
         {
@@ -783,7 +883,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(Formats))]
         public void WritingNestedScopes_LogsExpectedMessage(ConsoleLoggerFormat format)
         {
@@ -841,7 +941,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(Formats))]
         public void WritingMultipleScopes_LogsExpectedMessage(ConsoleLoggerFormat format)
         {
@@ -910,7 +1010,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void CallingBeginScopeOnLogger_AlwaysReturnsNewDisposableInstance()
         {
             // Arrange
@@ -928,7 +1028,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.NotSame(disposable1, disposable2);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void CallingBeginScopeOnLogger_ReturnsNonNullableInstance()
         {
             // Arrange
@@ -943,7 +1043,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.NotNull(disposable);
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(Formats))]
         public void ConsoleLoggerLogsToError_WhenOverErrorLevel(ConsoleLoggerFormat format)
         {
@@ -993,7 +1093,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(FormatsAndLevels))]
         public void WriteCore_NullMessageWithException(ConsoleLoggerFormat format, LogLevel level)
         {
@@ -1037,7 +1137,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(FormatsAndLevels))]
         public void WriteCore_EmptyMessageWithException(ConsoleLoggerFormat format, LogLevel level)
         {
@@ -1080,7 +1180,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(FormatsAndLevels))]
         public void WriteCore_MessageWithNullException(ConsoleLoggerFormat format, LogLevel level)
         {
@@ -1120,7 +1220,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [MemberData(nameof(Levels))]
         public void WriteCore_NullMessageWithNullException(LogLevel level)
         {
@@ -1138,7 +1238,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Empty(sink.Writes);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void IsEnabledReturnsCorrectValue()
         {
             var logger = SetUp().Logger;
@@ -1152,7 +1252,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.True(logger.IsEnabled(LogLevel.Trace));
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_DisableColors_IsAppliedToLoggers()
         {
             // Arrange
@@ -1166,13 +1266,13 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.False(logger.Options.DisableColors);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_InvalidFormat_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => new ConsoleLoggerOptions() { Format = (ConsoleLoggerFormat)10 });
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         [InlineData(-1)]
         [InlineData(0)]
         public void ConsoleLoggerOptions_SetInvalidMaxQueueLength_Throws(int invalidMaxQueueLength)
@@ -1180,13 +1280,13 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Throws<ArgumentOutOfRangeException>(() => new ConsoleLoggerOptions() { MaxQueueLength = invalidMaxQueueLength });
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_SetInvalidBufferMode_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => new ConsoleLoggerOptions() { QueueFullMode = (ConsoleLoggerQueueFullMode)10 });
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_DisableColors_IsReadFromLoggingConfiguration()
         {
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new[] { new KeyValuePair<string, string>("Console:DisableColors", "true") }).Build();
@@ -1203,7 +1303,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.True(logger.Options.DisableColors);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_TimeStampFormat_IsReloaded()
         {
             // Arrange
@@ -1217,7 +1317,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal("yyyyMMddHHmmss", logger.Options.TimestampFormat);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_TimeStampFormat_IsReadFromLoggingConfiguration()
         {
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new[] { new KeyValuePair<string, string>("Console:TimeStampFormat", "yyyyMMddHHmmss") }).Build();
@@ -1234,7 +1334,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal("yyyyMMddHHmmss", logger.Options.TimestampFormat);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_TimeStampFormat_MultipleReloads()
         {
             var monitor = new TestOptionsMonitor(new ConsoleLoggerOptions());
@@ -1248,7 +1348,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal("yyyyMMddHHmmss", logger.Options.TimestampFormat);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_IncludeScopes_IsAppliedToLoggers()
         {
             // Arrange
@@ -1262,7 +1362,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.False(logger.Options.IncludeScopes);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_LogAsErrorLevel_IsReadFromLoggingConfiguration()
         {
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new[] { new KeyValuePair<string, string>("Console:LogToStandardErrorThreshold", "Warning") }).Build();
@@ -1279,7 +1379,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(LogLevel.Warning, logger.Options.LogToStandardErrorThreshold);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_LogAsErrorLevel_IsAppliedToLoggers()
         {
             // Arrange
@@ -1293,7 +1393,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(LogLevel.Error, logger.Options.LogToStandardErrorThreshold);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_UpdateQueueOptions_UpdatesConsoleLoggerProcessorProperties()
         {
             // Arrange
@@ -1312,7 +1412,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.Equal(10, logger.Options.MaxQueueLength);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_UseUtcTimestamp_IsAppliedToLoggers()
         {
             // Arrange
@@ -1326,7 +1426,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.True(logger.Options.UseUtcTimestamp);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public void ConsoleLoggerOptions_IncludeScopes_IsReadFromLoggingConfiguration()
         {
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new[] { new KeyValuePair<string, string>("Console:IncludeScopes", "true") }).Build();
@@ -1343,6 +1443,31 @@ namespace Microsoft.Extensions.Logging.Console.Test
             Assert.NotNull(logger.ScopeProvider);
             var formatter = Assert.IsType<SimpleConsoleFormatter>(logger.Formatter);
             Assert.True(formatter.FormatterOptions.IncludeScopes);
+        }
+
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
+        public void LogMultipleArrays()
+        {
+            // Arrange
+            using var t = SetUp();
+            var logger = t.Logger;
+            var sink = t.Sink;
+
+            var define1 = LoggerMessage.Define<string[], string[]>(LogLevel.Information, new EventId(), "Log: {Array1} and {Array2}");
+            var define2 = LoggerMessage.Define<int, string[], string[]>(LogLevel.Information, new EventId(), "Log {Number}: {Array1} and {Array2}");
+
+            // Act
+            define1(logger, ["a", "b", "c"], ["d", "e", "f"], null);
+            define2(logger, 30, ["a", "b", "c"], ["d", "e", "f"], null);
+
+            var expectedMessage1 = $"{CreateHeader(ConsoleLoggerFormat.Default)}{Environment.NewLine}{_paddingString}Log: a, b, c and d, e, f{Environment.NewLine}";
+            var expectedMessage2 = $"{CreateHeader(ConsoleLoggerFormat.Default)}{Environment.NewLine}{_paddingString}Log 30: a, b, c and d, e, f{Environment.NewLine}";
+
+            Assert.Equal(4, sink.Writes.Count);
+            Assert.Equal("info", sink.Writes[0].Message);
+            Assert.Equal(expectedMessage1, sink.Writes[1].Message);
+            Assert.Equal("info", sink.Writes[2].Message);
+            Assert.Equal(expectedMessage2, sink.Writes[3].Message);
         }
 
         public static TheoryData<ConsoleLoggerFormat, LogLevel> FormatsAndLevels
@@ -1411,7 +1536,7 @@ namespace Microsoft.Extensions.Logging.Console.Test
         }
 
         public static bool IsThreadingAndRemoteExecutorSupported =>
-            PlatformDetection.IsThreadingSupported && RemoteExecutor.IsSupported;
+            PlatformDetection.IsMultithreadingSupported && RemoteExecutor.IsSupported;
     }
 
     internal class TestLoggerProcessor : ConsoleLoggerProcessor

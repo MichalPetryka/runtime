@@ -174,7 +174,7 @@ BOOL Exception::IsTerminal()
         GC_NOTRIGGER;
         NOTHROW;
 
-        // CLRException::GetHR() can eventually call BaseDomain::CreateHandle(),
+        // CLRException::GetHR() can eventually call AppDomain::CreateHandle(),
         // which can indirectly cause a lock if we get a miss in the handle table
         // cache (TableCacheMissOnAlloc).  Since CLRException::GetHR() is virtual,
         // SCAN won't find this for you (though 40 minutes of one of the sql stress
@@ -226,10 +226,6 @@ BOOL Exception::IsPreallocatedOOMException()
 }
 
 //------------------------------------------------------------------------------
-#ifdef _PREFAST_
-#pragma warning(push)
-#pragma warning(disable:21000) // Suppress PREFast warning about overly large function
-#endif
 LPCSTR Exception::GetHRSymbolicName(HRESULT hr)
 {
     LIMITED_METHOD_CONTRACT;
@@ -574,7 +570,6 @@ LPCSTR Exception::GetHRSymbolicName(HRESULT hr)
     CASE_HRESULT(COR_E_CANNOTUNLOADAPPDOMAIN)
     CASE_HRESULT(MSEE_E_ASSEMBLYLOADINPROGRESS)
     CASE_HRESULT(FUSION_E_REF_DEF_MISMATCH)
-    CASE_HRESULT(FUSION_E_PRIVATE_ASM_DISALLOWED)
     CASE_HRESULT(FUSION_E_INVALID_NAME)
     CASE_HRESULT(CLDB_E_FILE_BADREAD)
     CASE_HRESULT(CLDB_E_FILE_BADWRITE)
@@ -779,10 +774,6 @@ LPCSTR Exception::GetHRSymbolicName(HRESULT hr)
             return NULL;
     }
 }
-#ifdef _PREFAST_
-#pragma warning(pop)
-#endif
-
 
 // ---------------------------------------------------------------------------
 // HRException class.  Implements exception API for exceptions from HRESULTS
@@ -802,6 +793,7 @@ HRESULT HRException::GetHR()
 // SEHException class.  Implements exception API for SEH exception info
 // ---------------------------------------------------------------------------
 
+#ifdef TARGET_WINDOWS
 HRESULT SEHException::GetHR()
 {
     LIMITED_METHOD_DAC_CONTRACT;
@@ -812,11 +804,13 @@ HRESULT SEHException::GetHR()
         return m_exception.ExceptionCode;
 }
 
+#ifdef FEATURE_COMINTEROP
 IErrorInfo *SEHException::GetErrorInfo()
 {
     LIMITED_METHOD_CONTRACT;
     return NULL;
 }
+#endif // FEATURE_COMINTEROP
 
 void SEHException::GetMessage(SString &string)
 {
@@ -840,6 +834,7 @@ void SEHException::GetMessage(SString &string)
         }
     }
 }
+#endif // TARGET_WINDOWS
 
 //==============================================================================
 // DelegatingException class.  Implements exception API for "foreign" exceptions.
@@ -897,6 +892,7 @@ HRESULT DelegatingException::GetHR()
 
 } // HRESULT DelegatingException::GetHR()
 
+#ifdef FEATURE_COMINTEROP
 //------------------------------------------------------------------------------
 IErrorInfo *DelegatingException::GetErrorInfo()
 {
@@ -910,6 +906,7 @@ IErrorInfo *DelegatingException::GetErrorInfo()
     return pDelegate ? pDelegate->GetErrorInfo() : NULL;
 
 } // IErrorInfo *DelegatingException::GetErrorInfo()
+#endif // FEATURE_COMINTEROP
 
 //------------------------------------------------------------------------------
 void DelegatingException::GetMessage(SString &result)
@@ -1010,7 +1007,7 @@ void DECLSPEC_NORETURN ThrowHR(HRESULT hr, UINT uText)
 
     // We won't check the return value here. If it fails, we'll just
     // throw the HR
-    sExceptionText.LoadResource(CCompRC::Error, uText);
+    sExceptionText.LoadResource(uText);
 
     EX_THROW(HRMsgException, (hr, sExceptionText));
 }
@@ -1161,7 +1158,7 @@ void GetHRMsg(HRESULT hr, SString &result, BOOL bNoGeekStuff/* = FALSE*/)
 
     if (FAILED(hr) && HRESULT_FACILITY(hr) == FACILITY_URT && HRESULT_CODE(hr) < MAX_URT_HRESULT_CODE)
     {
-        fHaveDescr = strDescr.LoadResource(CCompRC::Error, MSG_FOR_URT_HR(hr));
+        fHaveDescr = strDescr.LoadResource(MSG_FOR_URT_HR(hr));
     }
     else
     {

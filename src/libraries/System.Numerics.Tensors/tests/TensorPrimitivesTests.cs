@@ -93,6 +93,7 @@ namespace System.Numerics.Tensors.Tests
         #region Test Utilities
 
         public delegate void SpanDestinationDelegate(ReadOnlySpan<T> x, Span<T> destination);
+        public delegate void SpanDestinationDelegate<TInput, TOutput>(ReadOnlySpan<TInput> x, Span<TOutput> destination);
         public delegate void SpanSpanDestinationDelegate(ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination);
         public delegate void SpanScalarDestinationDelegate<T1, T2, T3>(ReadOnlySpan<T1> x, T2 y, Span<T3> destination);
         public delegate void ScalarSpanDestinationDelegate(T x, ReadOnlySpan<T> y, Span<T> destination);
@@ -100,8 +101,15 @@ namespace System.Numerics.Tensors.Tests
         public delegate void SpanSpanScalarDestinationDelegate(ReadOnlySpan<T> x, ReadOnlySpan<T> y, T z, Span<T> destination);
         public delegate void SpanScalarSpanDestinationDelegate(ReadOnlySpan<T> x, T y, ReadOnlySpan<T> z, Span<T> destination);
         public delegate void SpanDestinationDestinationDelegate(ReadOnlySpan<T> x, Span<T> destination1, Span<T> destination2);
+        public delegate void SpanDestinationIsDelegate(ReadOnlySpan<T> x, Span<bool> destination);
+        public delegate bool SpanIsAllAnyDelegate(ReadOnlySpan<T> x);
 
         protected virtual bool IsFloatingPoint => typeof(T) == typeof(float) || typeof(T) == typeof(double);
+
+        protected virtual int? IndexOfSizeExceedingMaxValue() =>
+            (typeof(T) == typeof(byte) || typeof(T) == typeof(sbyte)) ? Helpers.SizeGreaterThanByte :
+            (typeof(T) == typeof(ushort) || typeof(T) == typeof(short) || typeof(T) == typeof(char)) ? Helpers.SizeGreaterThanInt16 :
+            null;
 
         protected abstract T ConvertFromSingle(float f);
 
@@ -163,18 +171,30 @@ namespace System.Numerics.Tensors.Tests
         /// the value is stored into a random position in <paramref name="x"/>, and the original
         /// value is subsequently restored.
         /// </summary>
-        protected void RunForEachSpecialValue(Action action, BoundedMemory<T> x)
+        protected void RunForEachSpecialValue(Action action, BoundedMemory<T> x) =>
+            RunForEachSpecialValue(action, x, GetSpecialValues());
+
+        /// <summary>
+        /// Runs the specified action for each special value. Before the action is invoked,
+        /// the value is stored into a random position in <paramref name="x"/>, and the original
+        /// value is subsequently restored.
+        /// </summary>
+        protected void RunForEachSpecialValue(Action action, BoundedMemory<T> x, IEnumerable<T> specialValues)
         {
-            foreach (T value in GetSpecialValues())
+            Assert.All(specialValues, value =>
             {
                 int pos = Random.Next(x.Length);
                 T orig = x[pos];
-                x[pos] = value;
-
-                action();
-
-                x[pos] = orig;
-            }
+                try
+                {
+                    x[pos] = value;
+                    action();
+                }
+                finally
+                {
+                    x[pos] = orig;
+                }
+            });
         }
         #endregion
 
@@ -228,7 +248,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Abs_ThrowsForOverlapppingInputsWithOutputs()
+        public void Abs_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Abs(array.AsSpan(1, 5), array.AsSpan(0, 5)));
@@ -299,7 +319,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Add_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void Add_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Add(array.AsSpan(1, 2), array.AsSpan(5, 2), array.AsSpan(0, 2)));
@@ -358,7 +378,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Add_TensorScalar_ThrowsForOverlapppingInputsWithOutputs()
+        public void Add_TensorScalar_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Add(array.AsSpan(1, 2), default(T), array.AsSpan(0, 2)));
@@ -434,7 +454,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void AddMultiply_ThreeTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void AddMultiply_ThreeTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => AddMultiply(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(7, 2), array.AsSpan(0, 2)));
@@ -512,7 +532,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void AddMultiply_TensorTensorScalar_ThrowsForOverlapppingInputsWithOutputs()
+        public void AddMultiply_TensorTensorScalar_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => AddMultiply(array.AsSpan(1, 2), array.AsSpan(4, 2), default(T), array.AsSpan(0, 2)));
@@ -588,7 +608,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void AddMultiply_TensorScalarTensor_ThrowsForOverlapppingInputsWithOutputs()
+        public void AddMultiply_TensorScalarTensor_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => AddMultiply(array.AsSpan(1, 2), default(T), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -663,6 +683,8 @@ namespace System.Numerics.Tensors.Tests
         {
             if (!IsFloatingPoint) return;
 
+            T? tolerance = Helpers.DetermineTolerance<T>(doubleTolerance: 1e-14);
+
             Assert.All(VectorLengthAndIteratedRange(ConvertFromSingle(-100f), ConvertFromSingle(100f), ConvertFromSingle(3f)), arg =>
             {
                 T[] x = new T[arg.Length];
@@ -674,7 +696,7 @@ namespace System.Numerics.Tensors.Tests
                 T expected = Cosh(arg.Element);
                 foreach (T actual in dest)
                 {
-                    AssertEqualTolerance(expected, actual);
+                    AssertEqualTolerance(expected, actual, tolerance);
                 }
             });
         }
@@ -694,7 +716,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Cosh_ThrowsForOverlapppingInputsWithOutputs()
+        public void Cosh_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -866,7 +888,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Divide_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void Divide_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Divide(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -925,7 +947,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Divide_TensorScalar_ThrowsForOverlapppingInputsWithOutputs()
+        public void Divide_TensorScalar_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Divide(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -952,6 +974,8 @@ namespace System.Numerics.Tensors.Tests
         [Fact]
         public void Dot_AllLengths()
         {
+            T? tolerance = Helpers.DetermineTolerance<T>(doubleTolerance: 1e-14f, floatTolerance: 1e-5f);
+
             Assert.All(Helpers.TensorLengthsIncluding0, tensorLength =>
             {
                 using BoundedMemory<T> x = CreateAndFillTensor(tensorLength);
@@ -963,7 +987,7 @@ namespace System.Numerics.Tensors.Tests
                     dot = Add(dot, Multiply(x[i], y[i]));
                 }
 
-                AssertEqualTolerance(dot, Dot(x, y));
+                AssertEqualTolerance(dot, Dot(x, y), tolerance);
             });
         }
         #endregion
@@ -1017,6 +1041,17 @@ namespace System.Numerics.Tensors.Tests
                 using BoundedMemory<T> x = CreateAndFillTensor(tensorLength);
                 using BoundedMemory<T> destination = CreateTensor(tensorLength);
 
+                T[] additionalSpecialValues =
+                [
+                    typeof(T) == typeof(float) ? (T)(object)-709.7f :
+                        typeof(T) == typeof(double) ? (T)(object)-709.7 :
+                        default,
+
+                    typeof(T) == typeof(float) ? (T)(object)709.7f :
+                        typeof(T) == typeof(double) ? (T)(object)709.7 :
+                        default,
+                ];
+
                 RunForEachSpecialValue(() =>
                 {
                     Exp(x, destination);
@@ -1024,7 +1059,7 @@ namespace System.Numerics.Tensors.Tests
                     {
                         AssertEqualTolerance(Exp(x[i]), destination[i]);
                     }
-                }, x);
+                }, x, GetSpecialValues().Concat(additionalSpecialValues));
             });
         }
 
@@ -1043,7 +1078,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Exp_ThrowsForOverlapppingInputsWithOutputs()
+        public void Exp_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -1103,6 +1138,18 @@ namespace System.Numerics.Tensors.Tests
             Assert.Equal(0, IndexOfMax([ConvertFromSingle(+0f), ConvertFromSingle(-0f)]));
             Assert.Equal(1, IndexOfMax([ConvertFromSingle(-1),  ConvertFromSingle(-0f)]));
             Assert.Equal(2, IndexOfMax([ConvertFromSingle(-1),  ConvertFromSingle(-0f), ConvertFromSingle(1f)]));
+        }
+
+        [Fact]
+        public void IndexOfMax_IndexAboveMaxValue()
+        {
+            var size = IndexOfSizeExceedingMaxValue();
+            if (size == null) return;
+
+            using BoundedMemory<T> x = CreateTensor(size.Value);
+            x.Span.Fill(ConvertFromSingle(1));
+            x.Span[size.Value - 1] = ConvertFromSingle(2);
+            Assert.Equal(size.Value - 1, IndexOfMax(x));
         }
         #endregion
 
@@ -1181,6 +1228,18 @@ namespace System.Numerics.Tensors.Tests
             Assert.Equal(0, IndexOfMaxMagnitude([ConvertFromSingle(-1),  ConvertFromSingle(-0f)]));
             Assert.Equal(2, IndexOfMaxMagnitude([ConvertFromSingle(-1),  ConvertFromSingle(-0f), ConvertFromSingle(1f)]));
         }
+
+        [Fact]
+        public void IndexOfMaxMagnitude_IndexAboveMaxValue()
+        {
+            var size = IndexOfSizeExceedingMaxValue();
+            if (size == null) return;
+
+            using BoundedMemory<T> x = CreateTensor(size.Value);
+            x.Span.Fill(ConvertFromSingle(1));
+            x.Span[size.Value - 1] = ConvertFromSingle(2);
+            Assert.Equal(size.Value - 1, IndexOfMaxMagnitude(x));
+        }
         #endregion
 
         #region IndexOfMin
@@ -1232,6 +1291,18 @@ namespace System.Numerics.Tensors.Tests
             Assert.Equal(1, IndexOfMin([ConvertFromSingle(+0f), ConvertFromSingle(-0f), ConvertFromSingle(-0f), ConvertFromSingle(-0f), ConvertFromSingle(-0f)]));
             Assert.Equal(0, IndexOfMin([ConvertFromSingle(-1),  ConvertFromSingle(-0f)]));
             Assert.Equal(0, IndexOfMin([ConvertFromSingle(-1),  ConvertFromSingle(-0f), ConvertFromSingle(1f)]));
+        }
+
+        [Fact]
+        public void IndexOfMin_IndexAboveMaxValue()
+        {
+            var size = IndexOfSizeExceedingMaxValue();
+            if (size == null) return;
+
+            using BoundedMemory<T> x = CreateTensor(size.Value);
+            x.Span.Fill(ConvertFromSingle(1));
+            x.Span[size.Value - 1] = ConvertFromSingle(0);
+            Assert.Equal(size.Value - 1, IndexOfMin(x));
         }
         #endregion
 
@@ -1310,6 +1381,18 @@ namespace System.Numerics.Tensors.Tests
             Assert.Equal(1, IndexOfMinMagnitude([ConvertFromSingle(-1),  ConvertFromSingle(-0f)]));
             Assert.Equal(1, IndexOfMinMagnitude([ConvertFromSingle(-1),  ConvertFromSingle(-0f), ConvertFromSingle(1f)]));
         }
+
+        [Fact]
+        public void IndexOfMinMagnitude_IndexAboveMaxValue()
+        {
+            var size = IndexOfSizeExceedingMaxValue();
+            if (size == null) return;
+
+            using BoundedMemory<T> x = CreateTensor(size.Value);
+            x.Span.Fill(ConvertFromSingle(1));
+            x.Span[size.Value - 1] = ConvertFromSingle(0);
+            Assert.Equal(size.Value - 1, IndexOfMinMagnitude(x));
+        }
         #endregion
 
         #region Log
@@ -1387,7 +1470,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Log_ThrowsForOverlapppingInputsWithOutputs()
+        public void Log_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -1472,7 +1555,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Log2_ThrowsForOverlapppingInputsWithOutputs()
+        public void Log2_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -1506,8 +1589,7 @@ namespace System.Numerics.Tensors.Tests
 
                 Assert.Equal(max, Max(x));
 
-                // TODO: Put a variant of this back once we have IndexOf routines
-                // Assert.Equal(SingleToUInt32(x[IndexOfMax(x)]), SingleToUInt32(Max(x)));
+                Assert.Equal(x[IndexOfMax(x)], Max(x));
             });
         }
 
@@ -1528,8 +1610,7 @@ namespace System.Numerics.Tensors.Tests
 
                     Assert.Equal(max, Max(x));
 
-                    // TODO: Put a variant of this back once we have IndexOf routines
-                    // Assert.Equal(SingleToUInt32(x[IndexOfMax(x)]), SingleToUInt32(Max(x)));
+                    Assert.Equal(x[IndexOfMax(x)], Max(x));
                 }, x);
             });
         }
@@ -1659,7 +1740,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Max_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void Max_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Max(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -1691,8 +1772,7 @@ namespace System.Numerics.Tensors.Tests
 
                 Assert.Equal(maxMagnitude, MaxMagnitude(x));
 
-                // TODO: Put a variant of this back once we have IndexOf routines
-                // Assert.Equal(SingleToUInt32(x[IndexOfMaxMagnitude(x)]), SingleToUInt32(MaxMagnitude(x)));
+                Assert.Equal(x[IndexOfMaxMagnitude(x)], MaxMagnitude(x));
             });
         }
 
@@ -1713,8 +1793,7 @@ namespace System.Numerics.Tensors.Tests
 
                     Assert.Equal(maxMagnitude, MaxMagnitude(x));
 
-                    // TODO: Put a variant of this back once we have IndexOf routines
-                    // Assert.Equal(SingleToUInt32(x[IndexOfMaxMagnitude(x)]), SingleToUInt32(MaxMagnitude(x)));
+                    Assert.Equal(x[IndexOfMaxMagnitude(x)], MaxMagnitude(x));
                 }, x);
             });
         }
@@ -1846,7 +1925,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void MaxMagnitude_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void MaxMagnitude_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => MaxMagnitude(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -1880,8 +1959,7 @@ namespace System.Numerics.Tensors.Tests
 
                 Assert.Equal(min, Min(x));
 
-                // TODO: Put a variant of this back once we have IndexOf routines
-                // Assert.Equal(SingleToUInt32(x[IndexOfMin(x)]), SingleToUInt32(Min(x)));
+                Assert.Equal(x[IndexOfMin(x)], Min(x));
             });
         }
 
@@ -1902,8 +1980,7 @@ namespace System.Numerics.Tensors.Tests
 
                     Assert.Equal(min, Min(x));
 
-                    // TODO: Put a variant of this back once we have IndexOf routines
-                    // Assert.Equal(SingleToUInt32(x[IndexOfMin(x)]), SingleToUInt32(Min(x)));
+                    Assert.Equal(x[IndexOfMin(x)], Min(x));
                 }, x);
             });
         }
@@ -2033,7 +2110,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Min_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void Min_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Min(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -2065,8 +2142,7 @@ namespace System.Numerics.Tensors.Tests
 
                 Assert.Equal(minMagnitude, MinMagnitude(x));
 
-                // TODO: Put a variant of this back once we have IndexOf routines
-                // Assert.Equal(SingleToUInt32(x[IndexOfMinMagnitude(x)]), SingleToUInt32(MinMagnitude(x)));
+                Assert.Equal(x[IndexOfMinMagnitude(x)], MinMagnitude(x));
             });
         }
 
@@ -2087,8 +2163,7 @@ namespace System.Numerics.Tensors.Tests
 
                     Assert.Equal(minMagnitude, MinMagnitude(x));
 
-                    // TODO: Put a variant of this back once we have IndexOf routines
-                    // Assert.Equal(SingleToUInt32(x[IndexOfMinMagnitude(x)]), SingleToUInt32(MinMagnitude(x)));
+                    Assert.Equal(x[IndexOfMinMagnitude(x)], MinMagnitude(x));
                 }, x);
             });
         }
@@ -2218,7 +2293,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void MinMagnitude_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void MinMagnitude_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => MinMagnitude(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -2292,7 +2367,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Multiply_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void Multiply_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Multiply(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -2351,7 +2426,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Multiply_TensorScalar_ThrowsForOverlapppingInputsWithOutputs()
+        public void Multiply_TensorScalar_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Multiply(array.AsSpan(1, 2), default(T), array.AsSpan(0, 2)));
@@ -2427,7 +2502,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void MultiplyAdd_ThreeTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void MultiplyAdd_ThreeTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => MultiplyAdd(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(7, 2), array.AsSpan(0, 2)));
@@ -2490,7 +2565,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void MultiplyAdd_TensorTensorScalar_ThrowsForOverlapppingInputsWithOutputs()
+        public void MultiplyAdd_TensorTensorScalar_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => MultiplyAdd(array.AsSpan(1, 2), array.AsSpan(4, 2), default(T), array.AsSpan(0, 2)));
@@ -2551,7 +2626,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void MultiplyAdd_TensorScalarTensor_ThrowsForOverlapppingInputsWithOutputs()
+        public void MultiplyAdd_TensorScalarTensor_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => MultiplyAdd(array.AsSpan(1, 2), default(T), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -2609,7 +2684,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Negate_ThrowsForOverlapppingInputsWithOutputs()
+        public void Negate_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Negate(array.AsSpan(1, 2), array.AsSpan(0, 2)));
@@ -2804,7 +2879,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Sigmoid_ThrowsForOverlapppingInputsWithOutputs()
+        public void Sigmoid_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -2879,6 +2954,8 @@ namespace System.Numerics.Tensors.Tests
         {
             if (!IsFloatingPoint) return;
 
+            T? tolerance = Helpers.DetermineTolerance<T>(doubleTolerance: 1e-14);
+
             Assert.All(VectorLengthAndIteratedRange(ConvertFromSingle(-100f), ConvertFromSingle(100f), ConvertFromSingle(3f)), args =>
             {
                 T[] x = new T[args.Length];
@@ -2890,7 +2967,7 @@ namespace System.Numerics.Tensors.Tests
                 T expected = Sinh(args.Element);
                 foreach (T actual in dest)
                 {
-                    AssertEqualTolerance(expected, actual);
+                    AssertEqualTolerance(expected, actual, tolerance);
                 }
             });
         }
@@ -2910,7 +2987,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Sinh_ThrowsForOverlapppingInputsWithOutputs()
+        public void Sinh_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -2994,7 +3071,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void SoftMax_ThrowsForOverlapppingInputsWithOutputs()
+        public void SoftMax_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 
@@ -3068,7 +3145,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Subtract_TwoTensors_ThrowsForOverlapppingInputsWithOutputs()
+        public void Subtract_TwoTensors_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Subtract(array.AsSpan(1, 2), array.AsSpan(4, 2), array.AsSpan(0, 2)));
@@ -3127,7 +3204,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Subtract_TensorScalar_ThrowsForOverlapppingInputsWithOutputs()
+        public void Subtract_TensorScalar_ThrowsForOverlappingInputsWithOutputs()
         {
             T[] array = new T[10];
             AssertExtensions.Throws<ArgumentException>("destination", () => Subtract(array.AsSpan(1, 2), default(T), array.AsSpan(0, 2)));
@@ -3139,6 +3216,8 @@ namespace System.Numerics.Tensors.Tests
         [Fact]
         public void Sum_AllLengths()
         {
+            T? tolerance = Helpers.DetermineTolerance<T>(doubleTolerance: 1e-13, floatTolerance: 1e-5f);
+
             Assert.All(Helpers.TensorLengths, tensorLength =>
             {
                 using BoundedMemory<T> x = CreateAndFillTensor(tensorLength);
@@ -3148,7 +3227,7 @@ namespace System.Numerics.Tensors.Tests
                 {
                     sum = Add(sum, value);
                 }
-                AssertEqualTolerance(sum, Sum(x));
+                AssertEqualTolerance(sum, Sum(x), tolerance);
             });
         }
         #endregion
@@ -3157,6 +3236,8 @@ namespace System.Numerics.Tensors.Tests
         [Fact]
         public void SumOfMagnitudes_AllLengths()
         {
+            T? tolerance = Helpers.DetermineTolerance<T>(doubleTolerance: 1e-12, floatTolerance: 1e-6f);
+
             Assert.All(Helpers.TensorLengths, tensorLength =>
             {
                 using BoundedMemory<T> x = CreateTensor(tensorLength);
@@ -3167,7 +3248,7 @@ namespace System.Numerics.Tensors.Tests
                 {
                     sum = Add(sum, Abs(value));
                 }
-                AssertEqualTolerance(sum, SumOfMagnitudes(x));
+                AssertEqualTolerance(sum, SumOfMagnitudes(x), tolerance);
             });
         }
         #endregion
@@ -3176,6 +3257,8 @@ namespace System.Numerics.Tensors.Tests
         [Fact]
         public void SumOfSquares_AllLengths()
         {
+            T? tolerance = Helpers.DetermineTolerance<T>(doubleTolerance: 1e-12, floatTolerance: 1e-6f);
+
             Assert.All(Helpers.TensorLengths, tensorLength =>
             {
                 using BoundedMemory<T> x = CreateAndFillTensor(tensorLength);
@@ -3185,7 +3268,7 @@ namespace System.Numerics.Tensors.Tests
                 {
                     sum = Add(sum, Multiply(value, value));
                 }
-                AssertEqualTolerance(sum, SumOfSquares(x));
+                AssertEqualTolerance(sum, SumOfSquares(x), tolerance);
             });
         }
         #endregion
@@ -3286,7 +3369,7 @@ namespace System.Numerics.Tensors.Tests
         }
 
         [Fact]
-        public void Tanh_ThrowsForOverlapppingInputsWithOutputs()
+        public void Tanh_ThrowsForOverlappingInputsWithOutputs()
         {
             if (!IsFloatingPoint) return;
 

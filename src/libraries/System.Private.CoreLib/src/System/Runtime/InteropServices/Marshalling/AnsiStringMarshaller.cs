@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace System.Runtime.InteropServices.Marshalling
@@ -87,6 +88,7 @@ namespace System.Runtime.InteropServices.Marshalling
                     }
                 }
 
+                // Unsafe.AsPointer is safe since buffer must be pinned
                 _unmanagedValue = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(buffer));
 
                 Marshal.GetAnsiStringBytes(managed, buffer); // Includes null terminator

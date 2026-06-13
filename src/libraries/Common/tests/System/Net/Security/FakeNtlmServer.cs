@@ -13,7 +13,7 @@ using Xunit;
 namespace System.Net.Security
 {
     // Implementation of subset of the NTLM specification
-    // https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4
+    // https://learn.microsoft.com/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4
     //
     // Server-side implementation of the NTLMv2 exchange is implemented with
     // basic verification of the messages passed by the client against a
@@ -37,11 +37,15 @@ namespace System.Net.Security
         public bool TargetIsServer { get; set; } = false;
         public bool PreferUnicode { get; set; } = true;
         public bool ForceNegotiateVersion { get; set; } = true;
+        public bool SendPreExistingTargetName { get; set; } = false;
+        public bool SendPreExistingChannelBindings { get; set; } = false;
 
         // Negotiation results
         public bool IsAuthenticated { get; private set; }
         public bool IsMICPresent { get; private set; }
         public string? ClientSpecifiedSpn { get; private set; }
+        public Flags InitialClientFlags { get; private set; }
+        public Flags NegotiatedFlags => _negotiatedFlags;
 
         private NetworkCredential _expectedCredential;
 
@@ -83,7 +87,7 @@ namespace System.Net.Security
         }
 
         [Flags]
-        private enum Flags : uint
+        public enum Flags : uint
         {
             NegotiateUnicode = 0x00000001,
             NegotiateOEM = 0x00000002,
@@ -177,17 +181,17 @@ namespace System.Net.Security
                 case MessageType.Negotiate:
                     // We don't negotiate, we just verify
                     Assert.True(incomingBlob.Length >= 32);
-                    Flags flags = (Flags)BinaryPrimitives.ReadUInt32LittleEndian(incomingBlob.AsSpan(12, 4));
-                    Assert.Equal(_requiredFlags, (flags & _requiredFlags));
-                    Assert.True((flags & (Flags.NegotiateOEM | Flags.NegotiateUnicode)) != 0);
-                    if (flags.HasFlag(Flags.NegotiateDomainSupplied))
+                    InitialClientFlags = (Flags)BinaryPrimitives.ReadUInt32LittleEndian(incomingBlob.AsSpan(12, 4));
+                    Assert.Equal(_requiredFlags, (InitialClientFlags & _requiredFlags));
+                    Assert.True((InitialClientFlags & (Flags.NegotiateOEM | Flags.NegotiateUnicode)) != 0);
+                    if (InitialClientFlags.HasFlag(Flags.NegotiateDomainSupplied))
                     {
                         string domain = Encoding.ASCII.GetString(GetField(incomingBlob, 16));
                         Assert.Equal(_expectedCredential.Domain, domain);
                     }
                     _expectedMessageType = MessageType.Authenticate;
                     _negotiateMessage = incomingBlob;
-                    return _challengeMessage = GenerateChallenge(flags);
+                    return _challengeMessage = GenerateChallenge(InitialClientFlags);
 
                 case MessageType.Authenticate:
                     // Validate the authentication!
@@ -257,6 +261,21 @@ namespace System.Net.Security
                 BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(targetInfoCurrentOffset + 2), (ushort)8);
                 BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(targetInfoCurrentOffset + 4), DateTime.UtcNow.ToFileTimeUtc());
                 targetInfoCurrentOffset += 12;
+            }
+
+            if (SendPreExistingTargetName)
+            {
+                // Insert a dummy TargetName AV pair that the client should replace with its own
+                targetInfoCurrentOffset += WriteAvIdString(buffer.AsSpan(targetInfoCurrentOffset), AvId.TargetName, "DummyTargetName");
+            }
+
+            if (SendPreExistingChannelBindings)
+            {
+                // Insert a dummy ChannelBindings AV pair (16 zero bytes) that the client should replace
+                BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(targetInfoCurrentOffset), (ushort)AvId.ChannelBindings);
+                BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(targetInfoCurrentOffset + 2), (ushort)16);
+                // Leave channel bindings hash as zeros (dummy value)
+                targetInfoCurrentOffset += 20;
             }
 
             // TODO: DNS machine, domain, forest?

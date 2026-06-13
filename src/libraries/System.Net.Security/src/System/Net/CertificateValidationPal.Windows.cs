@@ -105,16 +105,15 @@ namespace System.Net
                 // This is TLS Resumed session. Windows can fail to query the local cert bellow.
                 // Instead, we will determine the usage form used credentials.
                 SafeFreeCredential_SECURITY creds = (SafeFreeCredential_SECURITY)_credentialsHandle!;
-                return creds.LocalCertificate != null;
+                return creds.HasLocalCertificate;
             }
 
             SafeFreeCertContext? localContext = null;
             try
             {
-                if (SSPIWrapper.QueryContextAttributes_SECPKG_ATTR_LOCAL_CERT_CONTEXT(GlobalSSPI.SSPISecureChannel, securityContext, out localContext) &&
-                    localContext != null)
+                if (SSPIWrapper.QueryContextAttributes_SECPKG_ATTR_LOCAL_CERT_CONTEXT(GlobalSSPI.SSPISecureChannel, securityContext, out localContext))
                 {
-                    return !localContext.IsInvalid;
+                    return localContext != null ? !localContext.IsInvalid : false;
                 }
             }
             finally
@@ -149,7 +148,7 @@ namespace System.Net
                             Debug.Assert(elements[i].cbSize > 0, $"Interop.SspiCli._CERT_CHAIN_ELEMENT size is not positive: {elements[i].cbSize}");
                             if (elements[i].cbSize > 0)
                             {
-                                byte[] x = new Span<byte>((byte*)elements[i].pCertContext, checked((int)elements[i].cbSize)).ToArray();
+                                ReadOnlySpan<byte> x = new ReadOnlySpan<byte>((byte*)elements[i].pCertContext, checked((int)elements[i].cbSize));
                                 var x500DistinguishedName = new X500DistinguishedName(x);
                                 issuers[i] = x500DistinguishedName.Name;
                                 if (NetEventSource.Log.IsEnabled()) NetEventSource.Info(securityContext, $"IssuerListEx[{issuers[i]}]");

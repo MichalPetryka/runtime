@@ -48,12 +48,15 @@ namespace System.Reflection.Emit
         public abstract void EmitCall(System.Reflection.Emit.OpCode opcode, System.Reflection.MethodInfo methodInfo, System.Type[]? optionalParameterTypes);
         public abstract void EmitCalli(System.Reflection.Emit.OpCode opcode, System.Reflection.CallingConventions callingConvention, System.Type? returnType, System.Type[]? parameterTypes, System.Type[]? optionalParameterTypes);
         public abstract void EmitCalli(System.Reflection.Emit.OpCode opcode, System.Runtime.InteropServices.CallingConvention unmanagedCallConv, System.Type? returnType, System.Type[]? parameterTypes);
+        public virtual void EmitCalli(System.Type functionPointerType) { }
         public virtual void EmitWriteLine(System.Reflection.Emit.LocalBuilder localBuilder) { }
         public virtual void EmitWriteLine(System.Reflection.FieldInfo fld) { }
         public virtual void EmitWriteLine(string value) { }
         public abstract void EndExceptionBlock();
         public abstract void EndScope();
         public abstract void MarkLabel(System.Reflection.Emit.Label loc);
+        public void MarkSequencePoint(System.Diagnostics.SymbolStore.ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn) { throw null; }
+        protected virtual void MarkSequencePointCore(System.Diagnostics.SymbolStore.ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn) { throw null; }
         public virtual void ThrowException([System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembersAttribute(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] System.Type excType) { }
         public abstract void UsingNamespace(string usingNamespace);
     }
@@ -73,6 +76,8 @@ namespace System.Reflection.Emit
         public override bool IsPinned { get { throw null; } }
         public override int LocalIndex { get { throw null; } }
         public override System.Type LocalType { get { throw null; } }
+        public void SetLocalSymInfo(string name) { throw null; }
+        protected virtual void SetLocalSymInfoCore(string name) { throw null; }
     }
     public abstract partial class ParameterBuilder
     {

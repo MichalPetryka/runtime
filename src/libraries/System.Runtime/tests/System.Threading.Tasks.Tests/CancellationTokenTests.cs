@@ -178,7 +178,7 @@ namespace System.Threading.Tasks.Tests
             }
             catch
             {
-                Assert.Fail(string.Format("TokenSourceDispose:    > ctr.Dispose() failed when referring to a disposed CTS"));
+                Assert.Fail("TokenSourceDispose:    > ctr.Dispose() failed when referring to a disposed CTS");
             }
 
             bool cr = tokenSource.IsCancellationRequested; //this is ok after dispose.
@@ -207,6 +207,7 @@ namespace System.Threading.Tasks.Tests
 
             //shouldn't throw
             CancellationTokenSource.CreateLinkedTokenSource(new[] { token, token });
+            CancellationTokenSource.CreateLinkedTokenSource((ReadOnlySpan<CancellationToken>)new[] { token, token });
         }
 
         /// <summary>
@@ -328,7 +329,7 @@ namespace System.Threading.Tasks.Tests
         /// The signal occurs on a separate thread, and should happen after the wait begins.
         /// </summary>
         /// <returns></returns>
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void CancellationTokenWaitHandle_SignalAfterWait()
         {
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -431,15 +432,20 @@ namespace System.Threading.Tasks.Tests
                 "CreateLinkedToken_Simple_TwoToken:  The combined token should now be signalled");
         }
 
-        [Fact]
-        public static void CreateLinkedTokenSource_Simple_MultiToken()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public static void CreateLinkedTokenSource_Simple_MultiToken(bool useSpan)
         {
             CancellationTokenSource signal1 = new CancellationTokenSource();
             CancellationTokenSource signal2 = new CancellationTokenSource();
             CancellationTokenSource signal3 = new CancellationTokenSource();
 
             //Neither token is signalled.
-            CancellationTokenSource combined = CancellationTokenSource.CreateLinkedTokenSource(new[] { signal1.Token, signal2.Token, signal3.Token });
+            CancellationTokenSource combined = useSpan ?
+                CancellationTokenSource.CreateLinkedTokenSource((ReadOnlySpan<CancellationToken>)new[] { signal1.Token, signal2.Token, signal3.Token }) :
+                CancellationTokenSource.CreateLinkedTokenSource(new[] { signal1.Token, signal2.Token, signal3.Token });
+
             Assert.False(combined.IsCancellationRequested,
                 "CreateLinkedToken_Simple_MultiToken:  The combined token should start unsignalled");
 
@@ -530,7 +536,7 @@ namespace System.Threading.Tasks.Tests
         /// This test from donnya. Thanks Donny.
         /// </summary>
         /// <returns></returns>
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void WaitAll()
         {
             Debug.WriteLine("WaitAll:  Testing CancellationTokenTests.WaitAll, If Join does not work, then a deadlock will occur.");
@@ -566,7 +572,7 @@ namespace System.Threading.Tasks.Tests
             tokenSource.Cancel();
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void Cancel_ThrowOnFirstException()
         {
             ManualResetEvent mre_CancelHasBeenEnacted = new ManualResetEvent(false);
@@ -608,7 +614,7 @@ namespace System.Threading.Tasks.Tests
             Assert.NotNull(caughtException);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void Cancel_DontThrowOnFirstException()
         {
             ManualResetEvent mre_CancelHasBeenEnacted = new ManualResetEvent(false);
@@ -857,7 +863,7 @@ namespace System.Threading.Tasks.Tests
             {
                 if (ex is ObjectDisposedException)
                 {
-                    Assert.Fail(string.Format("Bug901737_ODEWhenDisposingLinkedCTS:  - ODE Occurred!"));
+                    Assert.Fail("Bug901737_ODEWhenDisposingLinkedCTS:  - ODE Occurred!");
                 }
                 else
                 {
@@ -873,7 +879,7 @@ namespace System.Threading.Tasks.Tests
         }
 
         // Several tests for deriving custom user types from CancellationTokenSource
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void DerivedCancellationTokenSource()
         {
             // Verify that a derived CTS is functional
@@ -984,14 +990,14 @@ namespace System.Threading.Tasks.Tests
                     {
                         // Accessing the Token property should throw an ObjectDisposedException
                         if (c.Token.CanBeCanceled)
-                            Assert.Fail(string.Format("DerivedCancellationTokenSource: Accessing the Token property should throw an ObjectDisposedException, but it did not."));
+                            Assert.Fail("DerivedCancellationTokenSource: Accessing the Token property should throw an ObjectDisposedException, but it did not.");
                         else
-                            Assert.Fail(string.Format("DerivedCancellationTokenSource: Accessing the Token property should throw an ObjectDisposedException, but it did not."));
+                            Assert.Fail("DerivedCancellationTokenSource: Accessing the Token property should throw an ObjectDisposedException, but it did not.");
                     });
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void CancellationTokenSourceWithTimer()
         {
             TimeSpan bigTimeSpan = new TimeSpan(2000, 0, 0, 0, 0);
@@ -1151,7 +1157,7 @@ namespace System.Threading.Tasks.Tests
             Assert.Equal(cts.Token, ctr2.Token);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void EnlistWithSyncContext_BeforeCancel()
         {
             ManualResetEvent mre_CancelHasBeenEnacted = new ManualResetEvent(false); //synchronization helper
@@ -1187,7 +1193,7 @@ namespace System.Threading.Tasks.Tests
             SetSynchronizationContext(prevailingSyncCtx);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void EnlistWithSyncContext_BeforeCancel_ThrowingExceptionInSyncContextDelegate()
         {
             ManualResetEvent mre_CancelHasBeenEnacted = new ManualResetEvent(false); //synchronization helper
@@ -1234,7 +1240,7 @@ namespace System.Threading.Tasks.Tests
             //Cleanup.
             SetSynchronizationContext(prevailingSyncCtx);
         }
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void EnlistWithSyncContext_BeforeCancel_ThrowingExceptionInSyncContextDelegate_ThrowOnFirst()
         {
             ManualResetEvent mre_CancelHasBeenEnacted = new ManualResetEvent(false); //synchronization helper
@@ -1281,7 +1287,7 @@ namespace System.Threading.Tasks.Tests
 
         // Test that we marshal exceptions back if we run callbacks on a sync context.
         // (This assumes that a syncContext.Send() may not be doing the marshalling itself).
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void SyncContextWithExceptionThrowingCallback()
         {
             Exception caughtEx1 = null;
@@ -1327,7 +1333,7 @@ namespace System.Threading.Tasks.Tests
             SetSynchronizationContext(prevailingSyncCtx);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void Bug720327_DeregisterFromWithinACallbackIsSafe_SyncContextTest()
         {
             Debug.WriteLine("* CancellationTokenTests.Bug720327_DeregisterFromWithinACallbackIsSafe_SyncContextTest()");
@@ -1358,7 +1364,7 @@ namespace System.Threading.Tasks.Tests
             SetSynchronizationContext(prevailingSyncCtx);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void CancellationTokenRegistration_DisposeDuringCancellation_SuccessfullyRemovedIfNotYetInvoked()
         {
             var ctr0running = new ManualResetEventSlim();
@@ -1438,7 +1444,7 @@ namespace System.Threading.Tasks.Tests
             Assert.False(invoked);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void CancellationTokenRegistration_UnregisterWhileCallbackRunning_UnregisterDoesntWaitForCallbackToComplete()
         {
             using (var barrier = new Barrier(2))
@@ -1460,7 +1466,7 @@ namespace System.Threading.Tasks.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void CancellationTokenRegistration_UnregisterDuringCancellation_SuccessfullyRemovedIfNotYetInvoked()
         {
             var ctr0running = new ManualResetEventSlim();
@@ -1495,7 +1501,7 @@ namespace System.Threading.Tasks.Tests
             Assert.False(ctr1Invoked);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static async Task CancellationTokenRegistration_ConcurrentUnregisterWithCancel_ReturnsFalseOrCallbackInvoked()
         {
             using (Barrier barrier = new Barrier(2))
@@ -1544,7 +1550,7 @@ namespace System.Threading.Tasks.Tests
         }
 
         [OuterLoop("Runs for several seconds")]
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void Unregister_ConcurrentUse_ThreadSafe()
         {
             CancellationTokenRegistration reg = default;
@@ -1658,7 +1664,7 @@ namespace System.Threading.Tasks.Tests
             Assert.False(invoked);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static async Task CancellationTokenRegistration_DisposeAsyncWhileCallbackRunning_WaitsForCallbackToComplete()
         {
             using (var barrier = new Barrier(2))
@@ -1682,7 +1688,7 @@ namespace System.Threading.Tasks.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static async Task CancellationTokenRegistration_DisposeAsyncDuringCancellation_SuccessfullyRemovedIfNotYetInvoked()
         {
             var ctr0running = new ManualResetEventSlim();
@@ -1774,7 +1780,7 @@ namespace System.Threading.Tasks.Tests
             Assert.True(cts.IsCancellationRequested);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static async Task CancellationTokenSource_CancelAsync_CallbacksInvokedAsynchronously()
         {
             var cts = new CancellationTokenSource();
@@ -1792,7 +1798,7 @@ namespace System.Threading.Tasks.Tests
             await t;
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsMultithreadingSupported))]
         public static void CancellationTokenSource_CancelAsync_AllCallbacksInvoked()
         {
             const int Iters = 1000;

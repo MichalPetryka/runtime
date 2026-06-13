@@ -21,6 +21,7 @@
 #include "fileio.h"
 
 extern int doParallelSuperPMI(CommandLine::Options& o);
+extern int doStreamingSuperPMI(CommandLine::Options& o);
 
 // NOTE: these output status strings are parsed by parallelsuperpmi.cpp::ProcessChildStdOut().
 // There must be a single, fixed prefix common to all strings, to ease the determination of when
@@ -56,6 +57,14 @@ void SetSuperPmiTargetArchitecture(const char* targetArchitecture)
         else if (0 == _stricmp(targetArchitecture, "loongarch64"))
         {
             SetSpmiTargetArchitecture(SPMI_TARGET_ARCHITECTURE_LOONGARCH64);
+        }
+        else if (0 == _stricmp(targetArchitecture, "riscv64"))
+        {
+            SetSpmiTargetArchitecture(SPMI_TARGET_ARCHITECTURE_RISCV64);
+        }
+        else if (0 == _stricmp(targetArchitecture, "wasm") || (0 == _stricmp(targetArchitecture, "wasm32")))
+        {
+            SetSpmiTargetArchitecture(SPMI_TARGET_ARCHITECTURE_WASM32);
         }
         else
         {
@@ -136,42 +145,80 @@ static const char* ResultToString(ReplayResult result)
     }
 }
 
-static bool PrintDiffsCsvHeader(FileWriter& fw)
+static void PrintDiffsCsvHeader(FileWriter& fw)
 {
-    return fw.Printf("Context,Context size,Base result,Diff result,MinOpts,Has diff,Base size,Diff size,Base instructions,Diff instructions\n");
+    fw.Print("Context,Context size,Method full name,Tier name,Base result,Diff result,MinOpts,Has diff,Base instructions,Diff instructions");
+
+#define JITMETADATAINFO(name, type, flags)
+#define JITMETADATAMETRIC(name, type, flags) fw.Print(",Base " #name ",Diff " #name);
+
+#include "jitmetadatalist.h"
+
+    fw.Print("\n");
 }
 
-static bool PrintDiffsCsvRow(
+static void PrintDiffsCsvRow(
     FileWriter& fw,
     int context, uint32_t contextSize,
     const ReplayResults& baseRes,
     const ReplayResults& diffRes,
     bool hasDiff)
 {
-    return fw.Printf("%d,%u,%s,%s,%s,%s,%u,%u,%lld,%lld\n",
-        context, contextSize,
+    fw.Printf("%d,%u,", context, contextSize);
+    fw.PrintQuotedCsvField(diffRes.CompileResults->MethodFullName == nullptr ? "" : diffRes.CompileResults->MethodFullName);
+    fw.Printf(
+        ",%s,%s,%s,%s,%s,%lld,%lld",
+        diffRes.CompileResults->TieringName == nullptr ? "" : diffRes.CompileResults->TieringName,
         ResultToString(baseRes.Result), ResultToString(diffRes.Result),
-        baseRes.IsMinOpts ? "True" : "False",
+        diffRes.IsMinOpts ? "True" : "False",
         hasDiff ? "True" : "False",
-        baseRes.NumCodeBytes, diffRes.NumCodeBytes,
         baseRes.NumExecutedInstructions, diffRes.NumExecutedInstructions);
+
+#define JITMETADATAINFO(name, type, flags)
+#define JITMETADATAMETRIC(name, type, flags) \
+    fw.Print(",");                           \
+    fw.Print(baseRes.CompileResults->name);  \
+    fw.Print(",");                           \
+    fw.Print(diffRes.CompileResults->name);
+
+#include "jitmetadatalist.h"
+
+    fw.Print("\n");
 }
 
-static bool PrintReplayCsvHeader(FileWriter& fw)
+static void PrintReplayCsvHeader(FileWriter& fw)
 {
-    return fw.Printf("Context,Context size,Result,MinOpts,Size,Instructions\n");
+    fw.Printf("Context,Context size,Method full name,Tier name,Result,MinOpts,Instructions");
+
+#define JITMETADATAINFO(name, type, flags)
+#define JITMETADATAMETRIC(name, type, flags) fw.Print("," #name);
+
+#include "jitmetadatalist.h"
+
+    fw.Print("\n");
 }
 
-static bool PrintReplayCsvRow(
+static void PrintReplayCsvRow(
     FileWriter& fw,
     int context, uint32_t contextSize,
     const ReplayResults& res)
 {
-    return fw.Printf("%d,%u,%s,%s,%u,%lld\n",
-        context, contextSize,
+    fw.Printf("%d,%u,", context, contextSize);
+    fw.PrintQuotedCsvField(res.CompileResults->MethodFullName == nullptr ? "" : res.CompileResults->MethodFullName);
+    fw.Printf(",%s,%s,%s,%lld",
+        res.CompileResults->TieringName == nullptr ? "" : res.CompileResults->TieringName,
         ResultToString(res.Result),
         res.IsMinOpts ? "True" : "False",
-        res.NumCodeBytes, res.NumExecutedInstructions);
+        res.NumExecutedInstructions);
+
+#define JITMETADATAINFO(name, type, flags)
+#define JITMETADATAMETRIC(name, type, flags) \
+    fw.Print(",");                           \
+    fw.Print(res.CompileResults->name);
+
+#include "jitmetadatalist.h"
+
+    fw.Print("\n");
 }
 
 // Run superpmi. The return value is as follows:
@@ -228,6 +275,11 @@ int __cdecl main(int argc, char* argv[])
     if (o.parallel)
     {
         return doParallelSuperPMI(o);
+    }
+
+    if (o.streamFile != nullptr)
+    {
+        return doStreamingSuperPMI(o);
     }
 
     SetBreakOnException(o.breakOnException);
@@ -354,7 +406,7 @@ int __cdecl main(int argc, char* argv[])
         loadedCount++;
         const int mcIndex = reader->GetMethodContextIndex();
         MethodContext* mc = nullptr;
-        if (!MethodContext::Initialize(mcIndex, mcb.buff, mcb.size, &mc))
+        if (!MethodContext::Initialize(mcIndex, mcb.buff, mcb.size, /* readCompileResults */ false, &mc))
         {
             return (int)SpmiResult::GeneralFailure;
         }
@@ -371,9 +423,6 @@ int __cdecl main(int argc, char* argv[])
                     reader->GetMethodContextIndex(), mc->methodSize);
             continue;
         }
-
-        // Save the stored CompileResult
-        mc->originalCR = mc->cr;
 
         // Compile this method context as many times as we have been asked to (default is once).
         for (int iter = 0; iter < o.repeatCount; iter++)
@@ -400,10 +449,6 @@ int __cdecl main(int argc, char* argv[])
                     }
                 }
             }
-
-            // Create a new CompileResult for this compilation (the CompileResult from the stored file is
-            // in originalCR if necessary).
-            mc->cr = new CompileResult();
 
             // For asm diffs, we need to store away the CompileResult generated by the first JIT when compiling
             // with the 2nd JIT.
@@ -473,7 +518,7 @@ int __cdecl main(int argc, char* argv[])
                 {
                     if (o.indexCount == -1)
                         LogInfo("HINT: to repro add '-c %d' to cmdline", reader->GetMethodContextIndex());
-                    __debugbreak();
+                    DEBUG_BREAK;
                 }
             }
 
@@ -731,6 +776,11 @@ int __cdecl main(int argc, char* argv[])
             }
 
             delete crl;
+
+            if (iter + 1 < o.repeatCount)
+            {
+                mc->Reset();
+            }
         }
 
         delete mc;

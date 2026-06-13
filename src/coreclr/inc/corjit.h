@@ -5,11 +5,6 @@
 *                                                                             *
 * CorJit.h -    EE / JIT interface                                            *
 *                                                                             *
-*               Version 1.0                                                   *
-*******************************************************************************
-*                                                                             *
-*                                                                     *
-*                                                                             *
 \*****************************************************************************/
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,78 +28,18 @@
 
 #include "corjitflags.h"
 
-
-#ifndef MAKE_HRESULT
-// If this header is included without including the windows or PAL headers, then define
-// MAKE_HRESULT, and associated macros
-
-/******************* HRESULT types ****************************************/
-
-#define FACILITY_WINDOWS                 8
-#define FACILITY_URT                     19
-#define FACILITY_UMI                     22
-#define FACILITY_SXS                     23
-#define FACILITY_STORAGE                 3
-#define FACILITY_SSPI                    9
-#define FACILITY_SCARD                   16
-#define FACILITY_SETUPAPI                15
-#define FACILITY_SECURITY                9
-#define FACILITY_RPC                     1
-#define FACILITY_WIN32                   7
-#define FACILITY_CONTROL                 10
-#define FACILITY_NULL                    0
-#define FACILITY_MSMQ                    14
-#define FACILITY_MEDIASERVER             13
-#define FACILITY_INTERNET                12
-#define FACILITY_ITF                     4
-#define FACILITY_DPLAY                   21
-#define FACILITY_DISPATCH                2
-#define FACILITY_COMPLUS                 17
-#define FACILITY_CERT                    11
-#define FACILITY_ACS                     20
-#define FACILITY_AAF                     18
-
-#define NO_ERROR 0L
-
-#define SEVERITY_SUCCESS    0
-#define SEVERITY_ERROR      1
-
-#define SUCCEEDED(Status) ((JITINTERFACE_HRESULT)(Status) >= 0)
-#define FAILED(Status) ((JITINTERFACE_HRESULT)(Status)<0)
-#define IS_ERROR(Status) ((uint32_t)(Status) >> 31 == SEVERITY_ERROR) // diff from win32
-#define HRESULT_CODE(hr)    ((hr) & 0xFFFF)
-#define SCODE_CODE(sc)      ((sc) & 0xFFFF)
-#define HRESULT_FACILITY(hr)  (((hr) >> 16) & 0x1fff)
-#define SCODE_FACILITY(sc)    (((sc) >> 16) & 0x1fff)
-#define HRESULT_SEVERITY(hr)  (((hr) >> 31) & 0x1)
-#define SCODE_SEVERITY(sc)    (((sc) >> 31) & 0x1)
-
-// both macros diff from Win32
-#define MAKE_HRESULT(sev,fac,code) \
-    ((JITINTERFACE_HRESULT) (((uint32_t)(sev)<<31) | ((uint32_t)(fac)<<16) | ((uint32_t)(code))) )
-#define MAKE_SCODE(sev,fac,code) \
-    ((SCODE) (((uint32_t)(sev)<<31) | ((uint32_t)(fac)<<16) | ((LONG)(code))) )
-
-#define FACILITY_NT_BIT                 0x10000000
-#define HRESULT_FROM_WIN32(x) ((JITINTERFACE_HRESULT)(x) <= 0 ? ((JITINTERFACE_HRESULT)(x)) : ((JITINTERFACE_HRESULT) (((x) & 0x0000FFFF) | (FACILITY_WIN32 << 16) | 0x80000000)))
-#define __HRESULT_FROM_WIN32(x) HRESULT_FROM_WIN32(x)
-
-#define HRESULT_FROM_NT(x)      ((JITINTERFACE_HRESULT) ((x) | FACILITY_NT_BIT))
-#endif // MAKE_HRESULT
-
 /*****************************************************************************/
-    // These are error codes returned by CompileMethod
+// These are error codes returned by CompileMethod
 enum CorJitResult
 {
-    // Note that I dont use FACILITY_NULL for the facility number,
-    // we may want to get a 'real' facility number
-    CORJIT_OK            =     NO_ERROR,
-    CORJIT_BADCODE       =     MAKE_HRESULT(SEVERITY_ERROR,FACILITY_NULL, 1),
-    CORJIT_OUTOFMEM      =     MAKE_HRESULT(SEVERITY_ERROR,FACILITY_NULL, 2),
-    CORJIT_INTERNALERROR =     MAKE_HRESULT(SEVERITY_ERROR,FACILITY_NULL, 3),
-    CORJIT_SKIPPED       =     MAKE_HRESULT(SEVERITY_ERROR,FACILITY_NULL, 4),
-    CORJIT_RECOVERABLEERROR =  MAKE_HRESULT(SEVERITY_ERROR,FACILITY_NULL, 5),
-    CORJIT_IMPLLIMITATION=     MAKE_HRESULT(SEVERITY_ERROR,FACILITY_NULL, 6),
+    CORJIT_OK               = 0,
+    CORJIT_BADCODE          = (JITINTERFACE_HRESULT)0x80000001,
+    CORJIT_OUTOFMEM         = (JITINTERFACE_HRESULT)0x80000002,
+    CORJIT_INTERNALERROR    = (JITINTERFACE_HRESULT)0x80000003,
+    CORJIT_SKIPPED          = (JITINTERFACE_HRESULT)0x80000004,
+    CORJIT_RECOVERABLEERROR = (JITINTERFACE_HRESULT)0x80000005,
+    CORJIT_IMPLLIMITATION   = (JITINTERFACE_HRESULT)0x80000006,
+    CORJIT_R2R_UNSUPPORTED  = (JITINTERFACE_HRESULT)0x80000007,
 };
 
 /*****************************************************************************/
@@ -112,12 +47,10 @@ enum CorJitResult
 // to guide the memory allocation for the code, readonly data, and read-write data
 enum CorJitAllocMemFlag
 {
-    CORJIT_ALLOCMEM_DEFAULT_CODE_ALIGN = 0x00000000, // The code will use the normal alignment
-    CORJIT_ALLOCMEM_FLG_16BYTE_ALIGN   = 0x00000001, // The code will be 16-byte aligned
-    CORJIT_ALLOCMEM_FLG_RODATA_16BYTE_ALIGN = 0x00000002, // The read-only data will be 16-byte aligned
-    CORJIT_ALLOCMEM_FLG_32BYTE_ALIGN   = 0x00000004, // The code will be 32-byte aligned
-    CORJIT_ALLOCMEM_FLG_RODATA_32BYTE_ALIGN = 0x00000008, // The read-only data will be 32-byte aligned
-    CORJIT_ALLOCMEM_FLG_RODATA_64BYTE_ALIGN = 0x00000010, // The read-only data will be 64-byte aligned
+    CORJIT_ALLOCMEM_HOT_CODE = 1,
+    CORJIT_ALLOCMEM_COLD_CODE = 2,
+    CORJIT_ALLOCMEM_READONLY_DATA = 4,
+    CORJIT_ALLOCMEM_HAS_POINTERS_TO_CODE = 8,
 };
 
 inline CorJitAllocMemFlag operator |(CorJitAllocMemFlag a, CorJitAllocMemFlag b)
@@ -143,22 +76,28 @@ enum CheckedWriteBarrierKinds {
     CWBKind_AddrOfLocal,     // Store through the address of a local (arguably a bug that this happens at all).
 };
 
+struct AllocMemChunk
+{
+    // Alignment of the chunk. Must be a power of two with the following restrictions:
+    // - For the hot code chunk the max supported alignment is 32.
+    // - For the cold code chunk the value must always be 1.
+    // - For read-only data chunks the max supported alignment is 64.
+    uint32_t alignment;
+    uint32_t size;
+    CorJitAllocMemFlag flags;
+
+    // out
+    uint8_t* block;
+    uint8_t* blockRW;
+};
+
 struct AllocMemArgs
 {
-    // Input arguments
-    uint32_t hotCodeSize;
-    uint32_t coldCodeSize;
-    uint32_t roDataSize;
+    // Chunks to allocate. Supports one hot code chunk, one cold code chunk,
+    // and an arbitrary number of data chunks.
+    AllocMemChunk* chunks;
+    unsigned chunksCount;
     uint32_t xcptnsCount;
-    CorJitAllocMemFlag flag;
-
-    // Output arguments
-    void* hotCodeBlock;
-    void* hotCodeBlockRW;
-    void* coldCodeBlock;
-    void* coldCodeBlockRW;
-    void* roDataBlock;
-    void* roDataBlockRW;
 };
 
 #include "corjithost.h"
@@ -452,7 +391,8 @@ public:
             uint32_t *                 pCountSchemaItems,          // OUT: pointer to the count of schema items in `pSchema` array.
             uint8_t **                 pInstrumentationData,       // OUT: `*pInstrumentationData` is set to the address of the instrumentation data
                                                                    // (pointer will not remain valid after jit completes).
-            PgoSource *                pPgoSource                  // OUT: value describing source of pgo data
+            PgoSource *                pPgoSource,                 // OUT: value describing source of pgo data
+            bool *                     pDynamicPgo                 // OUT: dynamic PGO is enabled (valid even when return value is failure)
             ) = 0;
 
     // Allocate a profile buffer for use in the current process
@@ -484,22 +424,28 @@ public:
             CORINFO_METHOD_HANDLE   methodHandle  /* IN */
             ) = 0;
 
+    // Records the signature of a managed call site for Wasm R2R thunk generation.
+    // This is a no-op on all targets except ReadyToRun Wasm compilation.
+    virtual void recordWasmManagedCallSig(
+            CORINFO_SIG_INFO *      callSig       /* IN */
+            ) = 0;
+
     // A relocation is recorded if we are pre-jitting.
     // A jump thunk may be inserted if we are jitting
     virtual void recordRelocation(
             void *                  location,     /* IN  */
             void *                  locationRW,   /* IN  */
             void *                  target,       /* IN  */
-            uint16_t                fRelocType,   /* IN  */
+            CorInfoReloc            fRelocType,   /* IN  */
             int32_t                 addlDelta = 0 /* IN  */
             ) = 0;
 
-    virtual uint16_t getRelocTypeHint(void * target) = 0;
+    virtual CorInfoReloc getRelocTypeHint(void * target) = 0;
 
     // For what machine does the VM expect the JIT to generate code? The VM
-    // returns one of the IMAGE_FILE_MACHINE_* values. Note that if the VM
-    // is cross-compiling (such as the case for crossgen), it will return a
-    // different value than if it was compiling for the host architecture.
+    // returns one of the CorInfoArch values. Note that if the VM is cross
+    // compiling (such as the case for crossgen), it will return a different
+    // value than if it was compiling for the host architecture.
     //
     virtual uint32_t getExpectedTargetArchitecture() = 0;
 

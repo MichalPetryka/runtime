@@ -161,16 +161,16 @@ T VolatileLoad(T const * pt)
     switch (sizeof(T))
     {
     case 1:
-        *(unsigned __int8* )pv = __ldar8 ((unsigned __int8   volatile*)pt);
+        *(uint8_t* )pv = __ldar8 ((uint8_t   volatile*)pt);
         break;
     case 2:
-        *(unsigned __int16*)pv = __ldar16((unsigned __int16  volatile*)pt);
+        *(uint16_t*)pv = __ldar16((uint16_t  volatile*)pt);
         break;
     case 4:
-        *(unsigned __int32*)pv = __ldar32((unsigned __int32  volatile*)pt);
+        *(uint32_t*)pv = __ldar32((uint32_t  volatile*)pt);
         break;
     case 8:
-        *(unsigned __int64*)pv = __ldar64((unsigned __int64  volatile*)pt);
+        *(uint64_t*)pv = __ldar64((uint64_t  volatile*)pt);
         break;
     default:
         val = *(T volatile const*)pt;
@@ -240,16 +240,16 @@ void VolatileStore(T* pt, T val)
     switch (sizeof(T))
     {
     case 1:
-        __stlr8 ((unsigned __int8  volatile*)pt, *(unsigned __int8* )pv);
+        __stlr8 ((uint8_t  volatile*)pt, *(uint8_t* )pv);
         break;
     case 2:
-        __stlr16((unsigned __int16 volatile*)pt, *(unsigned __int16*)pv);
+        __stlr16((uint16_t volatile*)pt, *(uint16_t*)pv);
         break;
     case 4:
-        __stlr32((unsigned __int32 volatile*)pt, *(unsigned __int32*)pv);
+        __stlr32((uint32_t volatile*)pt, *(uint32_t*)pv);
         break;
     case 8:
-        __stlr64((unsigned __int64 volatile*)pt, *(unsigned __int64*)pv);
+        __stlr64((uint64_t volatile*)pt, *(uint64_t*)pv);
         break;
     default:
         __dmb(_ARM64_BARRIER_ISH);
@@ -286,12 +286,6 @@ void VolatileStoreWithoutBarrier(T* pt, T val)
 // You must instead cast to an int, then to a float.  Or you can call Load on the Volatile<int>, and
 // cast the result to a float.  In general, calling Load or Store explicitly will work around
 // any problems that can't be solved by operator overloading.
-//
-// @TODO: it's not clear that we actually *want* any operator overloading here.  It's in here primarily
-// to ease the task of converting all of the old uses of the volatile keyword, but in the long
-// run it's probably better if users of this class are forced to call Load() and Store() explicitly.
-// This would make it much more clear where the memory barriers are, and which operations are actually
-// being performed, but it will have to wait for another cleanup effort.
 //
 template <typename T>
 class Volatile
@@ -364,7 +358,7 @@ public:
     // accessed without using Load and Store, but it is necessary for passing Volatile<T> to APIs like
     // InterlockedIncrement.
     //
-    inline volatile T* GetPointer() { return (volatile T*)&m_val; }
+    inline constexpr volatile T* GetPointer() { return (volatile T*)&m_val; }
 
 
     //
@@ -394,46 +388,7 @@ public:
     // a pointer to a volatile T here, so we cannot accidentally pass this pointer to an API that
     // expects a normal pointer.
     //
-    inline T volatile * operator&() {return this->GetPointer();}
-    inline T volatile const * operator&() const {return this->GetPointer();}
-
-    //
-    // Comparison operators
-    //
-    template<typename TOther>
-    inline bool operator==(const TOther& other) const {return this->Load() == other;}
-
-    template<typename TOther>
-    inline bool operator!=(const TOther& other) const {return this->Load() != other;}
-
-    //
-    // Miscellaneous operators.  Add more as necessary.
-    //
-	inline Volatile<T>& operator+=(T val) {Store(this->Load() + val); return *this;}
-	inline Volatile<T>& operator-=(T val) {Store(this->Load() - val); return *this;}
-    inline Volatile<T>& operator|=(T val) {Store(this->Load() | val); return *this;}
-    inline Volatile<T>& operator&=(T val) {Store(this->Load() & val); return *this;}
-    inline bool operator!() const { return !this->Load();}
-
-    //
-    // Prefix increment
-    //
-    inline Volatile& operator++() {this->Store(this->Load()+1); return *this;}
-
-    //
-    // Postfix increment
-    //
-    inline T operator++(int) {T val = this->Load(); this->Store(val+1); return val;}
-
-    //
-    // Prefix decrement
-    //
-    inline Volatile& operator--() {this->Store(this->Load()-1); return *this;}
-
-    //
-    // Postfix decrement
-    //
-    inline T operator--(int) {T val = this->Load(); this->Store(val-1); return val;}
+    inline constexpr T volatile * operator&() {return this->GetPointer();}
 };
 
 //
@@ -468,6 +423,16 @@ public:
     inline VolatilePtr(const VolatilePtr& other) : Volatile<P>(other)
     {
     }
+
+    //
+    // Bring the base class operator= into scope.
+    //
+    using Volatile<P>::operator=;
+
+    //
+    // Copy assignment operator.
+    //
+    inline VolatilePtr<T,P>& operator=(const VolatilePtr<T,P>& other) {this->Store(other.Load()); return *this;}
 
     //
     // Cast to the pointer type

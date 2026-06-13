@@ -21,6 +21,7 @@ namespace System
                 if (!char.IsWhiteSpace(span[i]))
                     return false;
             }
+
             return true;
         }
 
@@ -34,6 +35,15 @@ namespace System
         {
             return IndexOf(span, value, comparisonType) >= 0;
         }
+
+        /// <summary>
+        /// Indicates whether the specified span contains any <see cref="char.IsWhiteSpace(char)">
+        /// white-space characters</see>.
+        /// </summary>
+        /// <param name="span">The source span.</param>
+        /// <returns><see langword="true"/> if the span contains any white-space characters, <see langword="false"/> otherwise.</returns>
+        public static bool ContainsAnyWhiteSpace(this ReadOnlySpan<char> span) =>
+            string.SearchValuesStorage.WhiteSpaceChars.ContainsAny(span);
 
         /// <summary>
         /// Determines whether this <paramref name="span"/> and the specified <paramref name="other"/> span have the same characters
@@ -150,6 +160,22 @@ namespace System
         }
 
         /// <summary>
+        /// Reports the zero-based index of the first occurrence of any <see cref="char.IsWhiteSpace(char)">
+        /// white-space character</see> in the current <paramref name="span"/>, or -1 if not found.
+        /// </summary>
+        /// <param name="span">The source span.</param>
+        public static int IndexOfAnyWhiteSpace(this ReadOnlySpan<char> span) =>
+            string.SearchValuesStorage.WhiteSpaceChars.IndexOfAny(span);
+
+        /// <summary>
+        /// Reports the zero-based index of the first occurrence of any <see cref="char.IsWhiteSpace(char)">
+        /// non-white-space character</see> in the current <paramref name="span"/>, or -1 if not found.
+        /// </summary>
+        /// <param name="span">The source span.</param>
+        public static int IndexOfAnyExceptWhiteSpace(this ReadOnlySpan<char> span) =>
+            string.SearchValuesStorage.WhiteSpaceChars.IndexOfAnyExcept(span);
+
+        /// <summary>
         /// Reports the zero-based index of the last occurrence of the specified <paramref name="value"/> in the current <paramref name="span"/>.
         /// </summary>
         /// <param name="span">The source span.</param>
@@ -183,6 +209,22 @@ namespace System
                     return Ordinal.LastIndexOfOrdinalIgnoreCase(span, value);
             }
         }
+
+        /// <summary>
+        /// Reports the zero-based index of the last occurrence of any <see cref="char.IsWhiteSpace(char)">
+        /// white-space character</see> in the current <paramref name="span"/>, or -1 if not found.
+        /// </summary>
+        /// <param name="span">The source span.</param>
+        public static int LastIndexOfAnyWhiteSpace(this ReadOnlySpan<char> span) =>
+            string.SearchValuesStorage.WhiteSpaceChars.LastIndexOfAny(span);
+
+        /// <summary>
+        /// Reports the zero-based index of the last occurrence of any <see cref="char.IsWhiteSpace(char)">
+        /// non-white-space character</see> in the current <paramref name="span"/>, or -1 if not found.
+        /// </summary>
+        /// <param name="span">The source span.</param>
+        public static int LastIndexOfAnyExceptWhiteSpace(this ReadOnlySpan<char> span) =>
+            string.SearchValuesStorage.WhiteSpaceChars.LastIndexOfAnyExcept(span);
 
         /// <summary>
         /// Copies the characters from the source span into the destination, converting each character to lowercase,
@@ -294,6 +336,7 @@ namespace System
         /// <param name="span">The source span.</param>
         /// <param name="value">The sequence to compare to the end of the source span.</param>
         /// <param name="comparisonType">One of the enumeration values that determines how the <paramref name="span"/> and <paramref name="value"/> are compared.</param>
+        [Intrinsic] // Unrolled and vectorized for half-constant input (Ordinal)
         public static bool EndsWith(this ReadOnlySpan<char> span, ReadOnlySpan<char> value, StringComparison comparisonType)
         {
             string.CheckStringComparison(comparisonType);
@@ -377,6 +420,7 @@ namespace System
         /// <remarks>
         /// Invalid sequences will be represented in the enumeration by <see cref="Rune.ReplacementChar"/>.
         /// </remarks>
+        [OverloadResolutionPriority(-1)]
         public static SpanRuneEnumerator EnumerateRunes(this Span<char> span)
         {
             return new SpanRuneEnumerator(span);
@@ -403,6 +447,7 @@ namespace System
         /// for <see cref="string.ReplaceLineEndings"/> for more information on how newline
         /// sequences are detected.
         /// </remarks>
+        [OverloadResolutionPriority(-1)]
         public static SpanLineEnumerator EnumerateLines(this Span<char> span)
         {
             return new SpanLineEnumerator(span);

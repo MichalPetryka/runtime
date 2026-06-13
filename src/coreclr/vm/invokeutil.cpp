@@ -135,11 +135,13 @@ void InvokeUtil::CopyArg(TypeHandle th, PVOID argRef, ArgDestination *argDest) {
     CONTRACTL_END;
 
     void *pArgDst = argDest->GetDestinationAddress();
-    CorElementType type = th.GetVerifierCorElementType();
+    CorElementType type = th.GetInternalCorElementType();
 
     switch (type) {
 #ifdef TARGET_RISCV64
-    // RISC-V call convention requires signed ints sign-extended (unsigned -- zero-extended) to register width
+    // RISC-V call convention requires integer scalars narrower than XLEN bits to be widened according to the sign
+    // of their type up to 32 bits, then sign-extended to XLEN bits. In practice it means type-extending all ints
+    // except `uint` which is sign-extended regardless.
     case ELEMENT_TYPE_BOOLEAN:
     case ELEMENT_TYPE_U1:
         _ASSERTE(argRef != NULL);
@@ -164,18 +166,13 @@ void InvokeUtil::CopyArg(TypeHandle th, PVOID argRef, ArgDestination *argDest) {
 
     case ELEMENT_TYPE_R4:
         _ASSERTE(argRef != NULL);
-        // NaN-box the register value or single-float instructions will treat it as NaN
-        *(UINT64 *)pArgDst = 0xffffffff00000000L | *(UINT32 *)argRef;
+        argDest->CopySingleFloatToRegister(argRef);
         break;
 
     case ELEMENT_TYPE_I4:
-        _ASSERTE(argRef != NULL);
-        *(INT64 *)pArgDst = *(INT32 *)argRef;
-        break;
-
     case ELEMENT_TYPE_U4:
         _ASSERTE(argRef != NULL);
-        *(UINT64 *)pArgDst = *(UINT32 *)argRef;
+        *(INT64 *)pArgDst = *(INT32 *)argRef;
         break;
 
 #else // !TARGET_RISCV64
@@ -503,7 +500,7 @@ void InvokeUtil::ValidField(TypeHandle th, OBJECTREF* value)
             if (th.IsEnum())
                 COMPlusThrow(kArgumentException,W("Arg_ObjObj"));
 
-            type = th.GetVerifierCorElementType();
+            type = th.GetInternalCorElementType();
             if (IsPrimitiveType(type))
             {
                 if (CanPrimitiveWiden(type, oType))
@@ -557,7 +554,7 @@ OBJECTREF InvokeUtil::CreateObjectAfterInvoke(TypeHandle th, void * pValue) {
 
     case ELEMENT_TYPE_PTR:
     {
-        obj = CreatePointer(th, *(void **)pValue);
+        obj = CreatePointer(th, *(LPVOID*)pValue);
         break;
     }
 
@@ -567,7 +564,7 @@ OBJECTREF InvokeUtil::CreateObjectAfterInvoke(TypeHandle th, void * pValue) {
     case ELEMENT_TYPE_STRING:
     case ELEMENT_TYPE_OBJECT:
     case ELEMENT_TYPE_VAR:
-        obj = *(OBJECTREF *)pValue;
+        obj = ObjectToOBJECTREF(*(Object**)pValue);
         break;
 
     case ELEMENT_TYPE_FNPTR:
@@ -587,67 +584,6 @@ OBJECTREF InvokeUtil::CreateObjectAfterInvoke(TypeHandle th, void * pValue) {
     return obj;
 }
 
-// This is a special purpose Exception creation function.  It
-//  creates the ReflectionTypeLoadException placing the passed
-//  classes array and exception array into it.
-OBJECTREF InvokeUtil::CreateClassLoadExcept(OBJECTREF* classes, OBJECTREF* except) {
-    CONTRACT(OBJECTREF) {
-        THROWS;
-        GC_TRIGGERS;
-        MODE_COOPERATIVE;
-        PRECONDITION(CheckPointer(classes));
-        PRECONDITION(CheckPointer(except));
-        PRECONDITION(IsProtectedByGCFrame (classes));
-        PRECONDITION(IsProtectedByGCFrame (except));
-
-        POSTCONDITION(RETVAL != NULL);
-
-        INJECT_FAULT(COMPlusThrowOM());
-    }
-    CONTRACT_END;
-
-    OBJECTREF oRet = 0;
-
-    struct {
-        OBJECTREF o;
-        STRINGREF str;
-    } gc;
-    gc.o = NULL;
-    gc.str = NULL;
-
-    MethodTable *pVMClassLoadExcept = CoreLibBinder::GetException(kReflectionTypeLoadException);
-    gc.o = AllocateObject(pVMClassLoadExcept);
-    GCPROTECT_BEGIN(gc);
-    ARG_SLOT args[4];
-
-    // Retrieve the resource string.
-    ResMgrGetString(W("ReflectionTypeLoad_LoadFailed"), &gc.str);
-
-    MethodDesc* pMD = MemberLoader::FindMethod(gc.o->GetMethodTable(),
-                            COR_CTOR_METHOD_NAME, &gsig_IM_ArrType_ArrException_Str_RetVoid);
-
-    if (!pMD)
-    {
-        MAKE_WIDEPTR_FROMUTF8(wzMethodName, COR_CTOR_METHOD_NAME);
-        COMPlusThrowNonLocalized(kMissingMethodException, wzMethodName);
-    }
-
-    MethodDescCallSite ctor(pMD);
-
-    // Call the constructor
-    args[0]  = ObjToArgSlot(gc.o);
-    args[1]  = ObjToArgSlot(*classes);
-    args[2]  = ObjToArgSlot(*except);
-    args[3]  = ObjToArgSlot((OBJECTREF)gc.str);
-
-    ctor.Call(args);
-
-    oRet = gc.o;
-
-    GCPROTECT_END();
-    RETURN oRet;
-}
-
 OBJECTREF InvokeUtil::CreateTargetExcept(OBJECTREF* except) {
     CONTRACT(OBJECTREF) {
         THROWS;
@@ -662,45 +598,27 @@ OBJECTREF InvokeUtil::CreateTargetExcept(OBJECTREF* except) {
     }
     CONTRACT_END;
 
-    OBJECTREF o;
-    OBJECTREF oRet = 0;
-
-    MethodTable *pVMTargetExcept = CoreLibBinder::GetException(kTargetInvocationException);
-    o = AllocateObject(pVMTargetExcept);
-    GCPROTECT_BEGIN(o);
-    ARG_SLOT args[2];
-
-    MethodDesc* pMD = MemberLoader::FindMethod(o->GetMethodTable(),
-                            COR_CTOR_METHOD_NAME, &gsig_IM_Exception_RetVoid);
-
-    if (!pMD)
+    struct
     {
-        MAKE_WIDEPTR_FROMUTF8(wzMethodName, COR_CTOR_METHOD_NAME);
-        COMPlusThrowNonLocalized(kMissingMethodException, wzMethodName);
-    }
+        OBJECTREF oRet;
+        OBJECTREF innerEx;
+    } gc;
+    gc.oRet = NULL;
+    gc.innerEx = NULL;
+    GCPROTECT_BEGIN(gc);
 
-    MethodDescCallSite ctor(pMD);
+    UnmanagedCallersOnlyCaller createTargetExcept(METHOD__EXCEPTION__CREATE_TARGET_INVOCATION_EXCEPTION);
 
-    // Call the constructor
-    args[0]  = ObjToArgSlot(o);
     // for security, don't allow a non-exception object to be spoofed as an exception object. We cast later and
     // don't check and this could cause us grief.
     _ASSERTE(!except || IsException((*except)->GetMethodTable()));  // how do we get non-exceptions?
-    if (except && IsException((*except)->GetMethodTable()))
-    {
-        args[1]  = ObjToArgSlot(*except);
-    }
-    else
-    {
-        args[1] = NULL;
-    }
 
-    ctor.Call(args);
+    gc.innerEx = (except && IsException((*except)->GetMethodTable())) ? *except : NULL;
 
-    oRet = o;
+    createTargetExcept.InvokeThrowing(&gc.innerEx, &gc.oRet);
 
     GCPROTECT_END();
-    RETURN oRet;
+    RETURN gc.oRet;
 }
 
 // Ensure that the field is declared on the type or subtype of the type to which the typed reference refers.
@@ -741,14 +659,14 @@ void InvokeUtil::ValidateObjectTarget(FieldDesc *pField, TypeHandle enclosingTyp
 
 // SetValidField
 // Given an target object, a value object and a field this method will set the field
-//  on the target object.  The field must be validate before calling this.
+//  on the target object.  The field must be validated before calling this.
 void InvokeUtil::SetValidField(CorElementType fldType,
                                TypeHandle fldTH,
                                FieldDesc *pField,
                                OBJECTREF *target,
                                OBJECTREF *valueObj,
                                TypeHandle declaringType,
-                               CLR_BOOL *pDomainInitialized) {
+                               BOOL *pIsClassInitialized) {
     CONTRACTL {
         THROWS;
         GC_TRIGGERS;
@@ -786,19 +704,18 @@ void InvokeUtil::SetValidField(CorElementType fldType,
         pDeclMT = pField->GetModule()->GetGlobalMethodTable();
     }
 
-    if (*pDomainInitialized == FALSE)
+    if (*pIsClassInitialized == FALSE)
     {
         EX_TRY
         {
             pDeclMT->EnsureInstanceActive();
             pDeclMT->CheckRunClassInitThrowing();
-
-            *pDomainInitialized = TRUE;
+            *pIsClassInitialized = pDeclMT->IsClassInited();
         }
         EX_CATCH_THROWABLE(&Throwable);
     }
 #ifdef _DEBUG
-    else if (*pDomainInitialized == TRUE && !declaringType.IsNull())
+    else if (*pIsClassInitialized == TRUE && !declaringType.IsNull())
        CONSISTENCY_CHECK(declaringType.GetMethodTable()->CheckActivated());
 #endif
 
@@ -973,9 +890,7 @@ void InvokeUtil::SetValidField(CorElementType fldType,
 
 // GetFieldValue
 // This method will return an ARG_SLOT containing the value of the field.
-// GetFieldValue
-// This method will return an ARG_SLOT containing the value of the field.
-OBJECTREF InvokeUtil::GetFieldValue(FieldDesc* pField, TypeHandle fieldType, OBJECTREF* target, TypeHandle declaringType, CLR_BOOL *pDomainInitialized) {
+OBJECTREF InvokeUtil::GetFieldValue(FieldDesc* pField, TypeHandle fieldType, OBJECTREF* target, TypeHandle declaringType, BOOL *pIsClassInitialized) {
     CONTRACTL {
         THROWS;
         GC_TRIGGERS;
@@ -999,7 +914,7 @@ OBJECTREF InvokeUtil::GetFieldValue(FieldDesc* pField, TypeHandle fieldType, OBJ
     {
         pDeclMT = declaringType.GetMethodTable();
 
-        // We don't allow getting the field just so we don't have more specical
+        // We don't allow getting the field just so we don't have more special
         // cases than we need to.  Then we need at least the throw check to ensure
         // we don't allow data corruption.
         if (Nullable::IsNullableType(pDeclMT))
@@ -1013,22 +928,20 @@ OBJECTREF InvokeUtil::GetFieldValue(FieldDesc* pField, TypeHandle fieldType, OBJ
         pDeclMT = pField->GetModule()->GetGlobalMethodTable();
     }
 
-    if (*pDomainInitialized == FALSE)
+    if (*pIsClassInitialized == FALSE)
     {
         EX_TRY
         {
             pDeclMT->EnsureInstanceActive();
             pDeclMT->CheckRunClassInitThrowing();
-
-            *pDomainInitialized = TRUE;
+            *pIsClassInitialized = pDeclMT->IsClassInited();
         }
         EX_CATCH_THROWABLE(&Throwable);
     }
 #ifdef _DEBUG
-    else if (*pDomainInitialized == TRUE && !declaringType.IsNull())
+    else if (*pIsClassInitialized == TRUE && !declaringType.IsNull())
        CONSISTENCY_CHECK(declaringType.GetMethodTable()->CheckActivated());
 #endif
-
 
     if(Throwable != NULL)
     {
@@ -1084,7 +997,7 @@ OBJECTREF InvokeUtil::GetFieldValue(FieldDesc* pField, TypeHandle fieldType, OBJ
 
     case ELEMENT_TYPE_VALUETYPE:
     {
-        // Value classes require createing a boxed version of the field and then
+        // Value classes require creating a boxed version of the field and then
         //  copying from the source...
         // Allocate an object to return...
         _ASSERTE(!fieldType.IsTypeDesc());

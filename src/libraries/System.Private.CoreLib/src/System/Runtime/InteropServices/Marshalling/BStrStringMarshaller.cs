@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -86,6 +87,7 @@ namespace System.Runtime.InteropServices.Marshalling
                 else
                 {
                     // Set length and update buffer target
+                    // Unsafe.AsPointer is safe since buffer must be pinned
                     byte* pBuffer = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(buffer));
                     *((uint*)pBuffer) = (uint)lengthInBytes;
                     ptrToFirstChar = (ushort*)(pBuffer + sizeof(uint));

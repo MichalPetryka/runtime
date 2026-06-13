@@ -22,12 +22,13 @@ public partial class UpdateChromeVersions : MBU.Task
 {
     private const string s_fetchReleasesUrl = "https://chromiumdash.appspot.com/fetch_releases?channel={0}&num=1";
     private const string s_snapshotBaseUrl = $"https://storage.googleapis.com/chromium-browser-snapshots";
+    private const string s_v8CanaryBaseUrl = "https://storage.googleapis.com/chromium-v8/official/canary";
     private const int s_versionCheckThresholdDays = 1;
 
     private static readonly HttpClient s_httpClient = new();
 
     [GeneratedRegex("#define V8_BUILD_NUMBER (\\d+)")]
-    private static partial Regex V8BuildNumberRegex();
+    private static partial Regex V8BuildNumberRegex { get; }
 
     public string Channel { get; set; } = "stable";
 
@@ -43,6 +44,9 @@ public partial class UpdateChromeVersions : MBU.Task
 
     [Required, NotNull]
     public string ChromeVersionsPath { get; set; } = string.Empty;
+
+    [Required, NotNull]
+    public string EnvVarsForPRPath { get; set; } = string.Empty;
 
     public int MaxMajorVersionsToCheck { get; set; } = 2;
 
@@ -70,14 +74,20 @@ public partial class UpdateChromeVersions : MBU.Task
             XmlDocument chromeVersionsXmlDoc = new XmlDocument();
             chromeVersionsXmlDoc.Load(ChromeVersionsPath);
             var osInfo = OSIdentifiers.Zip(OSPrefixes, (num, str) => new { Identifier = num, Prefix = str });
+            List<ChromeVersionSpec> versions = new();
             foreach (var info in osInfo)
             {
                 (ChromeVersionSpec version, string baseUrl) = await FindVersionFromChromiumDash(info.Prefix, info.Identifier).ConfigureAwait(false);
+                versions.Add(version);
                 bool hasMajorChanges = AreVersionsChanged(chromeVersionsXmlDoc, version, baseUrl);
                 if (hasMajorChanges)
                 {
                     VersionsChanged = UpdateChromeVersionsFile(chromeVersionsXmlDoc, version, baseUrl);
                 }
+            }
+            if (VersionsChanged)
+            {
+                UpdateEnvVarsForPRFile(versions);
             }
             return !Log.HasLoggedErrors;
         }
@@ -137,6 +147,26 @@ public partial class UpdateChromeVersions : MBU.Task
         return true;
     }
 
+    private void UpdateEnvVarsForPRFile(List<ChromeVersionSpec> versions)
+    {
+        using StreamWriter writer = new StreamWriter(EnvVarsForPRPath);
+        foreach (var version in versions)
+        {
+            if (string.Equals(version.os, "Linux", StringComparison.OrdinalIgnoreCase))
+            {
+                writer.WriteLine($"CHROME_LINUX_VER={version.version}");
+            }
+            else if (string.Equals(version.os, "Windows", StringComparison.OrdinalIgnoreCase))
+            {
+                writer.WriteLine($"CHROME_WIN_VER={version.version}");
+            }
+            else
+            {
+                throw new Exception($"UpdateEnvVarsForPRFile task was used with unknown OS: {version.os}");
+            }
+        }
+    }
+
     private static void UpdateNodeValue(XmlDocument xmlDoc, string nodeName, string newValue)
     {
         XmlNode? node = xmlDoc.SelectSingleNode($"/Project/PropertyGroup/{nodeName}");
@@ -166,6 +196,26 @@ public partial class UpdateChromeVersions : MBU.Task
         }
 
         string foundV8Version = await FindV8VersionFromChromeVersion(foundRelease.version).ConfigureAwait(false);
+
+        // Validate that a prebuilt V8 binary exists on the CDN that jsvu uses for downloading.
+        if (!await IsV8BinaryAvailableAsync(osPrefix, foundV8Version).ConfigureAwait(false))
+        {
+            string v8BinaryUrl = GetV8BinaryUrl(osPrefix, foundV8Version);
+            Log.LogWarning($"V8 binary not available at {v8BinaryUrl} — keeping the existing V8 version for {osIdentifier}.");
+
+            // Fall back to the existing V8 version from BrowserVersions.props
+            XmlDocument existingDoc = new XmlDocument();
+            existingDoc.Load(ChromeVersionsPath);
+            string existingV8VersionNodeName = string.Equals(osIdentifier, "linux", StringComparison.OrdinalIgnoreCase)
+                ? "linux_V8Version"
+                : string.Equals(osIdentifier, "windows", StringComparison.OrdinalIgnoreCase)
+                    ? "win_V8Version"
+                    : throw new LogAsErrorException($"Unknown OS identifier '{osIdentifier}' for V8 version fallback");
+            foundV8Version = GetNodeValue(existingDoc, existingV8VersionNodeName);
+            if (string.IsNullOrEmpty(foundV8Version))
+                throw new LogAsErrorException($"V8 binary for {osIdentifier} not available on CDN and no existing version found in {ChromeVersionsPath}");
+        }
+
         ChromeVersionSpec versionSpec = new(os: foundRelease.platform,
                                             channel: Channel,
                                             version: foundRelease.version,
@@ -193,7 +243,7 @@ public partial class UpdateChromeVersions : MBU.Task
                 Log.LogMessage(MessageImportance.Low, $"Checking {lkgUrl} ...");
                 string v8VersionHContents = await s_httpClient.GetStringAsync(lkgUrl).ConfigureAwait(false);
 
-                var m = V8BuildNumberRegex().Match(v8VersionHContents);
+                var m = V8BuildNumberRegex.Match(v8VersionHContents);
                 if (!m.Success)
                     throw new LogAsErrorException($"Failed to find v8 build number at {lkgUrl}: {v8VersionHContents}");
 
@@ -206,6 +256,36 @@ public partial class UpdateChromeVersions : MBU.Task
             {
                 throw new LogAsErrorException($"Failed to parse chrome version '{chromeVersion}' to extract the milestone: {ex.Message}");
             }
+        }
+    }
+
+    private static string GetV8BinaryUrl(string osPrefix, string v8Version)
+    {
+        string jsvuPlatform = osPrefix switch
+        {
+            "Linux_x64" => "linux64",
+            "Win_x64" => "win32",
+            _ => throw new ArgumentException($"Unknown OS prefix '{osPrefix}' for V8 binary URL")
+        };
+        return $"{s_v8CanaryBaseUrl}/v8-{jsvuPlatform}-rel-{v8Version}.zip";
+    }
+
+    private async Task<bool> IsV8BinaryAvailableAsync(string osPrefix, string v8Version)
+    {
+        string url = GetV8BinaryUrl(osPrefix, v8Version);
+        Log.LogMessage(MessageImportance.Low, $"Checking if V8 binary exists at {url} ...");
+        try
+        {
+            using HttpRequestMessage request = new(HttpMethod.Head, url);
+            using HttpResponseMessage response = await s_httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
+                .ConfigureAwait(false);
+            return response.StatusCode == HttpStatusCode.OK;
+        }
+        catch (HttpRequestException hre)
+        {
+            Log.LogWarning($"Failed to check V8 binary availability at {url}: {hre.Message}");
+            return false;
         }
     }
 
@@ -256,7 +336,7 @@ public partial class UpdateChromeVersions : MBU.Task
                                                     .ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                Log.LogMessage(MessageImportance.Low, $"Found {url}");
+                Log.LogMessage(MessageImportance.Low, $"Found url = {url} with branchUrl = ${branchUrl}");
                 return branchUrl;
             }
 

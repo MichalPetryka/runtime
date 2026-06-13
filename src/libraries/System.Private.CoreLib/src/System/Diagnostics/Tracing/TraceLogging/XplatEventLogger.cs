@@ -1,13 +1,11 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using System.Text;
 
 #if FEATURE_EVENTSOURCE_XPLAT
@@ -18,8 +16,13 @@ namespace System.Diagnostics.Tracing
     {
         public XplatEventLogger() { }
 
-        private static readonly Lazy<string?> eventSourceNameFilter = new Lazy<string?>(() => CompatibilitySwitch.GetValueInternal("EventSourceFilter"));
-        private static readonly Lazy<string?> eventSourceEventFilter = new Lazy<string?>(() => CompatibilitySwitch.GetValueInternal("EventNameFilter"));
+        private static readonly string s_eventSourceNameFilter = GetClrConfig("EventSourceFilter");
+        private static readonly string s_eventSourceEventFilter = GetClrConfig("EventNameFilter");
+
+        private static unsafe string GetClrConfig(string configName) => new string(EventSource_GetClrConfig(configName));
+
+        [LibraryImport(RuntimeHelpers.QCall, StringMarshalling = StringMarshalling.Utf16)]
+        private static unsafe partial char* EventSource_GetClrConfig(string configName);
 
         private static bool initializedPersistentListener;
 
@@ -73,7 +76,7 @@ namespace System.Diagnostics.Tracing
             }
         }
 
-        private static string Serialize(ReadOnlyCollection<string>? payloadName, ReadOnlyCollection<object?>? payload, string? eventMessage)
+        private static unsafe string Serialize(ReadOnlyCollection<string>? payloadName, ReadOnlyCollection<object?>? payload, string? eventMessage)
         {
             if (payloadName == null || payload == null)
                 return string.Empty;
@@ -153,9 +156,7 @@ namespace System.Diagnostics.Tracing
 
         protected internal override void OnEventSourceCreated(EventSource eventSource)
         {
-
-            string? eventSourceFilter = eventSourceNameFilter.Value;
-            if (string.IsNullOrEmpty(eventSourceFilter) || (eventSource.Name.Contains(eventSourceFilter, StringComparison.OrdinalIgnoreCase)))
+            if (string.IsNullOrEmpty(s_eventSourceNameFilter) || (eventSource.Name.Contains(s_eventSourceNameFilter, StringComparison.OrdinalIgnoreCase)))
             {
                 EnableEvents(eventSource, EventLevel.LogAlways, EventKeywords.All, null);
             }
@@ -173,8 +174,7 @@ namespace System.Diagnostics.Tracing
                 return;
             }
 
-            string? eventFilter = eventSourceEventFilter.Value;
-            if (string.IsNullOrEmpty(eventFilter) || (eventData.EventName!.Contains(eventFilter, StringComparison.OrdinalIgnoreCase)))
+            if (string.IsNullOrEmpty(s_eventSourceEventFilter) || (eventData.EventName!.Contains(s_eventSourceEventFilter, StringComparison.OrdinalIgnoreCase)))
             {
                 LogOnEventWritten(eventData);
             }

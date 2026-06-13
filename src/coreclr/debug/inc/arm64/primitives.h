@@ -132,11 +132,8 @@ inline BOOL CompareControlRegisters(const DT_CONTEXT * pCtx1, const DT_CONTEXT *
 {
     LIMITED_METHOD_DAC_CONTRACT;
 
-    // @ARMTODO: Sort out frame registers
-
     if ((pCtx1->Pc == pCtx2->Pc) &&
-        (pCtx1->Sp == pCtx2->Sp) &&
-        (pCtx1->Fp == pCtx2->Fp))
+        (pCtx1->Sp == pCtx2->Sp))
     {
         return TRUE;
     }
@@ -153,9 +150,9 @@ inline void CORDbgSetInstruction(CORDB_ADDRESS_TYPE* address,
 #if !defined(DBI_COMPILE) && !defined(DACCESS_COMPILE) && defined(HOST_OSX)
     ExecutableWriterHolder<void> instructionWriterHolder((LPVOID)address, sizeof(PRD_TYPE));
 
-    ULONGLONG ptraddr = dac_cast<ULONGLONG>(instructionWriterHolder.GetRW());
+    TADDR ptraddr = dac_cast<TADDR>(instructionWriterHolder.GetRW());
 #else // !DBI_COMPILE && !DACCESS_COMPILE && HOST_OSX
-    ULONGLONG ptraddr = dac_cast<ULONGLONG>(address);
+    TADDR ptraddr = dac_cast<TADDR>(address);
 #endif // !DBI_COMPILE && !DACCESS_COMPILE && HOST_OSX
     *(PRD_TYPE *)ptraddr = instruction;
     FlushInstructionCache(GetCurrentProcess(),
@@ -167,7 +164,7 @@ inline PRD_TYPE CORDbgGetInstruction(UNALIGNED CORDB_ADDRESS_TYPE* address)
 {
     LIMITED_METHOD_CONTRACT;
 
-    ULONGLONG ptraddr = dac_cast<ULONGLONG>(address);
+    TADDR ptraddr = dac_cast<TADDR>(address);
     return *(PRD_TYPE *)ptraddr;
 }
 

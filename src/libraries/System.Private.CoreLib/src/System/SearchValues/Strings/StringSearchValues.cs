@@ -3,22 +3,26 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
+using System.Text.Unicode;
 using static System.Buffers.StringSearchValuesHelper;
 
 namespace System.Buffers
 {
     internal static class StringSearchValues
     {
+        private const int TeddyBucketCount = 8;
+
         private static readonly SearchValues<char> s_asciiLetters =
             SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 
         private static readonly SearchValues<char> s_allAsciiExceptLowercase =
-            SearchValues.Create("\0\u0001\u0002\u0003\u0004\u0005\u0006\a\b\t\n\v\f\r\u000E\u000F\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\u007F");
+            SearchValues.Create("\0\u0001\u0002\u0003\u0004\u0005\u0006\a\b\t\n\v\f\r\u000E\u000F\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001A\e\u001C\u001D\u001E\u001F !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\u007F");
 
         public static SearchValues<string> Create(ReadOnlySpan<string> values, bool ignoreCase)
         {
@@ -140,9 +144,9 @@ namespace System.Buffers
 
             if (nonAsciiAffectedByCaseConversion)
             {
-                if (ContainsIncompleteSurrogatePairs(values))
+                if (ContainsInvalidValues(values))
                 {
-                    // Aho-Corasick can't deal with the matching semantics of standalone surrogate code units.
+                    // Aho-Corasick can't deal with the matching semantics of invalid values.
                     // We will use a slow but correct O(n * m) fallback implementation.
                     return new MultiStringIgnoreCaseSearchValuesFallback(uniqueValues);
                 }
@@ -248,6 +252,18 @@ namespace System.Buffers
 
             Debug.Assert(!(asciiStartLettersOnly && asciiStartUnaffectedByCaseConversion));
 
+            // If we still have empty buckets we could use and we're ignoring case, we may be able to
+            // generate all possible permutations of the first N characters and switch to case-sensitive searching.
+            // E.g. ["ab", "c!"] => ["ab", "Ab" "aB", "AB", "c!", "C!"].
+            // This won't apply to inputs with many letters (e.g. "abc" => 8 permutations on its own).
+            if (!asciiStartUnaffectedByCaseConversion &&
+                values.Length < TeddyBucketCount &&
+                TryGenerateAllCasePermutationsForPrefixes(values, n, TeddyBucketCount, out string[]? newValues))
+            {
+                asciiStartUnaffectedByCaseConversion = true;
+                values = newValues;
+            }
+
             if (asciiStartUnaffectedByCaseConversion)
             {
                 return nonAsciiAffectedByCaseConversion
@@ -278,9 +294,9 @@ namespace System.Buffers
             Debug.Assert(values.Length > 1);
             Debug.Assert(n is 2 or 3);
 
-            if (values.Length > 8)
+            if (values.Length > TeddyBucketCount)
             {
-                string[][] buckets = TeddyBucketizer.Bucketize(values, bucketCount: 8, n);
+                string[][] buckets = TeddyBucketizer.Bucketize(values, TeddyBucketCount, n);
 
                 // Potential optimization: We don't have to pick the first N characters for the fingerprint.
                 // Different offset selection can noticeably improve throughput (e.g. 2x).
@@ -295,6 +311,68 @@ namespace System.Buffers
                     ? new AsciiStringSearchValuesTeddyNonBucketizedN2<TStartCaseSensitivity, TCaseSensitivity>(values, uniqueValues)
                     : new AsciiStringSearchValuesTeddyNonBucketizedN3<TStartCaseSensitivity, TCaseSensitivity>(values, uniqueValues);
             }
+        }
+
+        private static bool TryGenerateAllCasePermutationsForPrefixes(ReadOnlySpan<string> values, int n, int maxValues, [NotNullWhen(true)] out string[]? newValues)
+        {
+            Debug.Assert(n is 2 or 3);
+            Debug.Assert(values.Length < maxValues);
+
+            // Count how many possible permutations there are.
+            int newValuesCount = 0;
+
+            foreach (string value in values)
+            {
+                int permutations = 1;
+
+                foreach (char c in value.AsSpan(0, n))
+                {
+                    Debug.Assert(char.IsAscii(c));
+
+                    if (char.IsAsciiLetter(c))
+                    {
+                        permutations *= 2;
+                    }
+                }
+
+                newValuesCount += permutations;
+            }
+
+            Debug.Assert(newValuesCount > values.Length, "Shouldn't have been called if there were no letters present");
+
+            if (newValuesCount > maxValues)
+            {
+                newValues = null;
+                return false;
+            }
+
+            // Generate the permutations.
+            newValues = new string[newValuesCount];
+            newValuesCount = 0;
+
+            foreach (string value in values)
+            {
+                int start = newValuesCount;
+
+                newValues[newValuesCount++] = value;
+
+                for (int i = 0; i < n; i++)
+                {
+                    char c = value[i];
+
+                    if (char.IsAsciiLetter(c))
+                    {
+                        // Copy all the previous permutations of this value but change the casing of the i-th character.
+                        foreach (string previous in newValues.AsSpan(start, newValuesCount - start))
+                        {
+                            newValues[newValuesCount++] = $"{previous.AsSpan(0, i)}{(char)(c ^ 0x20)}{previous.AsSpan(i + 1)}";
+                        }
+                    }
+                }
+            }
+
+            Debug.Assert(newValuesCount == newValues.Length);
+            return true;
         }
 
         private static SearchValues<string> CreateForSingleValue(
@@ -312,8 +390,9 @@ namespace System.Buffers
                 SearchValues<string>? searchValues = value.Length switch
                 {
                     < 4 => TryCreateSingleValuesThreeChars<ValueLengthLessThan4>(value, uniqueValues, ignoreCase, allAscii, asciiLettersOnly),
-                    < 8 => TryCreateSingleValuesThreeChars<ValueLength4To7>(value, uniqueValues, ignoreCase, allAscii, asciiLettersOnly),
-                    _ => TryCreateSingleValuesThreeChars<ValueLength8OrLongerOrUnknown>(value, uniqueValues, ignoreCase, allAscii, asciiLettersOnly),
+                    <= 8 => TryCreateSingleValuesThreeChars<ValueLength4To8>(value, uniqueValues, ignoreCase, allAscii, asciiLettersOnly),
+                    <= 16 => TryCreateSingleValuesThreeChars<ValueLength9To16>(value, uniqueValues, ignoreCase, allAscii, asciiLettersOnly),
+                    _ => TryCreateSingleValuesThreeChars<ValueLengthLongOrUnknown>(value, uniqueValues, ignoreCase, allAscii, asciiLettersOnly),
                 };
 
                 if (searchValues is not null)
@@ -339,27 +418,49 @@ namespace System.Buffers
         {
             if (!ignoreCase)
             {
-                return new SingleStringSearchValuesThreeChars<TValueLength, CaseSensitive>(uniqueValues, value);
+                return CreateSingleValuesThreeChars<TValueLength, CaseSensitive>(value, uniqueValues);
             }
 
             if (asciiLettersOnly)
             {
-                return new SingleStringSearchValuesThreeChars<TValueLength, CaseInsensitiveAsciiLetters>(uniqueValues, value);
+                return CreateSingleValuesThreeChars<TValueLength, CaseInsensitiveAsciiLetters>(value, uniqueValues);
             }
 
             if (allAscii)
             {
-                return new SingleStringSearchValuesThreeChars<TValueLength, CaseInsensitiveAscii>(uniqueValues, value);
+                return CreateSingleValuesThreeChars<TValueLength, CaseInsensitiveAscii>(value, uniqueValues);
             }
 
             // SingleStringSearchValuesThreeChars doesn't have logic to handle non-ASCII case conversion, so we require that anchor characters are ASCII.
             // Right now we're always selecting the first character as one of the anchors, and we need at least two.
             if (char.IsAscii(value[0]) && value.AsSpan(1).ContainsAnyInRange((char)0, (char)127))
             {
-                return new SingleStringSearchValuesThreeChars<TValueLength, CaseInsensitiveUnicode>(uniqueValues, value);
+                return CreateSingleValuesThreeChars<TValueLength, CaseInsensitiveUnicode>(value, uniqueValues);
             }
 
             return null;
+        }
+
+        private static SearchValues<string> CreateSingleValuesThreeChars<TValueLength, TCaseSensitivity>(
+            string value,
+            HashSet<string>? uniqueValues)
+            where TValueLength : struct, IValueLength
+            where TCaseSensitivity : struct, ICaseSensitivity
+        {
+            CharacterFrequencyHelper.GetSingleStringMultiCharacterOffsets(value, ignoreCase: typeof(TCaseSensitivity) != typeof(CaseSensitive), out int ch2Offset, out int ch3Offset);
+
+            if (CanUsePackedImpl(value[0]) && CanUsePackedImpl(value[ch2Offset]) && CanUsePackedImpl(value[ch3Offset]))
+            {
+                return new SingleStringSearchValuesPackedThreeChars<TValueLength, TCaseSensitivity>(uniqueValues, value, ch2Offset, ch3Offset);
+            }
+
+            return new SingleStringSearchValuesThreeChars<TValueLength, TCaseSensitivity>(uniqueValues, value, ch2Offset, ch3Offset);
+
+            // Unlike with PackedSpanHelpers (Sse2 only), we are also using this approach on ARM64.
+            // We use PackUnsignedSaturate on X86 and UnzipEven on ARM, so the set of allowed characters differs slightly (we can't use it for \0 and \xFF on X86).
+            static bool CanUsePackedImpl(char c) =>
+                PackedSpanHelpers.PackedIndexOfIsSupported ? PackedSpanHelpers.CanUsePackedIndexOf(c) :
+                (AdvSimd.Arm64.IsSupported && c <= byte.MaxValue);
         }
 
         private static void AnalyzeValues(
@@ -402,33 +503,13 @@ namespace System.Buffers
             }
         }
 
-        private static bool ContainsIncompleteSurrogatePairs(ReadOnlySpan<string> values)
+        private static bool ContainsInvalidValues(ReadOnlySpan<string> values)
         {
             foreach (string value in values)
             {
-                int i = value.AsSpan().IndexOfAnyInRange(CharUnicodeInfo.HIGH_SURROGATE_START, CharUnicodeInfo.LOW_SURROGATE_END);
-                if (i < 0)
+                if (!Utf16.IsValid(value))
                 {
-                    continue;
-                }
-
-                for (; (uint)i < (uint)value.Length; i++)
-                {
-                    if (char.IsHighSurrogate(value[i]))
-                    {
-                        if ((uint)(i + 1) >= (uint)value.Length || !char.IsLowSurrogate(value[i + 1]))
-                        {
-                            // High surrogate not followed by a low surrogate.
-                            return true;
-                        }
-
-                        i++;
-                    }
-                    else if (char.IsLowSurrogate(value[i]))
-                    {
-                        // Low surrogate not preceded by a high surrogate.
-                        return true;
-                    }
+                    return true;
                 }
             }
 

@@ -20,6 +20,8 @@ namespace System.Threading
         /// </summary>
         private static readonly AutoResetEvent s_timerEvent = new AutoResetEvent(false);
 
+        private static readonly Lock s_timerEventLock = new Lock();
+
         // this means that it's in the s_scheduledTimers collection, not that it's the one which would run on the next TimeoutCallback
         private bool _isScheduled;
         private long _scheduledDueTimeMs;
@@ -48,9 +50,11 @@ namespace System.Threading
         private bool SetTimerPortable(uint actualDuration)
         {
             Debug.Assert((int)actualDuration >= 0);
-            long dueTimeMs = TickCount64 + (int)actualDuration;
+            long dueTimeMs = Environment.TickCount64 + (int)actualDuration;
             AutoResetEvent timerEvent = s_timerEvent;
-            lock (timerEvent)
+            Lock timerEventLock = s_timerEventLock;
+
+            lock (timerEventLock)
             {
                 if (!_isScheduled)
                 {
@@ -74,9 +78,11 @@ namespace System.Threading
         private static void TimerThread()
         {
             AutoResetEvent timerEvent = s_timerEvent;
+            Lock timerEventLock = s_timerEventLock;
             List<TimerQueue> timersToFire = s_scheduledTimersToFire!;
             List<TimerQueue> timers;
-            lock (timerEvent)
+
+            lock (timerEventLock)
             {
                 timers = s_scheduledTimers!;
             }
@@ -86,9 +92,9 @@ namespace System.Threading
             {
                 timerEvent.WaitOne(shortestWaitDurationMs);
 
-                long currentTimeMs = TickCount64;
+                long currentTimeMs = Environment.TickCount64;
                 shortestWaitDurationMs = int.MaxValue;
-                lock (timerEvent)
+                lock (timerEventLock)
                 {
                     for (int i = timers.Count - 1; i >= 0; --i)
                     {

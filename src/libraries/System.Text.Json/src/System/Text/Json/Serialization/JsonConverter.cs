@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text.Json.Schema;
 using System.Text.Json.Serialization.Converters;
 using System.Text.Json.Serialization.Metadata;
 
@@ -81,13 +82,24 @@ namespace System.Text.Json.Serialization
         /// <summary>
         /// The converter supports polymorphic writes; only reserved for System.Object types.
         /// </summary>
-        internal bool CanBePolymorphic { get; set; }
+        internal bool CanBePolymorphic { get; init; }
+
+        /// <summary>
+        /// The converter can read/write multiple JSON value shapes (e.g. both strings and objects).
+        /// Relaxes debug validation that non-value converters must always read StartObject/StartArray tokens.
+        /// </summary>
+        internal bool SupportsMultipleTokenTypes { get; init; }
 
         /// <summary>
         /// The serializer must read ahead all contents of the next JSON value
         /// before calling into the converter for deserialization.
         /// </summary>
-        internal bool RequiresReadAhead { get; set; }
+        internal bool RequiresReadAhead { get; private protected set; }
+
+        /// <summary>
+        /// Whether the converter is a special root-level value streaming converter.
+        /// </summary>
+        internal bool IsRootLevelMultiContentStreamingConverter { get; init; }
 
         /// <summary>
         /// Used to support JsonObject as an extension property in a loosely-typed, trimmable manner.
@@ -152,9 +164,11 @@ namespace System.Text.Json.Serialization
         /// </summary>
         internal virtual JsonConverter? SourceConverterForCastingConverter => null;
 
-        internal abstract Type? ElementType { get; }
+        internal virtual Type? ElementType => null;
 
-        internal abstract Type? KeyType { get; }
+        internal virtual Type? KeyType => null;
+
+        internal virtual JsonConverter? NullableElementConverter => null;
 
         /// <summary>
         /// Cached value of TypeToConvert.IsValueType, which is an expensive call.
@@ -171,10 +185,24 @@ namespace System.Text.Json.Serialization
         /// </summary>
         internal bool IsInternalConverterForNumberType { get; init; }
 
-        internal static bool ShouldFlush(Utf8JsonWriter writer, ref WriteStack state)
+        /// <summary>
+        /// Whether the converter handles collection deserialization by converting from
+        /// an intermediate buffer such as immutable collections, arrays or memory types.
+        /// Used in conjunction with <see cref="JsonCollectionConverter{TCollection, TElement}.ConvertCollection(ref ReadStack, JsonSerializerOptions)"/>.
+        /// </summary>
+        internal virtual bool IsConvertibleCollection => false;
+
+        internal static bool ShouldFlush(ref WriteStack state, Utf8JsonWriter writer)
         {
-            // If surpassed flush threshold then return false which will flush stream.
-            return (state.FlushThreshold > 0 && writer.BytesPending > state.FlushThreshold);
+            Debug.Assert(state.FlushThreshold == 0 || (state.PipeWriter is { CanGetUnflushedBytes: true }),
+                "ShouldFlush should only be called by resumable serializers, all of which use the PipeWriter abstraction with CanGetUnflushedBytes == true.");
+            // If surpassed flush threshold then return true which will flush stream.
+            if (state.PipeWriter is { } pipeWriter)
+            {
+                return state.FlushThreshold > 0 && pipeWriter.UnflushedBytes > state.FlushThreshold - writer.BytesPending;
+            }
+
+            return false;
         }
 
         internal abstract object? ReadAsObject(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options);
@@ -191,6 +219,26 @@ namespace System.Text.Json.Serialization
         internal abstract void WriteAsPropertyNameCoreAsObject(Utf8JsonWriter writer, object? value, JsonSerializerOptions options, bool isWritingExtensionDataProperty);
         internal abstract void WriteNumberWithCustomHandlingAsObject(Utf8JsonWriter writer, object? value, JsonNumberHandling handling);
 
+        /// <summary>
+        /// Gets a schema from the type being converted
+        /// </summary>
+        internal virtual JsonSchema? GetSchema(JsonNumberHandling numberHandling) => null;
+
+        /// <summary>
+        /// Gets the set of leading JSON value shapes that this converter can read
+        /// for the given <paramref name="numberHandling"/>. Returning <see cref="JsonValueType.None"/> means
+        /// the converter does not advertise its supported values; internal converter callers may
+        /// fall back to a default based on <see cref="ConverterStrategy"/>. Used by union-type dispatch to build a
+        /// value-shape-to-case map without re-walking type metadata. Mirrors <see cref="GetSchema"/>.
+        /// </summary>
+        /// <remarks>
+        /// When adding or changing an override on a built-in converter (under
+        /// <c>Serialization/Converters/Value/</c>), also update
+        /// <c>gen/JsonSourceGenerator.Parser.cs::GetSupportedJsonValueTypes</c> so the source
+        /// generator's union ambiguity diagnostic (SYSLIB1227) agrees with the runtime
+        /// union value-shape map.
+        /// </remarks>
+        internal virtual JsonValueType GetSupportedJsonValueTypes(JsonNumberHandling numberHandling) => JsonValueType.None;
 
         // Whether a type (ConverterStrategy.Object) is deserialized using a parameterized constructor.
         internal virtual bool ConstructorIsParameterized { get; }

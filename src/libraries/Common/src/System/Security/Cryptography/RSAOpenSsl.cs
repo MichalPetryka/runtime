@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Buffers;
@@ -15,8 +15,6 @@ namespace System.Security.Cryptography
 {
     public sealed partial class RSAOpenSsl : RSA, IRuntimeAlgorithm
     {
-        private const int BitsPerByte = 8;
-
         private Lazy<SafeEvpPKeyHandle>? _key;
 
         [UnsupportedOSPlatform("android")]
@@ -88,7 +86,7 @@ namespace System.Security.Cryptography
 
             ValidatePadding(padding);
             SafeEvpPKeyHandle key = GetKey();
-            int rsaSize = Interop.Crypto.EvpPKeySize(key);
+            int rsaSize = Interop.Crypto.GetEvpPKeySizeBytes(key);
             Span<byte> destination = default;
             byte[] buf = CryptoPool.Rent(rsaSize);
 
@@ -106,7 +104,7 @@ namespace System.Security.Cryptography
             }
         }
 
-        public override bool TryDecrypt(
+        public override unsafe bool TryDecrypt(
             ReadOnlySpan<byte> data,
             Span<byte> destination,
             RSAEncryptionPadding padding,
@@ -116,11 +114,12 @@ namespace System.Security.Cryptography
 
             ValidatePadding(padding);
             SafeEvpPKeyHandle key = GetKey();
-            int keySizeBytes = Interop.Crypto.EvpPKeySize(key);
 
-            // OpenSSL requires that the decryption buffer be at least as large as EVP_PKEY_size.
+            // OpenSSL requires that the decryption buffer be at least as large as key size in bytes.
             // So if the destination is too small, use a temporary buffer so we can match
-            // Windows behavior of succeeding so long as the buffer can hold the final output.
+            // Windows behavior of succeeding as long as the buffer can hold the final output.
+            int keySizeBytes = Interop.Crypto.GetEvpPKeySizeBytes(key);
+
             if (destination.Length < keySizeBytes)
             {
                 // RSA up through 4096 bits use a stackalloc
@@ -174,7 +173,7 @@ namespace System.Security.Cryptography
             // Caller should have already checked this.
             Debug.Assert(!key.IsInvalid);
 
-            int rsaSize = Interop.Crypto.EvpPKeySize(key);
+            int rsaSize = Interop.Crypto.GetEvpPKeySizeBytes(key);
 
             if (data.Length != rsaSize)
             {
@@ -183,7 +182,7 @@ namespace System.Security.Cryptography
 
             if (destination.Length < rsaSize)
             {
-                Debug.Fail("Caller is responsible for temporary decryption buffer creation");
+                Debug.Fail($"Caller is responsible for temporary decryption buffer creation destination. destination.Length: {destination.Length}, needed: {rsaSize}");
                 throw new CryptographicException();
             }
 
@@ -211,7 +210,7 @@ namespace System.Security.Cryptography
             ValidatePadding(padding);
             SafeEvpPKeyHandle key = GetKey();
 
-            byte[] buf = new byte[Interop.Crypto.EvpPKeySize(key)];
+            byte[] buf = new byte[Interop.Crypto.GetEvpPKeySizeBytes(key)];
 
             bool encrypted = TryEncrypt(
                 key,
@@ -232,9 +231,9 @@ namespace System.Security.Cryptography
         public override bool TryEncrypt(ReadOnlySpan<byte> data, Span<byte> destination, RSAEncryptionPadding padding, out int bytesWritten)
         {
             ArgumentNullException.ThrowIfNull(padding);
-
             ValidatePadding(padding);
-            SafeEvpPKeyHandle? key = GetKey();
+
+            SafeEvpPKeyHandle key = GetKey();
 
             return TryEncrypt(key, data, destination, padding, out bytesWritten);
         }
@@ -246,7 +245,7 @@ namespace System.Security.Cryptography
             RSAEncryptionPadding padding,
             out int bytesWritten)
         {
-            int rsaSize = Interop.Crypto.EvpPKeySize(key);
+            int rsaSize = Interop.Crypto.GetEvpPKeySizeBytes(key);
 
             if (destination.Length < rsaSize)
             {
@@ -274,11 +273,11 @@ namespace System.Security.Cryptography
             return true;
         }
 
-        private delegate T ExportPrivateKeyFunc<T>(ReadOnlyMemory<byte> pkcs8, ReadOnlyMemory<byte> pkcs1);
+        private delegate T ExportPrivateKeyFunc<T>(ReadOnlySpan<byte> pkcs8, ReadOnlySpan<byte> pkcs1);
 
-        private delegate ReadOnlyMemory<byte> TryExportPrivateKeySelector(
-            ReadOnlyMemory<byte> pkcs8,
-            ReadOnlyMemory<byte> pkcs1);
+        private delegate ReadOnlySpan<byte> TryExportPrivateKeySelector(
+            ReadOnlySpan<byte> pkcs8,
+            ReadOnlySpan<byte> pkcs1);
 
         private T ExportPrivateKey<T>(ExportPrivateKeyFunc<T> exporter)
         {
@@ -289,7 +288,7 @@ namespace System.Security.Cryptography
 
             try
             {
-                ReadOnlyMemory<byte> pkcs1 = VerifyPkcs8(p8);
+                ReadOnlySpan<byte> pkcs1 = VerifyPkcs8(p8);
                 return exporter(p8, pkcs1);
             }
             finally
@@ -307,9 +306,9 @@ namespace System.Security.Cryptography
 
             try
             {
-                ReadOnlyMemory<byte> pkcs1 = VerifyPkcs8(p8);
-                ReadOnlyMemory<byte> selected = selector(p8, pkcs1);
-                return selected.Span.TryCopyToDestination(destination, out bytesWritten);
+                ReadOnlySpan<byte> pkcs1 = VerifyPkcs8(p8);
+                ReadOnlySpan<byte> selected = selector(p8, pkcs1);
+                return selected.TryCopyToDestination(destination, out bytesWritten);
             }
             finally
             {
@@ -317,7 +316,7 @@ namespace System.Security.Cryptography
             }
         }
 
-        private T ExportPublicKey<T>(Func<ReadOnlyMemory<byte>, T> exporter)
+        private T ExportPublicKey<T>(Func<ReadOnlySpan<byte>, T> exporter)
         {
             // It's entirely possible that this line will cause the key to be generated in the first place.
             SafeEvpPKeyHandle key = GetKey();
@@ -335,7 +334,7 @@ namespace System.Security.Cryptography
         }
 
         private bool TryExportPublicKey(
-            Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>>? transform,
+            Func<ReadOnlySpan<byte>, ReadOnlySpan<byte>>? transform,
             Span<byte> destination,
             out int bytesWritten)
         {
@@ -346,14 +345,14 @@ namespace System.Security.Cryptography
 
             try
             {
-                ReadOnlyMemory<byte> data = spki;
+                ReadOnlySpan<byte> data = spki;
 
                 if (transform != null)
                 {
                     data = transform(data);
                 }
 
-                return data.Span.TryCopyToDestination(destination, out bytesWritten);
+                return data.TryCopyToDestination(destination, out bytesWritten);
             }
             finally
             {
@@ -386,7 +385,7 @@ namespace System.Security.Cryptography
             return ExportPublicKey(
                 static spki =>
                 {
-                    ReadOnlyMemory<byte> pkcs1 = RSAKeyFormatHelper.ReadSubjectPublicKeyInfo(spki, out int read);
+                    ReadOnlySpan<byte> pkcs1 = RSAKeyFormatHelper.ReadSubjectPublicKeyInfo(spki, out int read);
                     Debug.Assert(read == spki.Length);
                     return pkcs1.ToArray();
                 });
@@ -397,7 +396,7 @@ namespace System.Security.Cryptography
             return TryExportPublicKey(
                 spki =>
                 {
-                    ReadOnlyMemory<byte> pkcs1 = RSAKeyFormatHelper.ReadSubjectPublicKeyInfo(spki, out int read);
+                    ReadOnlySpan<byte> pkcs1 = RSAKeyFormatHelper.ReadSubjectPublicKeyInfo(spki, out int read);
                     Debug.Assert(read == spki.Length);
                     return pkcs1;
                 },
@@ -425,7 +424,7 @@ namespace System.Security.Cryptography
                 return ExportPrivateKey(
                     static (pkcs8, pkcs1) =>
                     {
-                        AlgorithmIdentifierAsn algId = default;
+                        ValueAlgorithmIdentifierAsn algId = default;
                         RSAParameters ret;
                         RSAKeyFormatHelper.FromPkcs1PrivateKey(pkcs1, in algId, out ret);
                         return ret;
@@ -437,7 +436,7 @@ namespace System.Security.Cryptography
                 {
                     RSAParameters ret;
                     RSAKeyFormatHelper.ReadSubjectPublicKeyInfo(
-                        spki.Span,
+                        spki,
                         out int read,
                         out ret);
 
@@ -454,30 +453,18 @@ namespace System.Security.Cryptography
             if (parameters.D != null)
             {
                 AsnWriter writer = RSAKeyFormatHelper.WritePkcs8PrivateKey(parameters);
-                ArraySegment<byte> pkcs8 = writer.RentAndEncode();
-
-                try
+                writer.Encode(this, static (RSAOpenSsl rsa, ReadOnlySpan<byte> pkcs8) =>
                 {
-                    ImportPkcs8PrivateKey(pkcs8, checkAlgorithm: false, out _);
-                }
-                finally
-                {
-                    CryptoPool.Return(pkcs8);
-                }
+                    rsa.ImportPkcs8PrivateKey(pkcs8, checkAlgorithm: false, out _);
+                });
             }
             else
             {
                 AsnWriter writer = RSAKeyFormatHelper.WriteSubjectPublicKeyInfo(parameters);
-                ArraySegment<byte> spki = writer.RentAndEncode();
-
-                try
+                writer.Encode(this, static (RSAOpenSsl rsa, ReadOnlySpan<byte> spki) =>
                 {
-                    ImportSubjectPublicKeyInfo(spki, checkAlgorithm: false, out _);
-                }
-                finally
-                {
-                    CryptoPool.Return(spki);
-                }
+                    rsa.ImportSubjectPublicKeyInfo(spki, checkAlgorithm: false, out _);
+                });
             }
         }
 
@@ -502,16 +489,10 @@ namespace System.Security.Cryptography
             }
 
             AsnWriter writer = RSAKeyFormatHelper.WriteSubjectPublicKeyInfo(source.Slice(0, read));
-            ArraySegment<byte> spki = writer.RentAndEncode();
-
-            try
+            writer.Encode(this, static (RSAOpenSsl rsa, ReadOnlySpan<byte> spki) =>
             {
-                ImportSubjectPublicKeyInfo(spki, checkAlgorithm: false, out _);
-            }
-            finally
-            {
-                CryptoPool.Return(spki);
-            }
+                rsa.ImportSubjectPublicKeyInfo(spki, checkAlgorithm: false, out _);
+            });
 
             bytesRead = read;
         }
@@ -534,7 +515,7 @@ namespace System.Security.Cryptography
 
             if (checkAlgorithm)
             {
-                read = RSAKeyFormatHelper.CheckSubjectPublicKeyInfo(source);
+                RSAKeyFormatHelper.ReadSubjectPublicKeyInfo(source, out read);
             }
             else
             {
@@ -618,16 +599,11 @@ namespace System.Security.Cryptography
             }
 
             AsnWriter writer = RSAKeyFormatHelper.WritePkcs8PrivateKey(source.Slice(0, read));
-            ArraySegment<byte> pkcs8 = writer.RentAndEncode();
 
-            try
+            writer.Encode(this, static (RSAOpenSsl rsa, ReadOnlySpan<byte> pkcs8) =>
             {
-                ImportPkcs8PrivateKey(pkcs8, checkAlgorithm: false, out _);
-            }
-            finally
-            {
-                CryptoPool.Return(pkcs8);
-            }
+                rsa.ImportPkcs8PrivateKey(pkcs8, checkAlgorithm: false, out _);
+            });
 
             bytesRead = read;
         }
@@ -655,13 +631,12 @@ namespace System.Security.Cryptography
         [MemberNotNull(nameof(_key))]
         private void SetKey(SafeEvpPKeyHandle newKey)
         {
-            Debug.Assert(!newKey.IsInvalid);
             FreeKey();
             _key = new Lazy<SafeEvpPKeyHandle>(newKey);
 
             // Use ForceSet instead of the property setter to ensure that LegalKeySizes doesn't interfere
             // with the already loaded key.
-            ForceSetKeySize(BitsPerByte * Interop.Crypto.EvpPKeySize(newKey));
+            ForceSetKeySize(Interop.Crypto.EvpPKeyBits(newKey));
         }
 
         private static void ValidateParameters(ref RSAParameters parameters)
@@ -731,20 +706,20 @@ namespace System.Security.Cryptography
             ArgumentNullException.ThrowIfNull(hash);
             ArgumentException.ThrowIfNullOrEmpty(hashAlgorithm.Name, nameof(hashAlgorithm));
             ArgumentNullException.ThrowIfNull(padding);
+            ThrowIfDisposed();
 
-            if (!TrySignHash(
-                hash,
-                Span<byte>.Empty,
-                hashAlgorithm, padding,
-                true,
-                out _,
-                out byte[]? signature))
+            SafeEvpPKeyHandle key = GetKey();
+            int bytesRequired = Interop.Crypto.GetEvpPKeySizeBytes(key);
+            byte[] signature = new byte[bytesRequired];
+
+            int written = Interop.Crypto.RsaSignHash(key, padding.Mode, hashAlgorithm, hash, signature);
+
+            if (written != signature.Length)
             {
-                Debug.Fail("TrySignHash should not return false in allocation mode");
+                Debug.Fail($"RsaSignHash behaved unexpectedly: {nameof(written)}=={written}, {nameof(signature.Length)}=={signature.Length}");
                 throw new CryptographicException();
             }
 
-            Debug.Assert(signature != null);
             return signature;
         }
 
@@ -757,55 +732,19 @@ namespace System.Security.Cryptography
         {
             ArgumentException.ThrowIfNullOrEmpty(hashAlgorithm.Name, nameof(hashAlgorithm));
             ArgumentNullException.ThrowIfNull(padding);
+            ThrowIfDisposed();
 
-            bool ret = TrySignHash(
-                hash,
-                destination,
-                hashAlgorithm,
-                padding,
-                false,
-                out bytesWritten,
-                out byte[]? alloced);
-
-            Debug.Assert(alloced == null);
-            return ret;
-        }
-
-        private bool TrySignHash(
-            ReadOnlySpan<byte> hash,
-            Span<byte> destination,
-            HashAlgorithmName hashAlgorithm,
-            RSASignaturePadding padding,
-            bool allocateSignature,
-            out int bytesWritten,
-            out byte[]? signature)
-        {
-            Debug.Assert(!string.IsNullOrEmpty(hashAlgorithm.Name));
-            Debug.Assert(padding != null);
-            ValidatePadding(padding);
-
-            signature = null;
-
-            IntPtr digestAlgorithm = Interop.Crypto.HashAlgorithmToEvp(hashAlgorithm.Name);
             SafeEvpPKeyHandle key = GetKey();
-            int bytesRequired = Interop.Crypto.EvpPKeySize(key);
+            int bytesRequired = Interop.Crypto.GetEvpPKeySizeBytes(key);
 
-            if (allocateSignature)
-            {
-                Debug.Assert(destination.Length == 0);
-                signature = new byte[bytesRequired];
-                destination = signature;
-            }
-            else if (destination.Length < bytesRequired)
+            if (destination.Length < bytesRequired)
             {
                 bytesWritten = 0;
                 return false;
             }
 
-            int written = Interop.Crypto.RsaSignHash(key, padding.Mode, digestAlgorithm, hash, destination);
-            Debug.Assert(written == bytesRequired);
-            bytesWritten = written;
-
+            bytesWritten = Interop.Crypto.RsaSignHash(key, padding.Mode, hashAlgorithm, hash, destination);
+            Debug.Assert(bytesWritten == bytesRequired);
             return true;
         }
 
@@ -825,19 +764,19 @@ namespace System.Security.Cryptography
         {
             ArgumentException.ThrowIfNullOrEmpty(hashAlgorithm.Name, nameof(hashAlgorithm));
             ValidatePadding(padding);
+            ThrowIfDisposed();
 
-            IntPtr digestAlgorithm = Interop.Crypto.HashAlgorithmToEvp(hashAlgorithm.Name);
             SafeEvpPKeyHandle key = GetKey();
 
             return Interop.Crypto.RsaVerifyHash(
                 key,
                 padding.Mode,
-                digestAlgorithm,
+                hashAlgorithm,
                 hash,
                 signature);
         }
 
-        private static ReadOnlyMemory<byte> VerifyPkcs8(ReadOnlyMemory<byte> pkcs8)
+        private static ReadOnlySpan<byte> VerifyPkcs8(ReadOnlySpan<byte> pkcs8)
         {
             // OpenSSL 1.1.1 will export RSA public keys as a PKCS#8, but this makes a broken structure.
             //
@@ -846,9 +785,9 @@ namespace System.Security.Cryptography
 
             try
             {
-                ReadOnlyMemory<byte> pkcs1Priv = RSAKeyFormatHelper.ReadPkcs8(pkcs8, out int read);
+                ReadOnlySpan<byte> pkcs1Priv = RSAKeyFormatHelper.ReadPkcs8(pkcs8, out int read);
                 Debug.Assert(read == pkcs8.Length);
-                _ = RSAPrivateKeyAsn.Decode(pkcs1Priv, AsnEncodingRules.BER);
+                ValueRSAPrivateKeyAsn.Decode(pkcs1Priv, AsnEncodingRules.BER, out _);
                 return pkcs1Priv;
             }
             catch (CryptographicException)

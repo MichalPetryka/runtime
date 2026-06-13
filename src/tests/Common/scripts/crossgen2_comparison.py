@@ -131,7 +131,7 @@ def build_argument_parser():
         collects information about all the runs."""
 
     framework_parser = subparsers.add_parser('crossgen_framework', description=framework_parser_description)
-    framework_parser.add_argument('--dotnet', dest='dotnet', required=True)
+    framework_parser.add_argument('--dotnet', dest='dotnet')
     framework_parser.add_argument('--crossgen', dest='crossgen_executable_filename', required=True)
     framework_parser.add_argument('--target_os', dest='target_os', required=True)
     framework_parser.add_argument('--target_arch', dest='target_arch', required=True)
@@ -247,9 +247,7 @@ class AsyncSubprocessHelper:
 
         reset_env = os.environ.copy()
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.__run_to_completion__(async_callback, *extra_args))
-        loop.close()
+        asyncio.run(self.__run_to_completion__(async_callback, *extra_args))
 
         os.environ.update(reset_env)
 
@@ -523,7 +521,8 @@ class CrossGenRunner:
 
     def _build_args_crossgen_il_file(self, il_filename, ni_filename, platform_assemblies_paths, target_os, target_arch):
         args = []
-        args.append(self.dotnet)
+        if self.dotnet:
+            args.append(self.dotnet)
         args.append(self.crossgen_executable_filename)
         args.append('-r')
         args.append('"' + platform_assemblies_paths + self.platform_directory_sep + '*.dll"' )
@@ -917,8 +916,8 @@ def compare_results(args):
             messageXml.appendChild(root.createTextNode(message))
             failureXml.appendChild(messageXml)
 
-        for assembly_name in omitted_from_diff_dir:
-            base_result = diff_results_by_name[assembly_name]
+        for assembly_name in sorted(omitted_from_diff_dir):
+            base_result = base_results_by_name[assembly_name]
             message = 'Expected {0} got nothing'.format(json.dumps(base_result, cls=CrossGenResultEncoder, indent=2))
             testresult = root.createElement('test')
             testresult.setAttribute('name', 'CrossgenCompile_{2}_Target_{0}_{1}_vs__Omitted'.format(args.target_arch_os, base_result.compiler_arch_os, assembly_name))

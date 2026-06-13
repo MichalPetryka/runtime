@@ -4,6 +4,8 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Diagnostics.Tracing;
 using System.IO;
 using System.Text;
@@ -17,8 +19,15 @@ namespace Microsoft.Extensions.Logging.EventSource
     /// A logger that writes messages to EventSource instance.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// On Windows platforms EventSource will deliver messages using Event Tracing for Windows (ETW) events.
     /// On Linux EventSource will use LTTng (http://lttng.org) to deliver messages.
+    /// </para>
+    /// <para>
+    /// Logger instances are not cached by <see cref="EventSourceLoggerProvider"/>. A new instance is created
+    /// for each call to <see cref="EventSourceLoggerProvider.CreateLogger(string)"/>. All created loggers are
+    /// tracked in a linked list to support dynamic configuration changes through EventSource/ETW infrastructure.
+    /// </para>
     /// </remarks>
     internal sealed class EventSourceLogger : ILogger
     {
@@ -57,23 +66,56 @@ namespace Microsoft.Extensions.Logging.EventSource
             {
                 return;
             }
+
+            bool formattedMessageEventEnabled = _eventSource.IsEnabled(EventLevel.Critical, LoggingEventSource.Keywords.FormattedMessage);
+            bool messageEventEnabled = _eventSource.IsEnabled(EventLevel.Critical, LoggingEventSource.Keywords.Message);
+            bool jsonMessageEventEnabled = _eventSource.IsEnabled(EventLevel.Critical, LoggingEventSource.Keywords.JsonMessage);
+
+            if (!formattedMessageEventEnabled
+                && !messageEventEnabled
+                && !jsonMessageEventEnabled)
+            {
+                return;
+            }
+
             string? message = null;
 
+            Activity? activity = Activity.Current;
+            string activityTraceId;
+            string activitySpanId;
+            string activityTraceFlags;
+            if (activity != null && activity.IdFormat == ActivityIdFormat.W3C)
+            {
+                activityTraceId = activity.TraceId.ToHexString();
+                activitySpanId = activity.SpanId.ToHexString();
+                activityTraceFlags = ((int)activity.ActivityTraceFlags).ToString(CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                activityTraceId = string.Empty;
+                activitySpanId = string.Empty;
+                activityTraceFlags = string.Empty;
+            }
+
             // See if they want the formatted message
-            if (_eventSource.IsEnabled(EventLevel.Critical, LoggingEventSource.Keywords.FormattedMessage))
+            if (formattedMessageEventEnabled)
             {
                 message = formatter(state, exception);
+
                 _eventSource.FormattedMessage(
                     logLevel,
                     _factoryID,
                     CategoryName,
                     eventId.Id,
                     eventId.Name,
-                    message);
+                    message,
+                    activityTraceId,
+                    activitySpanId,
+                    activityTraceFlags);
             }
 
             // See if they want the message as its component parts.
-            if (_eventSource.IsEnabled(EventLevel.Critical, LoggingEventSource.Keywords.Message))
+            if (messageEventEnabled)
             {
                 ExceptionInfo exceptionInfo = GetExceptionInfo(exception);
                 IReadOnlyList<KeyValuePair<string, string?>> arguments = GetProperties(state);
@@ -85,11 +127,14 @@ namespace Microsoft.Extensions.Logging.EventSource
                     eventId.Id,
                     eventId.Name,
                     exceptionInfo,
-                    arguments);
+                    arguments,
+                    activityTraceId,
+                    activitySpanId,
+                    activityTraceFlags);
             }
 
             // See if they want the json message
-            if (_eventSource.IsEnabled(EventLevel.Critical, LoggingEventSource.Keywords.JsonMessage))
+            if (jsonMessageEventEnabled)
             {
                 string exceptionJson = "{}";
                 if (exception != null)
@@ -104,8 +149,9 @@ namespace Microsoft.Extensions.Logging.EventSource
                     };
                     exceptionJson = ToJson(exceptionInfoData);
                 }
+
                 IReadOnlyList<KeyValuePair<string, string?>> arguments = GetProperties(state);
-                message ??= formatter(state, exception);
+
                 _eventSource.MessageJson(
                     logLevel,
                     _factoryID,
@@ -114,7 +160,10 @@ namespace Microsoft.Extensions.Logging.EventSource
                     eventId.Name,
                     exceptionJson,
                     ToJson(arguments),
-                    message);
+                    message ?? formatter(state, exception),
+                    activityTraceId,
+                    activitySpanId,
+                    activityTraceFlags);
             }
         }
 

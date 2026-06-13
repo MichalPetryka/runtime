@@ -4,13 +4,12 @@
 #include "CommonTypes.h"
 #include "CommonMacros.h"
 #include "daccess.h"
-#include "PalRedhawkCommon.h"
-#include "PalRedhawk.h"
+#include "PalLimitedContext.h"
+#include "Pal.h"
 #include "holder.h"
 #include "rhassert.h"
 #include "slist.h"
 #include "shash.h"
-#include "varint.h"
 #include "rhbinder.h"
 #include "regdisplay.h"
 #include "StackFrameIterator.h"
@@ -29,9 +28,12 @@ TypeManager * TypeManager::Create(HANDLE osModule, void * pModuleHeader, void** 
     if (pReadyToRunHeader->Signature != ReadyToRunHeaderConstants::Signature)
         return nullptr;
 
-    // Only the current major version is supported currently
-    ASSERT(pReadyToRunHeader->MajorVersion == ReadyToRunHeaderConstants::CurrentMajorVersion);
-    if (pReadyToRunHeader->MajorVersion != ReadyToRunHeaderConstants::CurrentMajorVersion)
+    // Only the current version is supported currently
+    ASSERT((pReadyToRunHeader->MajorVersion == ReadyToRunHeaderConstants::CurrentMajorVersion) &&
+           (pReadyToRunHeader->MinorVersion == ReadyToRunHeaderConstants::CurrentMinorVersion));
+
+    if ((pReadyToRunHeader->MajorVersion != ReadyToRunHeaderConstants::CurrentMajorVersion) ||
+        (pReadyToRunHeader->MinorVersion != ReadyToRunHeaderConstants::CurrentMinorVersion))
         return nullptr;
 
     return new (nothrow) TypeManager(osModule, pReadyToRunHeader, pClasslibFunctions, nClasslibFunctions);
@@ -58,7 +60,7 @@ void * TypeManager::GetModuleSection(ReadyToRunSectionType sectionId, int * leng
         ModuleInfoRow * pCurrent = pModuleInfoRows + i;
         if ((int32_t)sectionId == pCurrent->SectionId)
         {
-            *length = pCurrent->GetLength();
+            *length = pCurrent->Length;
             return pCurrent->Start;
         }
     }
@@ -75,23 +77,6 @@ void * TypeManager::GetClasslibFunction(ClasslibFunctionId functionId)
         return nullptr;
 
     return m_pClasslibFunctions[id];
-}
-
-bool TypeManager::ModuleInfoRow::HasEndPointer()
-{
-    return Flags & (int32_t)ModuleInfoFlags::HasEndPointer;
-}
-
-int TypeManager::ModuleInfoRow::GetLength()
-{
-    if (HasEndPointer())
-    {
-        return (int)((uint8_t*)End - (uint8_t*)Start);
-    }
-    else
-    {
-        return sizeof(void*);
-    }
 }
 
 HANDLE TypeManager::GetOsModuleHandle()

@@ -51,7 +51,7 @@ namespace System.Runtime.CompilerServices
         /// <summary>
         /// Cache of CallSite constructors for a given delegate type.
         /// </summary>
-        private static volatile CacheDict<Type, Func<CallSiteBinder, CallSite>>? s_siteCtors;
+        private static CacheDict<Type, Func<CallSiteBinder, CallSite>>? s_siteCtors;
 
         /// <summary>
         /// The Binder responsible for binding operations at this call site.
@@ -162,7 +162,7 @@ namespace System.Runtime.CompilerServices
         private static T? s_cachedUpdate;
 
         // Cached noMatch delegate for all sites with a given T
-        private static volatile T? s_cachedNoMatch;
+        private static T? s_cachedNoMatch;
 
         [RequiresDynamicCode(Expression.NewArrayRequiresDynamicCode)]
         private CallSite(CallSiteBinder binder)
@@ -289,10 +289,7 @@ namespace System.Runtime.CompilerServices
             if (System.Linq.Expressions.LambdaExpression.CanCompileToIL
                 && target.IsGenericType && IsSimpleSignature(invoke, out Type[] args))
             {
-#pragma warning disable IL3050
-                // Analyzer doesn't yet understand feature switches
                 return MakeUpdateDelegateWhenCanCompileToIL();
-#pragma warning restore IL3050
             }
 
             s_cachedNoMatch = CreateCustomNoMatchDelegate(invoke);

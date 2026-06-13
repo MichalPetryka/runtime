@@ -29,7 +29,7 @@ namespace System
         protected internal unsafe object MemberwiseClone()
         {
             object clone = this.GetMethodTable()->IsArray ?
-                RuntimeImports.RhNewArray(this.GetMethodTable(), Unsafe.As<Array>(this).Length) :
+                RuntimeImports.RhNewVariableSizeObject(this.GetMethodTable(), Unsafe.As<Array>(this).Length) :
                 RuntimeImports.RhNewObject(this.GetMethodTable());
 
             // copy contents of "this" to the clone
@@ -41,7 +41,7 @@ namespace System
             if (this.GetMethodTable()->ContainsGCPointers)
                 Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
             else
-                Buffer.Memmove(ref dst, ref src, byteCount);
+                SpanHelpers.Memmove(ref dst, ref src, byteCount);
 
             return clone;
         }

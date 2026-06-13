@@ -17,7 +17,7 @@ class CrawlFrame;
 struct EE_ILEXCEPTION_CLAUSE;
 struct TransitionBlock;
 struct VASigCookie;
-class ComPlusCallMethodDesc;
+class CLRToCOMCallMethodDesc;
 
 #include <cgencpu.h>
 
@@ -33,9 +33,6 @@ void CallJitEHFinally(CrawlFrame* pCf, BYTE* startPC, EE_ILEXCEPTION_CLAUSE *EHC
 #endif // TARGET_X86
 
 #ifdef FEATURE_COMINTEROP
-extern "C" UINT32 STDCALL CLRToCOMWorker(TransitionBlock * pTransitionBlock, ComPlusCallMethodDesc * pMD);
-extern "C" void GenericComPlusCallStub(void);
-
 extern "C" void GenericComCallStub(void);
 #endif // FEATURE_COMINTEROP
 
@@ -50,7 +47,7 @@ enum class CallerGCMode
 // Non-CPU-specific helper functions called by the CPU-dependent code
 extern "C" PCODE STDCALL PreStubWorker(TransitionBlock * pTransitionBlock, MethodDesc * pMD);
 
-extern "C" void STDCALL VarargPInvokeStubWorker(TransitionBlock * pTransitionBlock, VASigCookie * pVASigCookie, MethodDesc * pMD);
+extern "C" void STDCALL VarargPInvokeStubWorker(TransitionBlock* pTransitionBlock, VASigCookie* pVASigCookie, MethodDesc* pMD);
 extern "C" void STDCALL VarargPInvokeStub(void);
 extern "C" void STDCALL VarargPInvokeStub_RetBuffArg(void);
 
@@ -58,22 +55,22 @@ extern "C" void STDCALL GenericPInvokeCalliStubWorker(TransitionBlock * pTransit
 extern "C" void STDCALL GenericPInvokeCalliHelper(void);
 
 extern "C" PCODE STDCALL ExternalMethodFixupWorker(TransitionBlock * pTransitionBlock, TADDR pIndirection, DWORD sectionIndex, Module * pModule);
-extern "C" void STDCALL ExternalMethodFixupPatchLabel(void);
 
 extern "C" void STDCALL VirtualMethodFixupStub(void);
 extern "C" void STDCALL VirtualMethodFixupPatchLabel(void);
 
 #ifdef FEATURE_READYTORUN
+#ifdef TARGET_WASM
+// Wasm requires the signatures to be identical since the implementation is actually in C++
+struct READYTORUN_IMPORT_THUNK_PORTABLE_ENTRYPOINT;
+extern "C" PCODE STDCALL DelayLoad_MethodCall(TransitionBlock* pTransitionBlock, READYTORUN_IMPORT_THUNK_PORTABLE_ENTRYPOINT* pImportThunkEntry, uint8_t *moduleBase, int32_t rvaOfModuleFixup);
+#else
 extern "C" void STDCALL DelayLoad_MethodCall();
+#endif
 
 extern "C" void STDCALL DelayLoad_Helper();
 extern "C" void STDCALL DelayLoad_Helper_Obj();
 extern "C" void STDCALL DelayLoad_Helper_ObjObj();
-#endif
-
-#if (defined(TARGET_X86) || defined(TARGET_AMD64))
-extern "C" DWORD xmmYmmStateSupport();
-extern "C" DWORD avx512StateSupport();
 #endif
 
 #ifdef DACCESS_COMPILE
@@ -83,8 +80,6 @@ extern "C" DWORD avx512StateSupport();
 BOOL GetAnyThunkTarget (T_CONTEXT *pctx, TADDR *pTarget, TADDR *pTargetMethodDesc);
 
 #endif // DACCESS_COMPILE
-
-
 
 //
 // ResetProcessorStateHolder saves/restores processor state around calls to

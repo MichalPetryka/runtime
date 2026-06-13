@@ -8,14 +8,41 @@ namespace System.Linq
 {
     public static partial class Enumerable
     {
+        /// <summary>
+        /// Returns a sequence with the elements of <paramref name="source"/> in reverse order.
+        /// </summary>
+        /// <typeparam name="TSource">The type of the elements of <paramref name="source"/>.</typeparam>
+        /// <param name="source">The sequence whose elements should be reversed.</param>
+        /// <returns>A sequence that enumerates the elements of <paramref name="source"/> in reverse.</returns>
         public static IEnumerable<TSource> Reverse<TSource>(this IEnumerable<TSource> source)
         {
-            if (source == null)
+            if (source is null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.source);
             }
 
             if (IsEmptyArray(source))
+            {
+                return [];
+            }
+
+            return new ReverseIterator<TSource>(source);
+        }
+
+        /// <summary>
+        /// Returns a sequence with the elements of <paramref name="source"/> in reverse order.
+        /// </summary>
+        /// <typeparam name="TSource">The type of the elements of <paramref name="source"/>.</typeparam>
+        /// <param name="source">The array whose elements should be reversed.</param>
+        /// <returns>A sequence whose elements correspond to those of the input sequence in reverse order.</returns>
+        public static IEnumerable<TSource> Reverse<TSource>(this TSource[] source)
+        {
+            if (source is null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.source);
+            }
+
+            if (source.Length == 0)
             {
                 return [];
             }
@@ -34,11 +61,11 @@ namespace System.Linq
 
             public ReverseIterator(IEnumerable<TSource> source)
             {
-                Debug.Assert(source != null);
+                Debug.Assert(source is not null);
                 _source = source;
             }
 
-            public override Iterator<TSource> Clone() => new ReverseIterator<TSource>(_source);
+            private protected override Iterator<TSource> Clone() => new ReverseIterator<TSource>(_source);
 
             public override bool MoveNext()
             {
@@ -70,7 +97,7 @@ namespace System.Linq
                         int index = _state - 3;
                         if (index != -1)
                         {
-                            Debug.Assert(_buffer != null);
+                            Debug.Assert(_buffer is not null);
                             _current = _buffer[index];
                             --_state;
                             return true;

@@ -32,8 +32,9 @@ namespace ILCompiler.DependencyAnalysis
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append(nameMangler.CompilationUnitPrefix).Append("__FrozenObj_")
+            sb.Append(nameMangler.CompilationUnitPrefix).Append("__FrozenObj_"u8)
                 .Append(nameMangler.GetMangledTypeName(_owningType))
+                .Append('_')
                 .Append(_allocationSiteId.ToStringInvariant());
         }
 

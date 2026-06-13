@@ -461,8 +461,8 @@ void Compiler::unwindSaveRegPairPreindexed(regNumber reg1, regNumber reg2, int o
 
         pu->AddCode(0x80 | (BYTE)z);
     }
-    else if ((reg1 == REG_R19) &&
-             (-256 <= offset)) // If the offset is between -512 and -256, we use the save_regp_x unwind code.
+    else if ((reg1 == REG_R19) && (-256 <= offset)) // If the offset is between -512 and -256, we use the save_regp_x
+                                                    // unwind code.
     {
         // save_r19r20_x: 001zzzzz: save <r19,r20> pair at [sp-#Z*8]!, pre-indexed offset >= -248
         // NOTE: I'm not sure why we allow Z==0 here; seems useless, and the calculation of offset is different from the
@@ -635,6 +635,33 @@ void Compiler::unwindSaveNext()
     pu->AddCode(0xE6);
 }
 
+void Compiler::unwindPacSignLR()
+{
+    if (JitConfig.JitPacEnabled() == 0)
+    {
+        return;
+    }
+#if defined(FEATURE_CFI_SUPPORT)
+    if (generateCFIUnwindCodes())
+    {
+        // Emit NEGATE_RA_STATE opcode in prologs.
+        if (!compGeneratingProlog)
+        {
+            return;
+        }
+        FuncInfoDsc*   func     = funCurrentFunc();
+        UNATIVE_OFFSET cbProlog = unwindGetCurrentOffset(func);
+        // Maps to DW_CFA_AARCH64_negate_ra_state
+        createCfiCode(func, cbProlog, CFI_NEGATE_RA_STATE, DWARF_REG_ILLEGAL);
+
+        return;
+    }
+#endif // FEATURE_CFI_SUPPORT
+
+    // pac_sign_lr: 11111100: sign the return address in lr with the platform PAC key
+    funCurrentFunc()->uwi.AddCode(0xFC);
+}
+
 void Compiler::unwindReturn(regNumber reg)
 {
     // Nothing to do; we will always have at least one trailing "end" opcode in our padding.
@@ -758,7 +785,7 @@ void DumpUnwindInfo(Compiler*         comp,
     // pHeader is not guaranteed to be aligned. We put four 0xFF end codes at the end
     // to provide padding, and round down to get a multiple of 4 bytes in size.
     DWORD UNALIGNED* pdw = (DWORD UNALIGNED*)pHeader;
-    DWORD dw;
+    DWORD            dw;
 
     dw = *pdw++;
 
@@ -1080,6 +1107,12 @@ void DumpUnwindInfo(Compiler*         comp,
             // save_next: 11100110 : save next non - volatile Int or FP register pair.
 
             printf("    %02X          save_next\n", b1);
+        }
+        else if (b1 == 0xFC)
+        {
+            // pac_sign_lr: 11111100 : sign the return address in lr with the platform PAC key.
+
+            printf("    %02X          pac_sign_lr\n", b1);
         }
         else
         {

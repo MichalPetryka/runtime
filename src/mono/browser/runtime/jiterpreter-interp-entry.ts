@@ -3,9 +3,11 @@
 
 import { MonoMethod, MonoType } from "./types/internal";
 import { NativePointer } from "./types/emscripten";
-import { Module, mono_assert } from "./globals";
+import { mono_assert } from "./globals";
 import {
-    setI32, getU32_unaligned, _zero_region
+    setI32, getU32_unaligned, _zero_region,
+    malloc,
+    free
 } from "./memory";
 import { WasmOpcode } from "./jiterpreter-opcodes";
 import cwraps from "./cwraps";
@@ -68,7 +70,7 @@ const enum WasmReftype {
 }
 */
 
-function getTrampImports() {
+function getTrampImports () {
     if (trampImports)
         return trampImports;
 
@@ -91,17 +93,16 @@ class TrampolineInfo {
     hasThisReference: boolean;
     unbox: boolean;
     hasReturnValue: boolean;
-    name: string;
-    traceName: string;
+    private name?: string;
+    private traceName?: string;
 
     defaultImplementation: number;
     result: number;
     hitCount: number;
 
-    constructor(
+    constructor (
         imethod: number, method: MonoMethod, argumentCount: number, pParamTypes: NativePointer,
-        unbox: boolean, hasThisReference: boolean, hasReturnValue: boolean, name: string,
-        defaultImplementation: number
+        unbox: boolean, hasThisReference: boolean, hasReturnValue: boolean, defaultImplementation: number
     ) {
         this.imethod = imethod;
         this.method = method;
@@ -109,26 +110,48 @@ class TrampolineInfo {
         this.unbox = unbox;
         this.hasThisReference = hasThisReference;
         this.hasReturnValue = hasReturnValue;
-        this.name = name;
         this.paramTypes = new Array(argumentCount);
         for (let i = 0; i < argumentCount; i++)
             this.paramTypes[i] = <any>getU32_unaligned(<any>pParamTypes + (i * 4));
         this.defaultImplementation = defaultImplementation;
         this.result = 0;
-        let subName = name;
-        if (!subName) {
-            subName = `${this.imethod.toString(16)}_${this.hasThisReference ? "i" : "s"}${this.hasReturnValue ? "_r" : ""}_${this.argumentCount}`;
-        } else {
-            // truncate the real method name so that it doesn't make the module too big. this isn't a big deal for module-per-function,
-            //  but since we jit in groups now we need to keep the sizes reasonable. we keep the tail end of the name
-            //  since it is likely to contain the method name and/or signature instead of type and noise
-            const maxLength = 24;
-            if (subName.length > maxLength)
-                subName = subName.substring(subName.length - maxLength, subName.length);
-            subName = `${this.imethod.toString(16)}_${subName}`;
-        }
-        this.traceName = subName;
         this.hitCount = 0;
+    }
+
+    generateName () {
+        const namePtr = cwraps.mono_wasm_method_get_full_name(this.method);
+        try {
+            const name = utf8ToString(namePtr);
+            this.name = name;
+            let subName = name;
+            if (!subName) {
+                subName = `${this.imethod.toString(16)}_${this.hasThisReference ? "i" : "s"}${this.hasReturnValue ? "_r" : ""}_${this.argumentCount}`;
+            } else {
+                // truncate the real method name so that it doesn't make the module too big. this isn't a big deal for module-per-function,
+                //  but since we jit in groups now we need to keep the sizes reasonable. we keep the tail end of the name
+                //  since it is likely to contain the method name and/or signature instead of type and noise
+                const maxLength = 24;
+                if (subName.length > maxLength)
+                    subName = subName.substring(subName.length - maxLength, subName.length);
+                subName = `${this.imethod.toString(16)}_${subName}`;
+            }
+            this.traceName = subName;
+        } finally {
+            if (namePtr)
+                free(<any>namePtr);
+        }
+    }
+
+    getTraceName () {
+        if (!this.traceName)
+            this.generateName();
+        return this.traceName || "unknown";
+    }
+
+    getName () {
+        if (!this.name)
+            this.generateName();
+        return this.name || "unknown";
     }
 }
 
@@ -137,14 +160,14 @@ let mostRecentOptions: JiterpreterOptions | undefined = undefined;
 // If a method is freed we need to remove its info (just in case another one gets
 //  allocated at that exact memory offset later) and more importantly, ensure it is
 //  not waiting in the jit queue
-export function mono_jiterp_free_method_data_interp_entry(imethod: number) {
+export function mono_jiterp_free_method_data_interp_entry (imethod: number) {
     delete infoTable[imethod];
 }
 
 // FIXME: move this counter into C and make it thread safe
-export function mono_interp_record_interp_entry(imethod: number) {
+export function mono_interp_record_interp_entry (imethod: number) {
     // clear the unbox bit
-    imethod = imethod & ~0x1;
+    imethod = (imethod & ~0x1) >>> 0;
 
     const info = infoTable[imethod];
     // This shouldn't happen but it's not worth crashing over
@@ -168,19 +191,21 @@ export function mono_interp_record_interp_entry(imethod: number) {
 }
 
 // returns function pointer
-export function mono_interp_jit_wasm_entry_trampoline(
+export function mono_interp_jit_wasm_entry_trampoline (
     imethod: number, method: MonoMethod, argumentCount: number, pParamTypes: NativePointer,
-    unbox: boolean, hasThisReference: boolean, hasReturnValue: boolean, name: NativePointer,
-    defaultImplementation: number
+    unbox: boolean, hasThisReference: boolean, hasReturnValue: boolean, defaultImplementation: number
 ): number {
     // HACK
     if (argumentCount > maxInlineArgs)
         return 0;
 
+    imethod = imethod >>> 0;
+    method = method as any >>> 0 as any;
+    pParamTypes = pParamTypes as any >>> 0 as any;
+
     const info = new TrampolineInfo(
         imethod, method, argumentCount, pParamTypes,
-        unbox, hasThisReference, hasReturnValue, utf8ToString(<any>name),
-        defaultImplementation
+        unbox, hasThisReference, hasReturnValue, defaultImplementation
     );
     if (!fnTable)
         fnTable = getWasmFunctionTable();
@@ -208,7 +233,7 @@ export function mono_interp_jit_wasm_entry_trampoline(
     return info.result;
 }
 
-function ensure_jit_is_scheduled() {
+function ensure_jit_is_scheduled () {
     if (jitQueueTimeout > 0)
         return;
 
@@ -227,7 +252,7 @@ function ensure_jit_is_scheduled() {
     }, queueFlushDelayMs);
 }
 
-function flush_wasm_entry_trampoline_jit_queue() {
+function flush_wasm_entry_trampoline_jit_queue () {
     const jitQueue : TrampolineInfo[] = [];
     let methodPtr = <MonoMethod><any>0;
     while ((methodPtr = <any>cwraps.mono_jiterp_tlqueue_next(JitQueue.InterpEntry)) != 0) {
@@ -244,10 +269,9 @@ function flush_wasm_entry_trampoline_jit_queue() {
 
     // If the function signature contains types that need stackval_from_data, that'll use
     //  some constant slots, so make some extra space
-    const constantSlots = (4 * jitQueue.length) + 1;
     let builder = trampBuilder;
     if (!builder) {
-        trampBuilder = builder = new WasmBuilder(constantSlots);
+        trampBuilder = builder = new WasmBuilder();
 
         builder.defineType(
             "unbox",
@@ -282,7 +306,7 @@ function flush_wasm_entry_trampoline_jit_queue() {
             WasmValtype.void, true
         );
     } else
-        builder.clear(constantSlots);
+        builder.clear();
 
     if (builder.options.wasmBytesLimit <= getCounter(JiterpCounter.BytesGenerated)) {
         return;
@@ -311,7 +335,7 @@ function flush_wasm_entry_trampoline_jit_queue() {
 
             // Function type for compiled traces
             builder.defineType(
-                info.traceName, sig, WasmValtype.void, false
+                info.getTraceName(), sig, WasmValtype.void, false
             );
         }
 
@@ -338,9 +362,10 @@ function flush_wasm_entry_trampoline_jit_queue() {
         builder.appendULeb(jitQueue.length);
         for (let i = 0; i < jitQueue.length; i++) {
             const info = jitQueue[i];
+            const traceName = info.getTraceName();
             // Function type for our compiled trace
-            mono_assert(builder.functionTypes[info.traceName], "func type missing");
-            builder.appendULeb(builder.functionTypes[info.traceName][0]);
+            mono_assert(builder.functionTypes[traceName], "func type missing");
+            builder.appendULeb(builder.functionTypes[traceName][0]);
         }
 
         // Export section
@@ -348,7 +373,8 @@ function flush_wasm_entry_trampoline_jit_queue() {
         builder.appendULeb(jitQueue.length);
         for (let i = 0; i < jitQueue.length; i++) {
             const info = jitQueue[i];
-            builder.appendName(info.traceName);
+            const traceName = info.getTraceName();
+            builder.appendName(traceName);
             builder.appendU8(0);
             // Imports get added to the function index space, so we need to add
             //  the count of imported functions to get the index of our compiled trace
@@ -360,7 +386,8 @@ function flush_wasm_entry_trampoline_jit_queue() {
         builder.appendULeb(jitQueue.length);
         for (let i = 0; i < jitQueue.length; i++) {
             const info = jitQueue[i];
-            builder.beginFunction(info.traceName, {
+            const traceName = info.getTraceName();
+            builder.beginFunction(traceName, {
                 "sp_args": WasmValtype.i32,
                 "need_unbox": WasmValtype.i32,
                 "scratchBuffer": WasmValtype.i32,
@@ -368,7 +395,7 @@ function flush_wasm_entry_trampoline_jit_queue() {
 
             const ok = generate_wasm_body(builder, info);
             if (!ok)
-                throw new Error(`Failed to generate ${info.traceName}`);
+                throw new Error(`Failed to generate ${traceName}`);
 
             builder.appendU8(WasmOpcode.end);
             builder.endFunction(true);
@@ -381,7 +408,7 @@ function flush_wasm_entry_trampoline_jit_queue() {
         if (trace > 0)
             mono_log_info(`jit queue generated ${buffer.length} byte(s) of wasm`);
         modifyCounter(JiterpCounter.BytesGenerated, buffer.length);
-        const traceModule = new WebAssembly.Module(buffer);
+        const traceModule = new WebAssembly.Module(buffer as BufferSource);
         const wasmImports = builder.getWasmImports();
 
         const traceInstance = new WebAssembly.Instance(traceModule, wasmImports);
@@ -390,9 +417,10 @@ function flush_wasm_entry_trampoline_jit_queue() {
         //  to point to the new jitted trampolines instead of the default implementations
         for (let i = 0; i < jitQueue.length; i++) {
             const info = jitQueue[i];
+            const traceName = info.getTraceName();
 
             // Get the exported trampoline
-            const fn = traceInstance.exports[info.traceName];
+            const fn = traceInstance.exports[traceName];
             // Patch the function pointer for this function to use the trampoline now
             fnTable.set(info.result, fn);
 
@@ -423,10 +451,10 @@ function flush_wasm_entry_trampoline_jit_queue() {
                     builder.endSection();
             } catch {
                 // eslint-disable-next-line @typescript-eslint/no-extra-semi
-                ;
+
             }
 
-            const buf = builder.getArrayView();
+            const buf = builder.getArrayView(false, true);
             for (let i = 0; i < buf.length; i++) {
                 const b = buf[i];
                 if (b < 0x10)
@@ -447,7 +475,7 @@ function flush_wasm_entry_trampoline_jit_queue() {
     }
 }
 
-function append_stackval_from_data(
+function append_stackval_from_data (
     builder: WasmBuilder, imethod: number, type: MonoType, valueName: string, argIndex: number
 ) {
     const rawSize = cwraps.mono_jiterp_type_get_raw_value_size(type);
@@ -520,7 +548,7 @@ function append_stackval_from_data(
     }
 }
 
-function generate_wasm_body(
+function generate_wasm_body (
     builder: WasmBuilder, info: TrampolineInfo
 ): boolean {
     // FIXME: This is not thread-safe, but the alternative of alloca makes the trampoline
@@ -531,7 +559,7 @@ function generate_wasm_body(
     // FIXME: Pre-allocate these buffers and their constant slots at the start before we
     //  generate function bodies, so that even if we run out of constant slots for MonoType we
     //  will always have put the buffers in a constant slot. This will be necessary for thread safety
-    const scratchBuffer = <any>Module._malloc(sizeOfJiterpEntryData);
+    const scratchBuffer = <any>malloc(sizeOfJiterpEntryData);
     _zero_region(scratchBuffer, sizeOfJiterpEntryData);
 
     // Initialize the parameter count in the data blob. This is used to calculate the new value of sp

@@ -51,6 +51,7 @@ advapi32!CreatePrivateObjectSecurityEx
 advapi32!CreatePrivateObjectSecurityWithMultipleInheritance
 advapi32!CreateProcessAsUserA
 advapi32!CreateProcessAsUserW
+advapi32!CreateProcessWithLogonW
 advapi32!CreateRestrictedToken
 advapi32!CreateServiceA
 advapi32!CreateServiceW
@@ -86,6 +87,7 @@ advapi32!CredWriteDomainCredentialsW
 advapi32!CredWriteW
 advapi32!DeleteAce
 advapi32!DeleteService
+advapi32!DeregisterEventSource
 advapi32!DestroyPrivateObjectSecurity
 advapi32!DuplicateToken
 advapi32!DuplicateTokenEx
@@ -206,6 +208,8 @@ advapi32!RegFlushKey
 advapi32!RegGetKeySecurity
 advapi32!RegGetValueA
 advapi32!RegGetValueW
+advapi32!RegisterEventSourceA
+advapi32!RegisterEventSourceW
 advapi32!RegisterServiceCtrlHandlerA
 advapi32!RegisterServiceCtrlHandlerExA
 advapi32!RegisterServiceCtrlHandlerExW
@@ -239,6 +243,8 @@ advapi32!RegSetValueExA
 advapi32!RegSetValueExW
 advapi32!RegUnLoadKeyA
 advapi32!RegUnLoadKeyW
+advapi32!ReportEventA
+advapi32!ReportEventW
 advapi32!RevertToSelf
 advapi32!SetAclInformation
 advapi32!SetFileSecurityW
@@ -814,6 +820,7 @@ kernel32!AllocateUserPhysicalPages
 kernel32!AllocateUserPhysicalPagesNuma
 kernel32!AllocConsole
 kernel32!AreFileApisANSI
+kernel32!AssignProcessToJobObject
 kernel32!AttachConsole
 kernel32!Beep
 kernel32!CallbackMayRunLong
@@ -861,6 +868,8 @@ kernel32!CreateFileW
 kernel32!CreateHardLinkA
 kernel32!CreateHardLinkW
 kernel32!CreateIoCompletionPort
+kernel32!CreateJobObjectA
+kernel32!CreateJobObjectW
 kernel32!CreateMemoryResourceNotification
 kernel32!CreateMutexA
 kernel32!CreateMutexExA
@@ -1410,6 +1419,7 @@ kernel32!SetFileValidData
 kernel32!SetFirmwareEnvironmentVariableA
 kernel32!SetFirmwareEnvironmentVariableW
 kernel32!SetHandleInformation
+kernel32!SetInformationJobObject
 kernel32!SetLastError
 kernel32!SetLocaleInfoW
 kernel32!SetLocalTime
@@ -2334,6 +2344,12 @@ ws2_32!WSCUnInstallNameSpace
 ws2_32!WSCUpdateProvider
 ws2_32!WSCWriteNameSpaceOrder
 ws2_32!WSCWriteProviderOrder
+
+#
+# Synchronization.lib
+#
+api-ms-win-core-synch-l1-2-0!WaitOnAddress
+api-ms-win-core-synch-l1-2-0!WakeByAddressSingle
 
 #
 # Include all memory allocation APIs from ucrt to ensure that all of them use allocator

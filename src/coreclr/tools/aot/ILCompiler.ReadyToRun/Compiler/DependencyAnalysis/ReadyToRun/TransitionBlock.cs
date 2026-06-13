@@ -39,7 +39,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                     }
 
                 case TargetArchitecture.ARM64:
-                    return target.OperatingSystem == TargetOS.OSX ?
+                    return target.IsApplePlatform ?
                         AppleArm64TransitionBlock.Instance :
                         Arm64TransitionBlock.Instance;
 
@@ -48,6 +48,9 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
                 case TargetArchitecture.RiscV64:
                     return RiscV64TransitionBlock.Instance;
+
+                case TargetArchitecture.Wasm32:
+                    return Wasm32TransitionBlock.Instance;
 
                 default:
                     throw new NotImplementedException(target.Architecture.ToString());
@@ -68,6 +71,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         public bool IsARM64 => Architecture == TargetArchitecture.ARM64;
         public bool IsLoongArch64 => Architecture == TargetArchitecture.LoongArch64;
         public bool IsRiscV64 => Architecture == TargetArchitecture.RiscV64;
+        public bool IsWasm32 => Architecture == TargetArchitecture.Wasm32;
 
         /// <summary>
         /// This property is only overridden in AMD64 Unix variant of the transition block.
@@ -285,7 +289,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         /// Check whether an arg is automatically switched to passing by reference.
         /// Note that this overload does not handle varargs. This method only works for 
         /// valuetypes - true value types, primitives, enums and TypedReference.
-        /// The method is only overridden to do something meaningful on X64 and ARM64.
+        /// The method is only overridden to do something meaningful on X64, ARM64 and WASM.
         /// </summary>
         /// <param name="th">Type to analyze</param>
         public virtual bool IsArgPassedByRef(TypeHandle th)
@@ -303,10 +307,12 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
             return size > EnregisteredParamTypeMaxSize;
         }
 
-        public void ComputeReturnValueTreatment(CorElementType type, TypeHandle thRetType, bool isVarArgMethod, out bool usesRetBuffer, out uint fpReturnSize)
+        public void ComputeReturnValueTreatment(CorElementType type, TypeHandle thRetType, bool isVarArgMethod, out bool usesRetBuffer, out uint fpReturnSize, out uint returnedFpFieldOffset1st, out uint returnedFpFieldOffset2nd)
         {
             usesRetBuffer = false;
             fpReturnSize = 0;
+            returnedFpFieldOffset1st = 0;
+            returnedFpFieldOffset2nd = 0;
 
             switch (type)
             {
@@ -314,14 +320,22 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                     throw new NotSupportedException();
 
                 case CorElementType.ELEMENT_TYPE_R4:
-                    if (!IsArmelABI)
+                    if (IsRiscV64 || IsLoongArch64)
+                    {
+                        fpReturnSize = (uint)FpStruct.OnlyOne | (2 << (int)FpStruct.PosSizeShift1st);
+                    }
+                    else if (!IsArmelABI)
                     {
                         fpReturnSize = sizeof(float);
                     }
                     break;
 
                 case CorElementType.ELEMENT_TYPE_R8:
-                    if (!IsArmelABI)
+                    if (IsRiscV64 || IsLoongArch64)
+                    {
+                        fpReturnSize = (uint)FpStruct.OnlyOne | (3 << (int)FpStruct.PosSizeShift1st);
+                    }
+                    else if (!IsArmelABI)
                     {
                         fpReturnSize = sizeof(double);
                     }
@@ -356,7 +370,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                                         fpReturnSize += 1;
                                     }
 
-                                    if (descriptor.eightByteClassifications0 == SystemVClassificationType.SystemVClassificationTypeSSE)
+                                    if (descriptor.eightByteClassifications1 == SystemVClassificationType.SystemVClassificationTypeSSE)
                                     {
                                         fpReturnSize += 2;
                                     }
@@ -374,6 +388,12 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                                 break;
                             }
 
+                            if (IsWasm32)
+                            {
+                                // Wasm doesn't use a ret buffer for returning structs in the interpreter calling convention, which is the TransitionBlock convention on Wasm platforms.
+                                break;
+                            }
+
                             uint size = (uint)thRetType.GetSize();
 
                             if (IsX86 || IsX64)
@@ -388,12 +408,15 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
                             if (size <= EnregisteredReturnTypeIntegerMaxSize)
                             {
-                                if (IsLoongArch64)
-                                    fpReturnSize = LoongArch64PassStructInRegister.GetLoongArch64PassStructInRegisterFlags(thRetType.GetRuntimeTypeHandle()) & 0xff;
-                                else if (IsRiscV64)
-                                    fpReturnSize = RISCV64PassStructInRegister.GetRISCV64PassStructInRegisterFlags(thRetType.GetRuntimeTypeHandle()) & 0xff;
+                                if (IsLoongArch64 || IsRiscV64)
+                                {
+                                    FpStructInRegistersInfo info = RiscVLoongArch64FpStruct.GetFpStructInRegistersInfo(
+                                        thRetType.GetRuntimeTypeHandle(), Architecture);
+                                    fpReturnSize = (uint)info.flags;
+                                    returnedFpFieldOffset1st = info.offset1st;
+                                    returnedFpFieldOffset2nd = info.offset2nd;
+                                }
                                 break;
-
                             }
 
                         }
@@ -702,8 +725,8 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
             // fp=x8, ra=x1, s1-s11(R9,R18-R27), tp=x3, gp=x4
             public override int NumCalleeSavedRegisters => 15;
             // Callee-saves, argument registers
-            public override int SizeOfTransitionBlock => SizeOfCalleeSavedRegisters + SizeOfArgumentRegisters;
-            public override int OffsetOfFirstGCRefMapSlot => SizeOfCalleeSavedRegisters;
+            public override int SizeOfTransitionBlock => SizeOfCalleeSavedRegisters + PointerSize + SizeOfArgumentRegisters;
+            public override int OffsetOfFirstGCRefMapSlot => SizeOfCalleeSavedRegisters + PointerSize;
             public override int OffsetOfArgumentRegisters => OffsetOfFirstGCRefMapSlot;
 
             public override int OffsetOfFloatArgumentRegisters => 8 * sizeof(double);
@@ -727,6 +750,44 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                 return ALIGN_UP(parmSize, stackSlotSize);
             }
             
+        }
+
+        private class Wasm32TransitionBlock : TransitionBlock
+        {
+            public static TransitionBlock Instance = new Wasm32TransitionBlock();
+
+            public override TargetArchitecture Architecture => TargetArchitecture.Wasm32;
+
+            public override int PointerSize => 4;
+
+            public override int FloatRegisterSize => 0;
+
+            public override int NumArgumentRegisters => 0;
+
+            public override int NumCalleeSavedRegisters => 0;
+
+            public override int SizeOfTransitionBlock => 8;
+
+            public override int OffsetOfArgumentRegisters => 8;
+
+            public override int OffsetOfFloatArgumentRegisters => 0;
+
+            public override int EnregisteredParamTypeMaxSize => 0;
+
+            public override int EnregisteredReturnTypeIntegerMaxSize => 0;
+
+            public override int GetRetBuffArgOffset(bool hasThis) => OffsetOfArgumentRegisters + (hasThis ? StackElemSize(PointerSize, false, false) : 0);
+
+            public override bool IsArgPassedByRef(TypeHandle th)
+            {
+                return false;
+            }
+
+            public override int StackElemSize(int parmSize, bool isValueType, bool isFloatHfa)
+            {
+                int stackSlotSize = 8;
+                return ALIGN_UP(parmSize, stackSlotSize);
+            }
         }
     }
 }

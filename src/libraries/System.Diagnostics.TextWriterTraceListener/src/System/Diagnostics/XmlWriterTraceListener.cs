@@ -16,7 +16,7 @@ namespace System.Diagnostics
     {
         private const string FixedHeader = "<E2ETraceEvent xmlns=\"http://schemas.microsoft.com/2004/06/E2ETraceEvent\"><System xmlns=\"http://schemas.microsoft.com/2004/06/windows/eventlog/system\">";
 
-        private static volatile string? s_processName;
+        private static string? s_processName;
         private readonly string _machineName = Environment.MachineName;
         private StringBuilder? _strBldr;
         private XmlTextWriter? _xmlBlobWriter;
@@ -250,15 +250,17 @@ namespace System.Diagnostics
             string? processName = s_processName;
             if (processName is null)
             {
-                if (OperatingSystem.IsBrowser()) // Process isn't supported on Browser
+                if (OperatingSystem.IsBrowser() || OperatingSystem.IsWasi() ) // Process isn't supported on Browser
                 {
-                    s_processName = processName = string.Empty;
+                    processName = string.Empty;
                 }
                 else
                 {
                     using Process process = Process.GetCurrentProcess();
-                    s_processName = processName = process.ProcessName;
+                    processName = process.ProcessName;
                 }
+
+                s_processName = processName;
             }
 
             InternalWrite("\" />");
@@ -385,7 +387,7 @@ namespace System.Diagnostics
             _writer?.Write(message);
         }
 
-        private void InternalWrite<T>(T message) where T : ISpanFormattable
+        private unsafe void InternalWrite<T>(T message) where T : ISpanFormattable
         {
             Debug.Assert(typeof(T) == typeof(int) || typeof(T) == typeof(uint) || typeof(T) == typeof(long), "We only currently stackalloc enough space for these types.");
 
@@ -399,7 +401,7 @@ namespace System.Diagnostics
             }
         }
 
-        private void InternalWrite(Guid message)
+        private unsafe void InternalWrite(Guid message)
         {
             EnsureWriter();
             if (_writer is TextWriter writer)
@@ -411,7 +413,7 @@ namespace System.Diagnostics
             }
         }
 
-        private void InternalWrite(DateTime message)
+        private unsafe void InternalWrite(DateTime message)
         {
             EnsureWriter();
             if (_writer is TextWriter writer)

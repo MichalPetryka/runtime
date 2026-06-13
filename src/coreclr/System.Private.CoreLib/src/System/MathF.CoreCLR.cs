@@ -7,6 +7,7 @@
 **
 ===========================================================*/
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace System
@@ -89,8 +90,14 @@ namespace System
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern float Sin(float x);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe (float Sin, float Cos) SinCos(float x)
         {
+            if (RuntimeHelpers.IsKnownConstant(x))
+            {
+                return (Sin(x), Cos(x));
+            }
+
             float sin, cos;
             SinCos(x, &sin, &cos);
             return (sin, cos);
@@ -111,10 +118,6 @@ namespace System
         [Intrinsic]
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern float Tanh(float x);
-
-        [Intrinsic]
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern float FMod(float x, float y);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern unsafe float ModF(float x, float* intptr);

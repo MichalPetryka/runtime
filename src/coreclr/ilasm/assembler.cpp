@@ -57,11 +57,8 @@ void    Assembler::ClearImplList(void)
 {
     while(m_nImplList) m_crImplList[--m_nImplList] = mdTypeRefNil;
 }
+
 /**************************************************************************/
-#ifdef _PREFAST_
-#pragma warning(push)
-#pragma warning(disable:22008) // "Suppress PREfast warnings about integer overflow"
-#endif
 void    Assembler::AddToImplList(mdToken tk)
 {
     if(m_nImplList+1 >= m_nImplListSize)
@@ -82,9 +79,6 @@ void    Assembler::AddToImplList(mdToken tk)
     m_crImplList[m_nImplList++] = tk;
     m_crImplList[m_nImplList] = mdTypeRefNil;
 }
-#ifdef _PREFAST_
-#pragma warning(pop)
-#endif
 
 void    Assembler::ClearBoundList(void)
 {
@@ -146,7 +140,7 @@ class TypeSpecContainer
 {
 private:
     // Contain a BinStr
-    unsigned __int8 *ptr_;
+    uint8_t *ptr_;
     unsigned len_;
     // Hash the BinStr, just for speed of lookup
     unsigned hash_;
@@ -166,7 +160,7 @@ public:
     // Constructor for a 'permanent' object
     // Don't bother re-hashing, since we will always have already constructed the lookup object
     TypeSpecContainer(const TypeSpecContainer &t, mdToken tk) :
-        ptr_(new unsigned __int8[t.len_]),
+        ptr_(new uint8_t[t.len_]),
         len_(t.len_),
         hash_(t.hash_),
         token_(tk)
@@ -379,7 +373,7 @@ mdToken Assembler::MakeTypeRef(mdToken tkResScope, LPCUTF8 pszFullClassName)
         if(*pc)
         {
             // convert name to widechar
-            WszMultiByteToWideChar(g_uCodePage,0,pc,-1,wzUniBuf,dwUniBuf);
+            MultiByteToWideChar(g_uCodePage,0,pc,-1,wzUniBuf,dwUniBuf);
             if(FAILED(m_pEmitter->DefineTypeRefByName(tkResScope, wzUniBuf, &tkRet))) tkRet = mdTokenNil;
         }
     }
@@ -392,9 +386,7 @@ DWORD Assembler::CheckClassFlagsIfNested(Class* pEncloser, DWORD attr)
     DWORD wasAttr = attr;
     if(pEncloser && (!IsTdNested(attr)))
     {
-        if(OnErrGo)
-            report->error("Nested class has non-nested visibility (0x%08X)\n",attr);
-        else
+        if(!OnErrGo)
         {
             attr &= ~tdVisibilityMask;
             attr |= (IsTdPublic(wasAttr) ? tdNestedPublic : tdNestedPrivate);
@@ -403,9 +395,7 @@ DWORD Assembler::CheckClassFlagsIfNested(Class* pEncloser, DWORD attr)
     }
     else if((pEncloser==NULL) && IsTdNested(attr))
     {
-        if(OnErrGo)
-            report->error("Non-nested class has nested visibility (0x%08X)\n",attr);
-        else
+        if(!OnErrGo)
         {
             attr &= ~tdVisibilityMask;
             attr |= (IsTdNestedPublic(wasAttr) ? tdPublic : tdNotPublic);
@@ -523,7 +513,7 @@ void Assembler::AddClass()
         m_pCurClass->m_Attr = attr;
         m_pCurClass->m_crExtends = (m_pCurClass->m_cl == m_tkSysObject)? mdTypeRefNil : crExtends;
 
-        if ((m_pCurClass->m_dwNumInterfaces = m_nImplList) != NULL)
+        if ((m_pCurClass->m_dwNumInterfaces = m_nImplList) != 0)
         {
             if(bIsEnum) report->error("Enum implementing interface(s)\n");
             if((m_pCurClass->m_crImplements = new mdTypeRef[m_nImplList+1]) != NULL)
@@ -539,8 +529,7 @@ void Assembler::AddClass()
         {
             if(!IsTdSealed(attr))
             {
-                if(OnErrGo) report->error("Non-sealed value class\n");
-                else
+                if(!OnErrGo)
                 {
                     report->warn("Non-sealed value class, made sealed\n");
                     m_pCurClass->m_Attr |= tdSealed;
@@ -632,8 +621,7 @@ void Assembler::StartMethod(_In_ __nullterminated char* name, BinStr* sig, CorMe
         *(sig->ptr()) |= IMAGE_CEE_CS_CALLCONV_HASTHIS;
     else if(*(sig->ptr()) & (IMAGE_CEE_CS_CALLCONV_HASTHIS | IMAGE_CEE_CS_CALLCONV_EXPLICITTHIS))
     {
-        if(OnErrGo) report->error("Method '%s' -- both static and instance\n", name);
-        else
+        if(!OnErrGo)
         {
             report->warn("Method '%s' -- both static and instance, set to static\n", name);
             *(sig->ptr()) &= ~(IMAGE_CEE_CS_CALLCONV_HASTHIS | IMAGE_CEE_CS_CALLCONV_EXPLICITTHIS);
@@ -719,8 +707,7 @@ void Assembler::StartMethod(_In_ __nullterminated char* name, BinStr* sig, CorMe
         {
             if(IsMdAbstract(flags))
             {
-                if(OnErrGo) report->error("Global method '%s' can't be abstract\n",name);
-                else
+                if(!OnErrGo)
                 {
                     report->warn("Global method '%s' can't be abstract, flag removed\n",name);
                     flags = (CorMethodAttr)(((int) flags) &~mdAbstract);
@@ -728,8 +715,7 @@ void Assembler::StartMethod(_In_ __nullterminated char* name, BinStr* sig, CorMe
             }
             if(!IsMdStatic(flags))
             {
-                if(OnErrGo) report->error("Non-static global method '%s'\n",name);
-                else
+                if(!OnErrGo)
                 {
                     report->warn("Non-static global method '%s', made static\n",name);
                     flags = (CorMethodAttr)(flags | mdStatic);
@@ -848,8 +834,7 @@ void Assembler::AddField(__inout_z __inout char* name, BinStr* sig, CorFieldAttr
         }
         if(!IsFdStatic(flags))
         {
-            if(OnErrGo) report->error("Non-static global field\n");
-            else
+            if(!OnErrGo)
             {
                 report->warn("Non-static global field, made static\n");
                 flags = (CorFieldAttr)(flags | fdStatic);
@@ -925,7 +910,7 @@ BOOL Assembler::EmitField(FieldDescriptor* pFD)
     cSig = pFD->m_pbsSig->length();
     mySig = (COR_SIGNATURE*)(pFD->m_pbsSig->ptr());
 
-    WszMultiByteToWideChar(g_uCodePage,0,pFD->m_szName,-1,wzFieldName,dwUniBuf); //int)cFieldNameLength);
+    MultiByteToWideChar(g_uCodePage,0,pFD->m_szName,-1,wzFieldName,dwUniBuf); //int)cFieldNameLength);
     if(IsFdPrivateScope(pFD->m_dwAttr))
     {
         WCHAR* p = (WCHAR*)u16_strstr(wzFieldName,W("$PST04"));
@@ -1129,7 +1114,7 @@ void Assembler::AddException(DWORD pcStart, DWORD pcEnd, DWORD pcHandler, DWORD 
     clause->SetHandlerLength(pcHandlerTo - pcHandler);
     clause->SetClassToken(crException);
 
-    int flags = COR_ILEXCEPTION_CLAUSE_OFFSETLEN;
+    int flags = 0;
     if (isFilter) {
         flags |= COR_ILEXCEPTION_CLAUSE_FILTER;
     }
@@ -1284,7 +1269,7 @@ void Assembler::EmitDD(_In_ __nullterminated char *str)
     _ASSERTE(SUCCEEDED(hr));
 
     DWORD* ptr;
-    DWORD sizeofptr = (DWORD)((m_dwCeeFileFlags & ICEE_CREATE_FILE_PE32) ? sizeof(DWORD) : sizeof(__int64));
+    DWORD sizeofptr = (DWORD)((m_dwCeeFileFlags & ICEE_CREATE_FILE_PE32) ? sizeof(DWORD) : sizeof(int64_t));
     hr = m_pCeeFileGen->GetSectionBlock(m_pCurSection, sizeofptr, 1, (void**) &ptr);
     if (FAILED(hr))
     {
@@ -1318,7 +1303,7 @@ void Assembler::EmitDD(_In_ __nullterminated char *str)
     else
     {
         m_dwComImageFlags &= ~COMIMAGE_FLAGS_ILONLY;
-        *((__int64*)ptr) = (__int64)dwAddr;
+        *((int64_t*)ptr) = (int64_t)dwAddr;
     }
 }
 
@@ -1383,7 +1368,7 @@ void Assembler::EmitDataString(BinStr* str)
 
         if(UnicodeString)
         {
-            WszMultiByteToWideChar(g_uCodePage,0,pb,-1,UnicodeString,DataLen);
+            MultiByteToWideChar(g_uCodePage,0,pb,-1,UnicodeString,DataLen);
             EmitData(UnicodeString,DataLen*sizeof(WCHAR));
             if(DataLen >= dwUniBuf) delete [] UnicodeString;
         }
@@ -1420,6 +1405,15 @@ void Assembler::EmitOpcode(Instr* instr)
                 pLPC->PC = m_CurPC;
 
                 pLPC->pOwnerDocument = instr->pOwnerDocument;
+                if(m_pCurMethod->m_FirstDocument == NULL)
+                {
+                    m_pCurMethod->m_FirstDocument = instr->pOwnerDocument;
+                }
+                else if (instr->pOwnerDocument != NULL && m_pCurMethod->m_FirstDocument != instr->pOwnerDocument)
+                {
+                    m_pCurMethod->m_HasMultipleDocuments = TRUE;
+                }
+
                 if (0xfeefee == instr->linenum &&
                     0xfeefee == instr->linenum_end &&
                     0 == instr->column &&
@@ -1654,10 +1648,10 @@ void Assembler::EmitInstrI(Instr* instr, int val)
 }
 
 /**************************************************************************/
-void Assembler::EmitInstrI8(Instr* instr, __int64* val)
+void Assembler::EmitInstrI8(Instr* instr, int64_t* val)
 {
     EmitOpcode(instr);
-    EmitBytes((BYTE *)val, sizeof(__int64));
+    EmitBytes((BYTE *)val, sizeof(int64_t));
     delete val;
 }
 
@@ -1783,7 +1777,7 @@ mdToken Assembler::MakeMemberRef(mdToken cr, _In_ __nullterminated char* pszMemb
     }
     else
     {
-        WszMultiByteToWideChar(g_uCodePage,0,pszMemberName,-1,wzUniBuf,dwUniBuf);
+        MultiByteToWideChar(g_uCodePage,0,pszMemberName,-1,wzUniBuf,dwUniBuf);
 
         if(cr == mdTokenNil) cr = mdTypeRefNil;
         if(TypeFromToken(cr) == mdtAssemblyRef)
@@ -2005,7 +1999,7 @@ void Assembler::SetPropMethod(int MethodCode, mdToken tk)
 void Assembler::EmitInstrStringLiteral(Instr* instr, BinStr* literal, BOOL ConvertToUnicode, BOOL Swap /*=FALSE*/)
 {
     DWORD   DataLen = literal->length(),L;
-    unsigned __int8 *pb = literal->ptr();
+    uint8_t *pb = literal->ptr();
     HRESULT hr = S_OK;
     mdToken tk;
     WCHAR   *UnicodeString;
@@ -2020,7 +2014,7 @@ void Assembler::EmitInstrStringLiteral(Instr* instr, BinStr* literal, BOOL Conve
         literal->appendInt8(0);
         pb = literal->ptr();
         // convert string to Unicode
-        L = UnicodeString ? WszMultiByteToWideChar(g_uCodePage,0,(char*)pb,-1,UnicodeString,DataLen+1) : 0;
+        L = UnicodeString ? MultiByteToWideChar(g_uCodePage,0,(char*)pb,-1,UnicodeString,DataLen+1) : 0;
         if(L == 0)
         {
             const char* sz=NULL;
@@ -2418,20 +2412,17 @@ void Assembler::SetPdbFileName(_In_ __nullterminated char* szName)
         if (*szName)
         {
             strcpy_s(m_szPdbFileName, MAX_FILENAME_LENGTH * 3 + 1, szName);
-            WszMultiByteToWideChar(g_uCodePage, 0, szName, -1, m_wzPdbFileName, MAX_FILENAME_LENGTH);
+            MultiByteToWideChar(g_uCodePage, 0, szName, -1, m_wzPdbFileName, MAX_FILENAME_LENGTH);
         }
     }
 }
 HRESULT Assembler::SavePdbFile()
 {
     HRESULT hr = S_OK;
-    mdMethodDef entryPoint;
 
     if (FAILED(hr = (m_pPortablePdbWriter == NULL ? E_FAIL : S_OK))) goto exit;
     if (FAILED(hr = (m_pPortablePdbWriter->GetEmitter() == NULL ? E_FAIL : S_OK))) goto exit;
-    if (FAILED(hr = m_pCeeFileGen->GetEntryPoint(m_pCeeFile, &entryPoint))) goto exit;
-    if (FAILED(hr = m_pPortablePdbWriter->BuildPdbStream(m_pEmitter, entryPoint))) goto exit;
-    if (FAILED(hr = m_pPortablePdbWriter->GetEmitter()->Save(m_wzPdbFileName, NULL))) goto exit;
+    if (FAILED(hr = m_pPortablePdbWriter->GetEmitter()->Save(m_wzPdbFileName, 0))) goto exit;
 
 exit:
     return hr;
@@ -2538,6 +2529,22 @@ void Assembler::CheckAddGenericParamConstraint(GenericParamConstraintList* pGPCL
             {
                 match = true;
                 break;
+            }
+            else if (isParamDirective && TypeFromToken(curTypeConstraint) == mdtTypeSpec && TypeFromToken(tkTypeConstraint) == mdtTypeSpec)
+            {
+                // When isParamDirective is true, typespecs created without the cache due to TyParFixups
+                // may not be unique, so we need to compare the signature bytes as well
+                PCCOR_SIGNATURE pSig1, pSig2;
+                ULONG cSig1, cSig2;
+                if (SUCCEEDED(m_pImporter->GetTypeSpecFromToken(curTypeConstraint, &pSig1, &cSig1)) &&
+                    SUCCEEDED(m_pImporter->GetTypeSpecFromToken(tkTypeConstraint, &pSig2, &cSig2)))
+                {
+                    if (cSig1 == cSig2 && memcmp(pSig1, pSig2, cSig1) == 0)
+                    {
+                        match = true;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -2740,6 +2747,12 @@ void Assembler::EmitGenericParamConstraints(int numTyPars, TyParDescr* pTyPars, 
         EmitCustomAttributes(tkOwnerOfCA, pGPC->CAList());
     }
 
+    for (paramIndex = 0; paramIndex < numTyPars; paramIndex++)
+    {
+        delete[] pConstraintsArr[paramIndex];
+        delete[] pGPConstraintsArr[paramIndex];
+    }
+    
     delete[] nConstraintsArr;
     delete[] nConstraintIndexArr;
     delete[] pConstraintsArr;

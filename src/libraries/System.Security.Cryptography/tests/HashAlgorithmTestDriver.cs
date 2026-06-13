@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.DotNet.RemoteExecutor;
+using Microsoft.DotNet.XUnitExtensions;
 using Test.Cryptography;
 using Xunit;
 
@@ -14,7 +16,20 @@ namespace System.Security.Cryptography.Tests
     {
         public static bool IsSupported => THashTrait.IsSupported;
         public static bool IsNotSupported => !IsSupported;
-        protected abstract HashAlgorithm Create();
+
+        private static void CheckIsSupported()
+        {
+            if (!IsSupported)
+                throw new SkipTestException(nameof(IsSupported));
+        }
+
+        private static void CheckIsNotSupported()
+        {
+            if (!IsNotSupported)
+                throw new SkipTestException(nameof(IsNotSupported));
+        }
+
+        protected HashAlgorithm Create() => THashTrait.Create();
         protected abstract bool TryHashData(ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten);
         protected abstract byte[] HashData(byte[] source);
         protected abstract byte[] HashData(ReadOnlySpan<byte> source);
@@ -64,7 +79,7 @@ namespace System.Security.Cryptography.Tests
             Span<byte> buffer = stackalloc byte[512 / 8];
 
             int written = HashData(input, buffer);
-            AssertExtensions.SequenceEqual(expected, buffer.Slice(0, written));
+            AssertExtensions.SequenceEqual(expected.AsSpan(), buffer.Slice(0, written));
         }
 
         private async Task VerifyOneShotStreamAsync(Stream input, string output)
@@ -73,7 +88,7 @@ namespace System.Security.Cryptography.Tests
             Memory<byte> buffer = new byte[512 / 8];
 
             int written = await HashDataAsync(input, buffer, cancellationToken: default);
-            AssertExtensions.SequenceEqual(expected, buffer.Slice(0, written).Span);
+            AssertExtensions.SequenceEqual(expected.AsSpan(), buffer.Slice(0, written).Span);
         }
 
         private void VerifyOneShotAllocatingStream(Stream input, string output)
@@ -98,7 +113,7 @@ namespace System.Security.Cryptography.Tests
             Span<byte> buffer = stackalloc byte[512 / 8];
 
             int written = CryptographicOperations.HashData(HashAlgorithm, input, buffer);
-            AssertExtensions.SequenceEqual(expected, buffer.Slice(0, written));
+            AssertExtensions.SequenceEqual(expected.AsSpan(), buffer.Slice(0, written));
         }
 
         private async Task VerifyOneShotStreamAsync_CryptographicOperations(Stream input, string output)
@@ -112,7 +127,7 @@ namespace System.Security.Cryptography.Tests
                 buffer,
                 cancellationToken: default);
 
-            AssertExtensions.SequenceEqual(expected, buffer.Slice(0, written).Span);
+            AssertExtensions.SequenceEqual(expected.AsSpan(), buffer.Slice(0, written).Span);
         }
 
         private void VerifyOneShotAllocatingStream_CryptographicOperations(Stream input, string output)
@@ -233,35 +248,40 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_ByteArray_Null()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>("source", () => HashData((byte[])null));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void CryptographicOperations_HashData_ByteArray_Null()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>("source",
                 () => CryptographicOperations.HashData(HashAlgorithm, (byte[])null));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_BufferTooSmall()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentException>("destination", () => HashData(Span<byte>.Empty, default));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void CryptographicOperations_HashData_BufferTooSmall()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentException>("destination",
                 () => CryptographicOperations.HashData(HashAlgorithm, Span<byte>.Empty, default));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void VerifyObjectDisposedException()
         {
+            CheckIsSupported();
             HashAlgorithm hash = Create();
             hash.Dispose();
             Assert.Throws<ObjectDisposedException>(() => hash.Hash);
@@ -272,9 +292,10 @@ namespace System.Security.Cryptography.Tests
             Assert.Throws<ObjectDisposedException>(() => hash.TransformFinalBlock(Array.Empty<byte>(), 0, 0));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void VerifyHashNotYetFinalized()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 hash.TransformBlock(Array.Empty<byte>(), 0, 0, null, 0);
@@ -282,9 +303,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_ComputeHash()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentNullException>("buffer", () => hash.ComputeHash((byte[])null));
@@ -292,9 +314,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_TransformBlock()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentNullException>("inputBuffer", () => hash.TransformBlock(null, 0, 0, null, 0));
@@ -304,9 +327,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_TransformFinalBlock()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentNullException>("inputBuffer", () => hash.TransformFinalBlock(null, 0, 0));
@@ -545,9 +569,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsNotSupported))]
+        [ConditionalFact]
         public async Task HashData_NotSupported()
         {
+            CheckIsNotSupported();
             byte[] buffer = new byte[THashTrait.HashSizeInBytes];
             Assert.Throws<PlatformNotSupportedException>(() => HashData(Array.Empty<byte>()));
             Assert.Throws<PlatformNotSupportedException>(() => HashData(ReadOnlySpan<byte>.Empty));
@@ -562,9 +587,10 @@ namespace System.Security.Cryptography.Tests
                 await HashDataAsync(Stream.Null, buffer, default(CancellationToken)));
         }
 
-        [ConditionalFact(nameof(IsNotSupported))]
+        [ConditionalFact]
         public async Task CryptographicOperations_HashData_NotSupported()
         {
+            CheckIsNotSupported();
             byte[] buffer = new byte[THashTrait.HashSizeInBytes];
             Assert.Throws<PlatformNotSupportedException>(
                 () => CryptographicOperations.HashData(HashAlgorithm, Array.Empty<byte>()));
@@ -585,44 +611,50 @@ namespace System.Security.Cryptography.Tests
                 await CryptographicOperations.HashDataAsync(HashAlgorithm, Stream.Null, buffer, default(CancellationToken)));
         }
 
-        [ConditionalFact(nameof(IsNotSupported))]
+        [ConditionalFact]
         public void Create_NotSupported()
         {
+            CheckIsNotSupported();
             Assert.Throws<PlatformNotSupportedException>(() => Create());
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_Null_Stream_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>("source", () => HashData((Stream)null));
             AssertExtensions.Throws<ArgumentNullException>("source", () => HashData((Stream)null, Span<byte>.Empty));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_ShortDestination_Stream_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentException>("destination", () => HashData(Stream.Null, Span<byte>.Empty));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_Null_Stream_CryptographicOperations_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>("source",
                 () => CryptographicOperations.HashData(HashAlgorithm, (Stream)null));
             AssertExtensions.Throws<ArgumentNullException>("source",
                 () => CryptographicOperations.HashData(HashAlgorithm, (Stream)null, Span<byte>.Empty));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashData_ShortDestination_Stream_CryptographicOperations_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentException>("destination",
                 () => CryptographicOperations.HashData(HashAlgorithm, Stream.Null, Span<byte>.Empty));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_Null_Stream_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>(
                 "source",
                 () => HashDataAsync((Stream)null, cancellationToken: default));
@@ -632,9 +664,10 @@ namespace System.Security.Cryptography.Tests
                 () => HashDataAsync((Stream)null, Memory<byte>.Empty, cancellationToken: default));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_Null_Stream_CryptographicOperations_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentNullException>(
                 "source",
                 () => CryptographicOperations.HashDataAsync(HashAlgorithm, (Stream)null, cancellationToken: default));
@@ -644,17 +677,19 @@ namespace System.Security.Cryptography.Tests
                 () => CryptographicOperations.HashDataAsync(HashAlgorithm, (Stream)null, Memory<byte>.Empty, cancellationToken: default));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_ShortDestination_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentException>(
                 "destination",
                 () => HashDataAsync(Stream.Null, Memory<byte>.Empty, cancellationToken: default));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_Buffer_CancelledToken()
         {
+            CheckIsSupported();
             Memory<byte> buffer = new byte[512 / 8];
             CancellationToken cancelledToken = new CancellationToken(canceled: true);
             ValueTask<int> waitable = HashDataAsync(Stream.Null, buffer, cancelledToken);
@@ -662,25 +697,28 @@ namespace System.Security.Cryptography.Tests
             AssertExtensions.FilledWith<byte>(0, buffer.Span);
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_Allocating_CancelledToken()
         {
+            CheckIsSupported();
             CancellationToken cancelledToken = new CancellationToken(canceled: true);
             ValueTask<byte[]> waitable = HashDataAsync(Stream.Null, cancelledToken);
             Assert.True(waitable.IsCanceled, nameof(waitable.IsCanceled));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_ShortDestination_CryptographicOperations_Throws()
         {
+            CheckIsSupported();
             AssertExtensions.Throws<ArgumentException>(
                 "destination",
                 () => CryptographicOperations.HashDataAsync(HashAlgorithm, Stream.Null, Memory<byte>.Empty, cancellationToken: default));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_Buffer_CryptographicOperations_CancelledToken()
         {
+            CheckIsSupported();
             Memory<byte> buffer = new byte[512 / 8];
             CancellationToken cancelledToken = new CancellationToken(canceled: true);
             ValueTask<int> waitable = CryptographicOperations.HashDataAsync(HashAlgorithm, Stream.Null, buffer, cancelledToken);
@@ -688,17 +726,19 @@ namespace System.Security.Cryptography.Tests
             AssertExtensions.FilledWith<byte>(0, buffer.Span);
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void HashDataAsync_Allocating_CryptographicOperations_CancelledToken()
         {
+            CheckIsSupported();
             CancellationToken cancelledToken = new CancellationToken(canceled: true);
             ValueTask<byte[]> waitable = CryptographicOperations.HashDataAsync(HashAlgorithm, Stream.Null, cancelledToken);
             Assert.True(waitable.IsCanceled, nameof(waitable.IsCanceled));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_Null()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentNullException>("buffer", () => hash.ComputeHash((byte[])null));
@@ -707,36 +747,40 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_NegativeOffset()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentOutOfRangeException>("offset", () => hash.ComputeHash(Array.Empty<byte>(), -1, 0));
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_NegativeCount()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentException>(null, () => hash.ComputeHash(Array.Empty<byte>(), 0, -1));
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_TooBigOffset()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 AssertExtensions.Throws<ArgumentException>(null, () => hash.ComputeHash(Array.Empty<byte>(), 1, 0));
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void InvalidInput_TooBigCount()
         {
+            CheckIsSupported();
             byte[] nonEmpty = new byte[53];
 
             using (HashAlgorithm hash = Create())
@@ -748,9 +792,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void BoundaryCondition_Count0()
         {
+            CheckIsSupported();
             byte[] nonEmpty = new byte[53];
 
             using (HashAlgorithm hash = Create())
@@ -774,9 +819,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void OffsetAndCountRespected()
         {
+            CheckIsSupported();
             byte[] dataA = { 1, 1, 2, 3, 5, 8 };
             byte[] dataB = { 0, 1, 1, 2, 3, 5, 8, 13 };
 
@@ -791,9 +837,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void ComputeHash_TryComputeHash_HashSetExplicitlyByBoth()
         {
+            CheckIsSupported();
             using (HashAlgorithm hash = Create())
             {
                 byte[] input = Enumerable.Range(0, 100).Select(i => (byte)i).ToArray();
@@ -810,18 +857,20 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void Dispose_TryComputeHash_ThrowsException()
         {
+            CheckIsSupported();
             HashAlgorithm hash = Create();
             hash.Dispose();
             Assert.Throws<ObjectDisposedException>(() => hash.ComputeHash(new byte[1]));
             Assert.Throws<ObjectDisposedException>(() => hash.TryComputeHash(new byte[1], new byte[1], out int bytesWritten));
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void Initialize_TransformBlock()
         {
+            CheckIsSupported();
             byte[] hashInput = new byte[] { 1, 2, 3, 4, 5 };
             byte[] expectedDigest;
 
@@ -841,9 +890,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void Initialize_TransformBlock_Unused()
         {
+            CheckIsSupported();
             byte[] hashInput = new byte[] { 1, 2, 3, 4, 5 };
             byte[] expectedDigest;
 
@@ -862,9 +912,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void Initialize_DoubleInitialize_Works()
         {
+            CheckIsSupported();
             byte[] hashInput = new byte[] { 1, 2, 3, 4, 5 };
             byte[] expectedDigest;
 
@@ -886,9 +937,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void CryptographicOperations_HashData_ArgValidation_HashAlgorithm()
         {
+            CheckIsSupported();
             CheckArguments<ArgumentNullException>(new HashAlgorithmName(null));
             CheckArguments<ArgumentException>(new HashAlgorithmName(""));
 
@@ -916,9 +968,10 @@ namespace System.Security.Cryptography.Tests
             }
         }
 
-        [ConditionalFact(nameof(IsSupported))]
+        [ConditionalFact]
         public void CryptographicOperations_HashData_ArgValidation_UnreadableStream()
         {
+            CheckIsSupported();
             Assert.Throws<ArgumentException>("source", () =>
                 CryptographicOperations.HashData(HashAlgorithm, UntouchableStream.Instance));
             Assert.Throws<ArgumentException>("source", () =>
@@ -930,11 +983,235 @@ namespace System.Security.Cryptography.Tests
             Assert.Throws<ArgumentException>("source", () =>
                 CryptographicOperations.HashDataAsync(HashAlgorithm, UntouchableStream.Instance, Memory<byte>.Empty));
         }
+
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public void HashAlgorithm_ComputeHash_ConcurrentUseDoesNotCrashProcess()
+        {
+            if (!IsSupported)
+            {
+                throw new SkipTestException("Algorithm is not supported on this platform.");
+            }
+
+            static void Update(object obj)
+            {
+                byte[] data = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+                for (int i = 0; i < 10_000; i++)
+                {
+                    try
+                    {
+                        ((HashAlgorithm)obj).ComputeHash(data);
+                    }
+                    catch
+                    {
+                        // Ignore all managed exceptions. HashAlgorithm is not thread safe, but we don't want process
+                        // crashes.
+                    }
+                }
+            }
+
+            RemoteExecutor.Invoke(static () =>
+            {
+                using (HashAlgorithm hash = THashTrait.Create())
+                {
+                    Thread thread1 = new(Update);
+                    Thread thread2 = new(Update);
+                    thread1.Start(hash);
+                    thread2.Start(hash);
+                    thread1.Join();
+                    thread2.Join();
+                }
+
+                return RemoteExecutor.SuccessExitCode;
+            }).Dispose();
+        }
+
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public void HashAlgorithm_TransformBlock_ConcurrentUseDoesNotCrashProcess()
+        {
+            if (!IsSupported)
+            {
+                throw new SkipTestException("Algorithm is not supported on this platform.");
+            }
+
+            static void Update(object obj)
+            {
+                byte[] data = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+                for (int i = 0; i < 10_000; i++)
+                {
+                    try
+                    {
+                        ((HashAlgorithm)obj).TransformBlock(data, 0, data.Length, null, 0);
+                    }
+                    catch
+                    {
+                        // Ignore all managed exceptions. HashAlgorithm is not thread safe, but we don't want process
+                        // crashes.
+                    }
+                }
+            }
+
+            RemoteExecutor.Invoke(static () =>
+            {
+                using (HashAlgorithm hash = THashTrait.Create())
+                {
+                    Thread thread1 = new(Update);
+                    Thread thread2 = new(Update);
+                    thread1.Start(hash);
+                    thread2.Start(hash);
+                    thread1.Join();
+                    thread2.Join();
+                }
+
+                return RemoteExecutor.SuccessExitCode;
+            }).Dispose();
+        }
+
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public void HashAlgorithm_TransformFinalBlock_ConcurrentUseDoesNotCrashProcess()
+        {
+            if (!IsSupported)
+            {
+                throw new SkipTestException("Algorithm is not supported on this platform.");
+            }
+
+            static void Update(object obj)
+            {
+                byte[] data = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+                for (int i = 0; i < 10_000; i++)
+                {
+                    try
+                    {
+                        ((HashAlgorithm)obj).TransformFinalBlock(data, 0, data.Length);
+                    }
+                    catch
+                    {
+                        // Ignore all managed exceptions. HashAlgorithm is not thread safe, but we don't want process
+                        // crashes.
+                    }
+                }
+            }
+
+            RemoteExecutor.Invoke(static () =>
+            {
+                using (HashAlgorithm hash = THashTrait.Create())
+                {
+                    Thread thread1 = new(Update);
+                    Thread thread2 = new(Update);
+                    thread1.Start(hash);
+                    thread2.Start(hash);
+                    thread1.Join();
+                    thread2.Join();
+                }
+
+                return RemoteExecutor.SuccessExitCode;
+            }).Dispose();
+        }
+
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public void HashAlgorithm_TransformBlockAndInitialize_ConcurrentUseDoesNotCrashProcess()
+        {
+            if (!IsSupported)
+            {
+                throw new SkipTestException("Algorithm is not supported on this platform.");
+            }
+
+            static void Update(object obj)
+            {
+                byte[] data = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+                for (int i = 0; i < 10_000; i++)
+                {
+                    try
+                    {
+                        HashAlgorithm hash = ((HashAlgorithm)obj);
+                        hash.TransformBlock(data, 0, data.Length, null, 0);
+                        hash.Initialize();
+                    }
+                    catch
+                    {
+                        // Ignore all managed exceptions. HashAlgorithm is not thread safe, but we don't want process
+                        // crashes.
+                    }
+                }
+            }
+
+            RemoteExecutor.Invoke(static () =>
+            {
+                using (HashAlgorithm hash = THashTrait.Create())
+                {
+                    Thread thread1 = new(Update);
+                    Thread thread2 = new(Update);
+                    thread1.Start(hash);
+                    thread2.Start(hash);
+                    thread1.Join();
+                    thread2.Join();
+                }
+
+                return RemoteExecutor.SuccessExitCode;
+            }).Dispose();
+        }
+
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public void HashAlgorithm_TransformBlockAndDispose_ConcurrentUseDoesNotCrashProcess()
+        {
+            if (!IsSupported)
+            {
+                throw new SkipTestException("Algorithm is not supported on this platform.");
+            }
+
+            static void Update(object obj)
+            {
+                byte[] data = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+                for (int i = 0; i < 10_000; i++)
+                {
+                    try
+                    {
+                        HashAlgorithm hash = ((HashAlgorithm)obj);
+                        hash.TransformBlock(data, 0, data.Length, null, 0);
+                    }
+                    catch
+                    {
+                        // Ignore all managed exceptions. HashAlgorithm is not thread safe, but we don't want process
+                        // crashes.
+                    }
+                }
+            }
+
+            RemoteExecutor.Invoke(static () =>
+            {
+                using (HashAlgorithm hash = THashTrait.Create())
+                {
+                    Thread thread1 = new(Update);
+                    Thread thread2 = new(obj =>
+                    {
+                        Thread.Sleep(10);
+                        try
+                        {
+                            ((HashAlgorithm)obj).Dispose();
+                        }
+                        catch
+                        {
+                        }
+                    });
+                    thread1.Start(hash);
+                    thread2.Start(hash);
+                    thread1.Join();
+                    thread2.Join();
+                }
+
+                return RemoteExecutor.SuccessExitCode;
+            }).Dispose();
+        }
     }
 
     public interface IHashTrait
     {
         static abstract bool IsSupported { get; }
         static abstract int HashSizeInBytes { get; }
+        static abstract HashAlgorithm Create();
     }
 }

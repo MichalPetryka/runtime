@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Security;
 using System.Threading;
 
@@ -15,7 +16,7 @@ namespace System.Runtime.Loader
 {
     public partial class AssemblyLoadContext
     {
-        // Keep in sync with MonoManagedAssemblyLoadContextInternalState in object-internals.h
+        // Keep in sync with MonoAssemblyLoadContextInternalState in object-internals.h
         private enum InternalState
         {
             /// <summary>
@@ -30,7 +31,7 @@ namespace System.Runtime.Loader
             Unloading
         }
 
-        private static volatile Dictionary<long, WeakReference<AssemblyLoadContext>>? s_allContexts;
+        private static Dictionary<long, WeakReference<AssemblyLoadContext>>? s_allContexts;
         private static long s_nextId;
 
         [MemberNotNull(nameof(s_allContexts))]
@@ -42,7 +43,7 @@ namespace System.Runtime.Loader
 #region private data members
         // If you modify this field, you must also update the
         // AssemblyLoadContextBaseObject structure in object.h
-        // and MonoManagedAssemblyLoadContext in object-internals.h
+        // and MonoAssemblyLoadContext in object-internals.h
 
         // Contains the reference to VM's representation of the AssemblyLoadContext
         private readonly IntPtr _nativeAssemblyLoadContext;
@@ -385,7 +386,7 @@ namespace System.Runtime.Loader
             ReadOnlySpan<byte> spanAssembly = ReadAllBytes(assembly);
             if (spanAssembly.IsEmpty)
             {
-                throw new BadImageFormatException(SR.BadImageFormat_BadILFormat);
+                throw new BadImageFormatException(SR.BadImageFormat_EmptyAssembly);
             }
 
             // Read the symbol stream if provided
@@ -530,7 +531,7 @@ namespace System.Runtime.Loader
             {
                 Interlocked.CompareExchange<AsyncLocal<AssemblyLoadContext?>?>(ref s_asyncLocalCurrent, new AsyncLocal<AssemblyLoadContext?>(), null);
             }
-            s_asyncLocalCurrent!.Value = value; // Remove ! when compiler specially-recognizes CompareExchange for nullability
+            s_asyncLocalCurrent.Value = value;
         }
 
         /// <summary>Enter scope using this AssemblyLoadContext for ContextualReflection</summary>
@@ -562,13 +563,8 @@ namespace System.Runtime.Loader
             if (activating == null)
                 return new ContextualReflectionScope(null);
 
-            AssemblyLoadContext? assemblyLoadContext = GetLoadContext(activating);
-
-            if (assemblyLoadContext == null)
-            {
-                // All RuntimeAssemblies & Only RuntimeAssemblies have an AssemblyLoadContext
+            AssemblyLoadContext assemblyLoadContext = GetLoadContext(activating) ??
                 throw new ArgumentException(SR.Arg_MustBeRuntimeAssembly, nameof(activating));
-            }
 
             return assemblyLoadContext.EnterContextualReflection();
         }
@@ -609,9 +605,9 @@ namespace System.Runtime.Loader
 #if !NATIVEAOT
         // This method is invoked by the VM when using the host-provided assembly load context
         // implementation.
-        private static Assembly? Resolve(IntPtr gchManagedAssemblyLoadContext, AssemblyName assemblyName)
+        private static RuntimeAssembly? Resolve(IntPtr gchAssemblyLoadContext, AssemblyName assemblyName)
         {
-            AssemblyLoadContext context = (AssemblyLoadContext)(GCHandle.FromIntPtr(gchManagedAssemblyLoadContext).Target)!;
+            AssemblyLoadContext context = (AssemblyLoadContext)(GCHandle.FromIntPtr(gchAssemblyLoadContext).Target)!;
 
             return context.ResolveUsingLoad(assemblyName);
         }
@@ -629,7 +625,7 @@ namespace System.Runtime.Loader
                 {
                     TraceResolvingHandlerInvoked(
                         assemblyName.FullName,
-                        handler.Method.Name,
+                        handler.Method.DeclaringType is Type declaringType ? $"{declaringType.FullName}.{handler.Method.Name}" : handler.Method.Name,
                         this != Default ? ToString() : Name,
                         resolvedAssembly?.FullName,
                         resolvedAssembly != null && !resolvedAssembly.IsDynamic ? resolvedAssembly.Location : null);
@@ -644,77 +640,61 @@ namespace System.Runtime.Loader
             return null;
         }
 
-        private static Assembly ValidateAssemblyNameWithSimpleName(Assembly assembly, string? requestedSimpleName)
+        private static RuntimeAssembly ValidateAssemblyNameWithSimpleName(Assembly assembly, string? requestedSimpleName)
         {
             ArgumentException.ThrowIfNullOrEmpty(requestedSimpleName, "AssemblyName.Name");
-
-            // Get the name of the loaded assembly
-            string? loadedSimpleName = null;
 
             // Derived type's Load implementation is expected to use one of the LoadFrom* methods to get the assembly
             // which is a RuntimeAssembly instance. However, since Assembly type can be used build any other artifact (e.g. AssemblyBuilder),
             // we need to check for RuntimeAssembly.
-            RuntimeAssembly? rtLoadedAssembly = GetRuntimeAssembly(assembly);
-            if (rtLoadedAssembly != null)
+            RuntimeAssembly? runtimeAssembly = GetRuntimeAssembly(assembly);
+            if (runtimeAssembly == null)
             {
-                loadedSimpleName = rtLoadedAssembly.GetSimpleName();
+                throw new InvalidOperationException(SR.InvalidOperation_ResolvedAssemblyMustBeRuntimeAssembly);
             }
 
-            // The simple names should match at the very least
-            if (string.IsNullOrEmpty(loadedSimpleName) || !requestedSimpleName.Equals(loadedSimpleName, StringComparison.InvariantCultureIgnoreCase))
+            if (!requestedSimpleName.Equals(runtimeAssembly.GetSimpleName(), StringComparison.InvariantCultureIgnoreCase))
             {
-                throw new InvalidOperationException(SR.Argument_CustomAssemblyLoadContextRequestedNameMismatch);
+                throw new InvalidOperationException(SR.InvalidOperation_ResolvedAssemblyRequestedNameMismatch);
             }
 
-            return assembly;
+            return runtimeAssembly;
         }
 
-        private Assembly? ResolveUsingLoad(AssemblyName assemblyName)
+        private RuntimeAssembly? ResolveUsingLoad(AssemblyName assemblyName)
         {
             string? simpleName = assemblyName.Name;
+
             Assembly? assembly = Load(assemblyName);
 
-            if (assembly != null)
-            {
-                assembly = ValidateAssemblyNameWithSimpleName(assembly, simpleName);
-            }
-
-            return assembly;
+            return (assembly != null) ? ValidateAssemblyNameWithSimpleName(assembly, simpleName) : null;
         }
 
-        private Assembly? ResolveUsingEvent(AssemblyName assemblyName)
+        private RuntimeAssembly? ResolveUsingEvent(AssemblyName assemblyName)
         {
             string? simpleName = assemblyName.Name;
 
             // Invoke the Resolving event callbacks if wired up
             Assembly? assembly = GetFirstResolvedAssemblyFromResolvingEvent(assemblyName);
-            if (assembly != null)
-            {
-                assembly = ValidateAssemblyNameWithSimpleName(assembly, simpleName);
-            }
 
-            return assembly;
+            return (assembly != null) ? ValidateAssemblyNameWithSimpleName(assembly, simpleName) : null;
         }
 
-        // This method is called by the VM.
         private static void OnAssemblyLoad(RuntimeAssembly assembly)
         {
             AssemblyLoad?.Invoke(AppDomain.CurrentDomain, new AssemblyLoadEventArgs(assembly));
         }
 
-        // This method is called by the VM.
-        internal static RuntimeAssembly? OnResourceResolve(RuntimeAssembly assembly, string resourceName)
+        internal static RuntimeAssembly? OnResourceResolve(RuntimeAssembly? assembly, string resourceName)
         {
             return InvokeResolveEvent(ResourceResolve, assembly, resourceName);
         }
 
-        // This method is called by the VM
         internal static RuntimeAssembly? OnTypeResolve(RuntimeAssembly? assembly, string typeName)
         {
             return InvokeResolveEvent(TypeResolve, assembly, typeName);
         }
 
-        // This method is called by the VM.
         private static RuntimeAssembly? OnAssemblyResolve(RuntimeAssembly? assembly, string assemblyFullName)
         {
             return InvokeResolveEvent(AssemblyResolve, assembly, assemblyFullName);
@@ -742,7 +722,7 @@ namespace System.Runtime.Loader
                 {
                     TraceAssemblyResolveHandlerInvoked(
                         name,
-                        handler.Method.Name,
+                        handler.Method.DeclaringType is Type declaringType ? $"{declaringType.FullName}.{handler.Method.Name}" : handler.Method.Name,
                         asm?.FullName,
                         asm != null && !asm.IsDynamic ? asm.Location : null);
                 }
@@ -754,13 +734,114 @@ namespace System.Runtime.Loader
 
             return null;
         }
+
+#if CORECLR
+        // UnmanagedCallersOnly wrappers for VM callbacks
+        // These methods provide efficient reverse P/Invoke entry points for the VM.
+
+        [UnmanagedCallersOnly]
+        private static unsafe void OnAssemblyLoad(RuntimeAssembly* pAssembly, Exception* pException)
+        {
+            try
+            {
+                OnAssemblyLoad(*pAssembly);
+            }
+            catch (Exception)
+            {
+                // The VM does not expect exceptions to propagate out of this callback
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        private static unsafe void OnTypeResolve(RuntimeAssembly* pAssembly, byte* typeName, RuntimeAssembly* ppResult, Exception* pException)
+        {
+            try
+            {
+                string name = Utf8StringMarshaller.ConvertToManaged(typeName)!;
+                *ppResult = OnTypeResolve(*pAssembly, name);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        private static unsafe void OnResourceResolve(RuntimeAssembly* pAssembly, byte* resourceName, RuntimeAssembly* ppResult, Exception* pException)
+        {
+            try
+            {
+                string name = Utf8StringMarshaller.ConvertToManaged(resourceName)!;
+                *ppResult = OnResourceResolve(*pAssembly, name);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        private static unsafe void OnAssemblyResolve(RuntimeAssembly* pAssembly, char* assemblyFullName, RuntimeAssembly* ppResult, Exception* pException)
+        {
+            try
+            {
+                *ppResult = OnAssemblyResolve(*pAssembly, new string(assemblyFullName));
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        private static unsafe void Resolve(IntPtr gchAssemblyLoadContext, AssemblyName* pAssemblyName, Assembly* ppResult, Exception* pException)
+        {
+            try
+            {
+                AssemblyLoadContext context = GCHandle<AssemblyLoadContext>.FromIntPtr(gchAssemblyLoadContext).Target;
+                *ppResult = context.ResolveUsingLoad(*pAssemblyName);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        private static unsafe void ResolveSatelliteAssembly(IntPtr gchAssemblyLoadContext, AssemblyName* pAssemblyName, Assembly* ppResult, Exception* pException)
+        {
+            try
+            {
+                AssemblyLoadContext context = GCHandle<AssemblyLoadContext>.FromIntPtr(gchAssemblyLoadContext).Target;
+                *ppResult = context.ResolveSatelliteAssembly(*pAssemblyName);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        private static unsafe void ResolveUsingEvent(IntPtr gchAssemblyLoadContext, AssemblyName* pAssemblyName, Assembly* ppResult, Exception* pException)
+        {
+            try
+            {
+                AssemblyLoadContext context = GCHandle<AssemblyLoadContext>.FromIntPtr(gchAssemblyLoadContext).Target;
+                *ppResult = context.ResolveUsingEvent(*pAssemblyName);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+#endif // CORECLR
 #endif // !NATIVEAOT
 
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
             Justification = "Satellite assemblies have no code in them and loading is not a problem")]
         [UnconditionalSuppressMessage("SingleFile", "IL3000: Avoid accessing Assembly file path when publishing as a single file",
             Justification = "This call is fine because native call runs before this and checks BindSatelliteResourceFromBundle")]
-        private Assembly? ResolveSatelliteAssembly(AssemblyName assemblyName)
+        private RuntimeAssembly? ResolveSatelliteAssembly(AssemblyName assemblyName)
         {
             // Called by native runtime when CultureName is not empty
             Debug.Assert(assemblyName.CultureName?.Length > 0);
@@ -772,16 +853,34 @@ namespace System.Runtime.Loader
 
             string parentAssemblyName = assemblyName.Name.Substring(0, assemblyName.Name.Length - SatelliteSuffix.Length);
 
-            Assembly parentAssembly = LoadFromAssemblyName(new AssemblyName(parentAssemblyName));
+            RuntimeAssembly parentAssembly = (RuntimeAssembly)LoadFromAssemblyName(new AssemblyName(parentAssemblyName));
 
             AssemblyLoadContext parentALC = GetLoadContext(parentAssembly)!;
 
             string? parentDirectory = Path.GetDirectoryName(parentAssembly.Location);
+
+#if TARGET_BROWSER
+            // On Browser/WASM, assemblies loaded via external_assembly_probe have empty Location
+            // (PEAssembly::GetPath returns empty for IsExternalData). Satellite assemblies are
+            // registered in JS loadedAssemblies with virtual paths like "/{culture}/{name}.dll".
+            // Construct the path matching the JS loader's normalizeVirtualPath format.
+            string assemblyPath = string.IsNullOrEmpty(parentDirectory)
+                ? $"/{assemblyName.CultureName}/{assemblyName.Name}.dll"
+                : Path.Combine(parentDirectory, assemblyName.CultureName!, $"{assemblyName.Name}.dll");
+
+            try
+            {
+                return (RuntimeAssembly?)parentALC.LoadFromAssemblyPath(assemblyPath);
+            }
+            catch (FileNotFoundException)
+            {
+                return null;
+            }
+#else
             if (parentDirectory == null)
                 return null;
 
             string assemblyPath = Path.Combine(parentDirectory, assemblyName.CultureName!, $"{assemblyName.Name}.dll");
-
             bool exists = FileSystem.FileExists(assemblyPath);
             if (!exists && PathInternal.IsCaseSensitive)
             {
@@ -795,7 +894,7 @@ namespace System.Runtime.Loader
                 exists = FileSystem.FileExists(assemblyPath);
             }
 
-            Assembly? asm = exists ? parentALC.LoadFromAssemblyPath(assemblyPath) : null;
+            RuntimeAssembly? asm = exists ? (RuntimeAssembly?)parentALC.LoadFromAssemblyPath(assemblyPath) : null;
 #if CORECLR
             if (IsTracingEnabled())
             {
@@ -804,6 +903,7 @@ namespace System.Runtime.Loader
 #endif // CORECLR
 
             return asm;
+#endif // TARGET_BROWSER
         }
 
         internal IntPtr GetResolvedUnmanagedDll(Assembly assembly, string unmanagedDllName)

@@ -25,7 +25,7 @@ namespace Microsoft.WebAssembly.Diagnostics
         internal string CachePathSymbolServer { get; private set; }
         private readonly HashSet<SessionId> sessions = new HashSet<SessionId>();
         private static readonly string[] s_executionContextIndependentCDPCommandNames = { "DotnetDebugger.setDebuggerProperty", "DotnetDebugger.runTests" };
-        internal ConcurrentExecutionContextDictionary Contexts = new ();
+        internal ConcurrentExecutionContextDictionary Contexts = new();
 
         public static HttpClient HttpClient => new HttpClient();
 
@@ -170,7 +170,11 @@ namespace Microsoft.WebAssembly.Diagnostics
                         if (targetType == "page")
                             await AttachToTarget(new SessionId(args["sessionId"]?.ToString()), token);
                         else if (targetType == "worker")
-                            Contexts.CreateWorkerExecutionContext(new SessionId(args["sessionId"]?.ToString()), new SessionId(parms["sessionId"]?.ToString()), logger);
+                        {
+                            var workerSessionId = new SessionId(args["sessionId"]?.ToString());
+                            Contexts.CreateWorkerExecutionContext(workerSessionId, new SessionId(parms["sessionId"]?.ToString()), logger);
+                            await SendCommand(workerSessionId, "Runtime.runIfWaitingForDebugger", new JObject(), token);
+                        }
                         break;
                     }
 
@@ -245,7 +249,16 @@ namespace Microsoft.WebAssembly.Diagnostics
                         if (JustMyCode)
                         {
                             if (!Contexts.TryGetCurrentExecutionContextValue(sessionId, out ExecutionContext context) || !context.IsRuntimeReady)
+                            {
+                                // For worker sessions where runtime isn't ready yet,
+                                // resume instead of forwarding to IDE (which would leave worker stuck)
+                                if (context?.ParentContext != null)
+                                {
+                                    await SendResume(sessionId, token);
+                                    return true;
+                                }
                                 return false;
+                            }
                             //avoid pausing when justMyCode is enabled and it's a wasm function
                             if (args?["callFrames"]?[0]?["scopeChain"]?[0]?["type"]?.Value<string>()?.Equals("wasm-expression-stack") == true)
                             {
@@ -670,7 +683,7 @@ namespace Microsoft.WebAssembly.Diagnostics
 
         private async Task SetJustMyCode(MessageId id, bool isEnabled, ExecutionContext context, CancellationToken token)
         {
-            if (JustMyCode != isEnabled && isEnabled == false)
+            if (JustMyCode != isEnabled && !isEnabled)
             {
                 JustMyCode = isEnabled;
                 if (await IsRuntimeAlreadyReadyAlready(id, token))
@@ -911,16 +924,18 @@ namespace Microsoft.WebAssembly.Diagnostics
                     return true;
                 }
             }
-            catch (ReturnAsErrorException raee)
+            catch (ReturnAsErrorException ree)
             {
-                logger.LogDebug($"Unable to evaluate breakpoint condition '{condition}': {raee}");
-                SendLog(sessionId, $"Unable to evaluate breakpoint condition '{condition}': {raee.Message}", token, type: "error");
+                logger.LogDebug($"Unable to evaluate breakpoint condition '{condition}': {ree}");
+                SendLog(sessionId, $"Unable to evaluate breakpoint condition '{condition}': {ree.Message}", token, type: "error");
                 bp.ConditionAlreadyEvaluatedWithError = true;
+                ReportDebuggerExceptionToTelemetry("EvaluateCondition", sessionId, token);
             }
             catch (Exception e)
             {
                 Log("info", $"Unable to evaluate breakpoint condition '{condition}': {e}");
                 bp.ConditionAlreadyEvaluatedWithError = true;
+                ReportDebuggerExceptionToTelemetry("EvaluateCondition", sessionId, token);
             }
             return false;
         }
@@ -1303,7 +1318,7 @@ namespace Microsoft.WebAssembly.Diagnostics
         protected async Task<bool> TryStepOnManagedCodeAndStepOutIfNotPossible(SessionId sessionId, ExecutionContext context, StepKind kind, CancellationToken token)
         {
             var step = await context.SdbAgent.Step(context.ThreadId, kind, token);
-            if (step == false) //it will return false if it's the last managed frame and the runtime added the single step breakpoint in a MONO_WRAPPER_RUNTIME_INVOKE
+            if (!step) //it will return false if it's the last managed frame and the runtime added the single step breakpoint in a MONO_WRAPPER_RUNTIME_INVOKE
             {
                 context.ClearState();
                 await SendCommand(sessionId, "Debugger.stepOut", new JObject(), token);
@@ -1466,7 +1481,7 @@ namespace Microsoft.WebAssembly.Diagnostics
         {
             try {
                 var retStackTrace = new JArray();
-                foreach(var call in context.CallStack)
+                foreach (var call in context.CallStack)
                 {
                     if (call.Id < scopeId)
                         continue;
@@ -1519,15 +1534,27 @@ namespace Microsoft.WebAssembly.Diagnostics
             catch (ReturnAsErrorException ree)
             {
                 SendResponse(msg_id, AddCallStackInfoToException(ree.Error, context, scopeId), token);
+                ReportDebuggerExceptionToTelemetry("OnEvaluateOnCallFrame", msg_id, token);
             }
             catch (Exception e)
             {
                 logger.LogDebug($"Error in EvaluateOnCallFrame for expression '{expression}' with '{e}.");
-                var exc = new ReturnAsErrorException(e.Message, e.GetType().Name);
-                SendResponse(msg_id, AddCallStackInfoToException(exc.Error, context, scopeId), token);
+                var ree = new ReturnAsErrorException(e.Message, e.GetType().Name);
+                SendResponse(msg_id, AddCallStackInfoToException(ree.Error, context, scopeId), token);
+                ReportDebuggerExceptionToTelemetry("OnEvaluateOnCallFrame", msg_id, token);
             }
 
             return true;
+        }
+
+        private void ReportDebuggerExceptionToTelemetry(string callingFunction, SessionId msg_id, CancellationToken token)
+        {
+            JObject reportBlazorDebugException = JObject.FromObject(new
+            {
+                exceptionType = "uncaughtException",
+                exception = $"BlazorDebugger exception at {callingFunction}",
+            });
+            SendEvent(msg_id, "DotnetDebugger.reportBlazorDebugException", reportBlazorDebugException, token);
         }
 
         internal async Task<GetMembersResult> GetScopeProperties(SessionId msg_id, int scopeId, CancellationToken token)
@@ -1591,7 +1618,8 @@ namespace Microsoft.WebAssembly.Diagnostics
             await SendEvent(sessionId, "Debugger.scriptParsed", scriptSource, token);
             if (!resolveBreakpoints)
                 return;
-            foreach (var req in context.BreakpointRequests.Values)
+            var breakpointRequests = context.BreakpointRequests.Values.ToList<BreakpointRequest>(); //this can be changed while we are looping it and cause an exception
+            foreach (var req in breakpointRequests)
             {
                 if (req.TryResolve(source))
                 {

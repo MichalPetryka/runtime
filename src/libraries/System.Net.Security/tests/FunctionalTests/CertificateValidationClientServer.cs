@@ -1,14 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Net.Test.Common;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Xunit;
 using Xunit.Abstractions;
+using Microsoft.DotNet.XUnitExtensions;
 
 namespace System.Net.Security.Tests
 {
@@ -35,14 +38,18 @@ namespace System.Net.Security.Tests
             _clientCertificate.Dispose();
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsNotWindows7))]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(false, true)]
         [InlineData(true, false)]
         [InlineData(false, false)]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/68206", TestPlatforms.Android)]
         public async Task CertificateSelectionCallback_DelayedCertificate_OK(bool delayCertificate, bool sendClientCertificate)
         {
+            if (delayCertificate && OperatingSystem.IsAndroid())
+            {
+                throw new SkipTestException("Android does not support delayed certificate selection.");
+            }
+
             X509Certificate? remoteCertificate = null;
 
             (SslStream client, SslStream server) = TestHelper.GetConnectedSslStreams();
@@ -112,13 +119,10 @@ namespace System.Net.Security.Tests
             CertificateContext
         }
 
-        public static bool IsWindowsAOT => PlatformDetection.IsWindows && PlatformDetection.IsNativeAot;
-
         [Theory]
         [InlineData(ClientCertSource.ClientCertificate)]
         [InlineData(ClientCertSource.SelectionCallback)]
         [InlineData(ClientCertSource.CertificateContext)]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/88832", typeof(CertificateValidationClientServer), nameof(IsWindowsAOT))]
         public async Task CertificateValidationClientServer_EndToEnd_Ok(ClientCertSource clientCertSource)
         {
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, 0);
@@ -126,21 +130,6 @@ namespace System.Net.Security.Tests
             server.Start();
 
             _clientCertificateRemovedByFilter = false;
-
-            if (PlatformDetection.IsWindows7 &&
-                clientCertSource == ClientCertSource.ClientCertificate &&
-                !Capability.IsTrustedRootCertificateInstalled())
-            {
-                // https://technet.microsoft.com/en-us/library/hh831771.aspx#BKMK_Changes2012R2
-                // Starting with Windows 8, the "Management of trusted issuers for client authentication" has changed:
-                // The behavior to send the Trusted Issuers List by default is off.
-                //
-                // In Windows 7 the Trusted Issuers List is sent within the Server Hello TLS record. This list is built
-                // by the server using certificates from the Trusted Root Authorities certificate store.
-                // The client side will use the Trusted Issuers List, if not empty, to filter proposed certificates.
-                // This filtering happens only when using the ClientCertificates collection
-                _clientCertificateRemovedByFilter = true;
-            }
 
             using (var clientConnection = new TcpClient())
             {
@@ -183,7 +172,10 @@ namespace System.Net.Security.Tests
                         TargetHost = Guid.NewGuid().ToString("N"),
                         ClientCertificates = clientCerts,
                         EnabledSslProtocols = SslProtocolSupport.DefaultSslProtocols,
-                        CertificateChainPolicy = new X509ChainPolicy(),
+                        CertificateChainPolicy = new X509ChainPolicy()
+                        {
+                            RevocationMode = X509RevocationMode.NoCheck,
+                        }
                     };
 
                     if (clientCertSource == ClientCertSource.CertificateContext)
@@ -299,6 +291,92 @@ namespace System.Net.Security.Tests
                     $"chain cert: subject={element.Certificate.Subject}, issuer={element.Certificate.Issuer}, thumbprint={element.Certificate.Thumbprint}");
             }
             Assert.Equal(cert.Issuer, trustedChain.ChainElements[1].Certificate.Subject);
+        }
+
+        [Fact]
+        public async Task RemoteCertificateValidationCallback_ExtraStoreCertificates_NotDisposed()
+        {
+            // Test that certificates added to ExtraStore during RemoteCertificateValidationCallback
+            // are not disposed by SslStream, avoiding NullReferenceException on subsequent uses.
+            // Also verify that certificates from ChainElements are not disposed.
+
+            // Create a shared certificate that will be reused across multiple connections
+            using X509Certificate2 sharedCertificate = Configuration.Certificates.GetServerCertificate();
+
+            int connectionCount = 0;
+            List<X509Certificate2> chainElementCertificates = new List<X509Certificate2>();
+
+            // Perform multiple connections to ensure the certificate can be reused
+            for (int i = 0; i < 2; i++)
+            {
+                (SslStream client, SslStream server) = TestHelper.GetConnectedSslStreams();
+                using (client)
+                using (server)
+                {
+                    bool shouldRebuildChain = i == 1;
+                    
+                    SslClientAuthenticationOptions clientOptions = new SslClientAuthenticationOptions
+                    {
+                        TargetHost = "localhost",
+                        RemoteCertificateValidationCallback = (sender, cert, chain, errors) =>
+                        {
+                            connectionCount++;
+                            // Add a shared certificate to ExtraStore, simulating user code that
+                            // adds custom CA certificates for validation
+                            chain!.ChainPolicy.ExtraStore.Add(sharedCertificate);
+
+                            // The certificate should remain valid for subsequent uses
+                            Assert.NotEqual(IntPtr.Zero, sharedCertificate.Handle);
+
+                            // On second iteration, rebuild the chain to ensure no NullReferenceException
+                            if (shouldRebuildChain)
+                            {
+                                chain.Reset();
+                                _ = chain.Build((X509Certificate2)cert!);
+                            }
+
+                            // Save certificates from ChainElements to verify they're not disposed later
+                            if (i == 0)
+                            {
+                                foreach (X509ChainElement element in chain.ChainElements)
+                                {
+                                    chainElementCertificates.Add(element.Certificate);
+                                }
+                            }
+
+                            return true;
+                        }
+                    };
+
+                    SslServerAuthenticationOptions serverOptions = new SslServerAuthenticationOptions
+                    {
+                        ServerCertificate = _serverCertificate
+                    };
+
+                    await TestConfiguration.WhenAllOrAnyFailedWithTimeout(
+                        client.AuthenticateAsClientAsync(clientOptions, CancellationToken.None),
+                        server.AuthenticateAsServerAsync(serverOptions, CancellationToken.None));
+                }
+
+                // Verify the certificate was not disposed after the connection closed
+                Assert.Equal(i + 1, connectionCount);
+                Assert.NotEqual(IntPtr.Zero, sharedCertificate.Handle);
+
+                // On first iteration, verify ChainElements certificates are not disposed
+                if (i == 0)
+                {
+                    foreach (X509Certificate2 chainCert in chainElementCertificates)
+                    {
+                        Assert.NotEqual(IntPtr.Zero, chainCert.Handle);
+                    }
+                }
+            }
+
+            // After all connections, verify ChainElements certificates are still valid
+            foreach (X509Certificate2 chainCert in chainElementCertificates)
+            {
+                Assert.NotEqual(IntPtr.Zero, chainCert.Handle);
+            }
         }
     }
 }

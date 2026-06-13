@@ -3,9 +3,13 @@
 
 //#define LAUNCH_DEBUGGER
 using System;
+using System.Diagnostics;
+using System.Reflection;
+using System.Threading;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using SourceGenerators;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Microsoft.Extensions.Configuration.Binder.SourceGeneration
 {
@@ -33,7 +37,7 @@ namespace Microsoft.Extensions.Configuration.Binder.SourceGeneration
                         ? new CompilationData((CSharpCompilation)compilation)
                         : null);
 
-            IncrementalValueProvider<(SourceGenerationSpec?, ImmutableEquatableArray<DiagnosticInfo>?)> genSpec = context.SyntaxProvider
+            IncrementalValueProvider<(SourceGenerationSpec?, ImmutableArray<Diagnostic>)> genSpec = context.SyntaxProvider
                 .CreateSyntaxProvider(
                     (node, _) => BinderInvocation.IsCandidateSyntaxNode(node),
                     BinderInvocation.Create)
@@ -44,14 +48,16 @@ namespace Microsoft.Extensions.Configuration.Binder.SourceGeneration
                 {
                     if (tuple.Right is not CompilationData compilationData)
                     {
-                        return (null, null);
+                        return (null, ImmutableArray<Diagnostic>.Empty);
                     }
 
                     try
                     {
                         Parser parser = new(compilationData);
                         SourceGenerationSpec? spec = parser.GetSourceGenerationSpec(tuple.Left, cancellationToken);
-                        ImmutableEquatableArray<DiagnosticInfo>? diagnostics = parser.Diagnostics?.ToImmutableEquatableArray();
+                        ImmutableArray<Diagnostic> diagnostics = parser.Diagnostics is { } diags
+                            ? diags.ToImmutableArray()
+                            : ImmutableArray<Diagnostic>.Empty;
                         return (spec, diagnostics);
                     }
                     catch (Exception ex)
@@ -61,7 +67,89 @@ namespace Microsoft.Extensions.Configuration.Binder.SourceGeneration
                 })
                 .WithTrackingName(GenSpecTrackingName);
 
-            context.RegisterSourceOutput(genSpec, ReportDiagnosticsAndEmitSource);
+            // Project the combined pipeline result to just the equatable model, discarding diagnostics.
+            // SourceGenerationSpec implements value equality, so Roslyn's Select operator will compare
+            // successive model snapshots and only propagate changes downstream when the model structurally
+            // differs. This ensures source generation is fully incremental: re-emitting code only when
+            // the binding spec actually changes, not on every keystroke or positional shift.
+            IncrementalValueProvider<SourceGenerationSpec?> sourceGenerationSpec =
+                genSpec.Select(static (t, _) => t.Item1);
+
+            context.RegisterSourceOutput(sourceGenerationSpec, EmitSource);
+
+            // Project to just the diagnostics, discarding the model. ImmutableArray<Diagnostic> does not
+            // implement value equality, so Roslyn's incremental pipeline uses reference equality for these
+            // values — the callback fires on every compilation change. This is by design: diagnostic
+            // emission is cheap, and we need fresh SourceLocation instances that are pragma-suppressible
+            // (cf. https://github.com/dotnet/runtime/issues/92509).
+            // No source code is generated from this pipeline — it exists solely to report diagnostics.
+            IncrementalValueProvider<ImmutableArray<Diagnostic>> diagnostics =
+                genSpec.Select(static (t, _) => t.Item2);
+
+            context.RegisterSourceOutput(diagnostics, EmitDiagnostics);
+
+            if (!s_hasInitializedInterceptorVersion)
+            {
+                InterceptorVersion = DetermineInterceptableVersion();
+                s_hasInitializedInterceptorVersion = true;
+            }
+        }
+
+        internal static int InterceptorVersion { get; private set; }
+
+        // Used with v1 interceptor lightup approach:
+        private static bool s_hasInitializedInterceptorVersion;
+        internal static Func<SemanticModel, InvocationExpressionSyntax, CancellationToken, object>? GetInterceptableLocationFunc { get; private set; }
+        internal static MethodInfo? InterceptableLocationVersionGetDisplayLocation { get; private set; }
+        internal static MethodInfo? InterceptableLocationDataGetter { get; private set; }
+        internal static MethodInfo? InterceptableLocationVersionGetter { get; private set; }
+
+        internal static int DetermineInterceptableVersion()
+        {
+            MethodInfo? getInterceptableLocationMethod = null;
+            int? interceptableVersion = null;
+
+#if UPDATE_BASELINES
+#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+            string? interceptableVersionString = Environment.GetEnvironmentVariable("InterceptableAttributeVersion");
+#pragma warning restore RS1035
+            if (interceptableVersionString is not null)
+            {
+                if (int.TryParse(interceptableVersionString, out int version) && (version == 0 || version == 1))
+                {
+                    interceptableVersion = version;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Invalid InterceptableAttributeVersion value: {interceptableVersionString}");
+                }
+            }
+
+            if (interceptableVersion is null || interceptableVersion == 1)
+#endif
+            {
+                getInterceptableLocationMethod = typeof(Microsoft.CodeAnalysis.CSharp.CSharpExtensions).GetMethod(
+                    "GetInterceptableLocation",
+                    BindingFlags.Static | BindingFlags.Public,
+                    binder: null,
+                    new Type[] { typeof(SemanticModel), typeof(InvocationExpressionSyntax), typeof(CancellationToken) },
+                    modifiers: Array.Empty<ParameterModifier>());
+
+                interceptableVersion = getInterceptableLocationMethod is null ? 0 : 1;
+            }
+
+            if (interceptableVersion == 1)
+            {
+                GetInterceptableLocationFunc = (Func<SemanticModel, InvocationExpressionSyntax, CancellationToken, object>)
+                    getInterceptableLocationMethod.CreateDelegate(typeof(Func<SemanticModel, InvocationExpressionSyntax, CancellationToken, object>), target: null);
+
+                Type? interceptableLocationType = typeof(Microsoft.CodeAnalysis.CSharp.CSharpExtensions).Assembly.GetType("Microsoft.CodeAnalysis.CSharp.InterceptableLocation");
+                InterceptableLocationVersionGetDisplayLocation = interceptableLocationType.GetMethod("GetDisplayLocation", BindingFlags.Instance | BindingFlags.Public);
+                InterceptableLocationVersionGetter = interceptableLocationType.GetProperty("Version", BindingFlags.Instance | BindingFlags.Public).GetGetMethod();
+                InterceptableLocationDataGetter = interceptableLocationType.GetProperty("Data", BindingFlags.Instance | BindingFlags.Public).GetGetMethod();
+            }
+
+            return interceptableVersion.Value;
         }
 
         /// <summary>
@@ -69,17 +157,17 @@ namespace Microsoft.Extensions.Configuration.Binder.SourceGeneration
         /// </summary>
         public Action<SourceGenerationSpec>? OnSourceEmitting { get; init; }
 
-        private void ReportDiagnosticsAndEmitSource(SourceProductionContext sourceProductionContext, (SourceGenerationSpec? SourceGenerationSpec, ImmutableEquatableArray<DiagnosticInfo>? Diagnostics) input)
+        private static void EmitDiagnostics(SourceProductionContext context, ImmutableArray<Diagnostic> diagnostics)
         {
-            if (input.Diagnostics is ImmutableEquatableArray<DiagnosticInfo> diagnostics)
+            foreach (Diagnostic diagnostic in diagnostics)
             {
-                foreach (DiagnosticInfo diagnostic in diagnostics)
-                {
-                    sourceProductionContext.ReportDiagnostic(diagnostic.CreateDiagnostic());
-                }
+                context.ReportDiagnostic(diagnostic);
             }
+        }
 
-            if (input.SourceGenerationSpec is SourceGenerationSpec spec)
+        private void EmitSource(SourceProductionContext sourceProductionContext, SourceGenerationSpec? spec)
+        {
+            if (spec is not null)
             {
                 OnSourceEmitting?.Invoke(spec);
                 Emitter emitter = new(spec);

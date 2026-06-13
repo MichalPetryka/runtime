@@ -12,12 +12,12 @@ namespace System.Globalization
     internal static partial class OrdinalCasing
     {
         // NoCasingPage means the Unicode page doesn't support any casing and no case translation is needed.
-        private static ushort[] NoCasingPage => Array.Empty<ushort>();
+        private static ushort[] NoCasingPage => [];
 
         // s_basicLatin is covering the casing for the Basic Latin & C0 Controls range.
         // we are not lazy initializing this range because it is the most common used range and we'll cache it anyway very early.
         private static readonly ushort[] s_basicLatin =
-        {
+        [
             // Upper Casing
 
             /* 0000-000f */  0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x000e, 0x000f,
@@ -36,7 +36,7 @@ namespace System.Globalization
             /* 00d0-00df */  0x00d0, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x00d7, 0x00d8, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x00dd, 0x00de, 0x00df,
             /* 00e0-00ef */  0x00c0, 0x00c1, 0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c6, 0x00c7, 0x00c8, 0x00c9, 0x00ca, 0x00cb, 0x00cc, 0x00cd, 0x00ce, 0x00cf,
             /* 00f0-00ff */  0x00d0, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x00f7, 0x00d8, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x00dd, 0x00de, 0x0178,
-        };
+        ];
 
         // s_casingTable is covering the Unicode BMP plane only. Surrogate casing is handled separately.
         // Every cell in the table is covering the casing of 256 characters in the BMP.
@@ -140,17 +140,6 @@ namespace System.Globalization
             casingTable ??= InitOrdinalCasingPage(pageNumber);
 
             return (char)casingTable[((int)c) & 0xFF];
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static char ToUpperInvariantMode(char c) => c <= '\u00FF' ? (char)s_basicLatin[(int)c] : c;
-
-        public static void ToUpperInvariantMode(this ReadOnlySpan<char> source, Span<char> destination)
-        {
-            for (int i = 0; i < source.Length; i++)
-            {
-                destination[i] = ToUpperInvariantMode(source[i]);
-            }
         }
 
         internal static void ToUpperOrdinal(ReadOnlySpan<char> source, Span<char> destination)

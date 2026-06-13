@@ -50,10 +50,7 @@ namespace System.Text.Json
         /// </exception>
         public static JsonEncodedText Encode(string value, JavaScriptEncoder? encoder = null)
         {
-            if (value is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             return Encode(value.AsSpan(), encoder);
         }
@@ -76,7 +73,7 @@ namespace System.Text.Json
             return TranscodeAndEncode(value, encoder);
         }
 
-        private static JsonEncodedText TranscodeAndEncode(ReadOnlySpan<char> value, JavaScriptEncoder? encoder)
+        private static unsafe JsonEncodedText TranscodeAndEncode(ReadOnlySpan<char> value, JavaScriptEncoder? encoder)
         {
             JsonWriterHelper.ValidateValue(value);
 

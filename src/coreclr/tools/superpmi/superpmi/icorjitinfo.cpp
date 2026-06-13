@@ -96,6 +96,14 @@ bool MyICJI::haveSameMethodDefinition(
     return value;
 }
 
+CORINFO_CLASS_HANDLE MyICJI::getTypeDefinition(
+    CORINFO_CLASS_HANDLE type)
+{
+    jitInstance->mc->cr->AddCall("getTypeDefinition");
+    CORINFO_CLASS_HANDLE value = jitInstance->mc->repGetTypeDefinition(type);
+    return value;
+}
+
 // Decides if you have any limitations for inlining. If everything's OK, it will return
 // INLINE_PASS.
 //
@@ -203,6 +211,20 @@ CORINFO_METHOD_HANDLE MyICJI::getUnboxedEntry(CORINFO_METHOD_HANDLE ftn, bool* r
     return result;
 }
 
+CORINFO_METHOD_HANDLE MyICJI::getInstantiatedEntry(CORINFO_METHOD_HANDLE ftn, CORINFO_METHOD_HANDLE* methodHandle, CORINFO_CLASS_HANDLE* classHandle)
+{
+    jitInstance->mc->cr->AddCall("getInstantiatedEntry");
+    CORINFO_METHOD_HANDLE result = jitInstance->mc->repGetInstantiatedEntry(ftn, methodHandle, classHandle);
+    return result;
+}
+
+CORINFO_METHOD_HANDLE MyICJI::getAsyncOtherVariant(CORINFO_METHOD_HANDLE ftn, bool* variantIsThunk)
+{
+    jitInstance->mc->cr->AddCall("getAsyncOtherVariant");
+    CORINFO_METHOD_HANDLE result = jitInstance->mc->repGetAsyncOtherVariant(ftn, variantIsThunk);
+    return result;
+}
+
 // Given T, return the type of the default Comparer<T>.
 // Returns null if the type can't be determined exactly.
 CORINFO_CLASS_HANDLE MyICJI::getDefaultComparerClass(CORINFO_CLASS_HANDLE cls)
@@ -221,10 +243,19 @@ CORINFO_CLASS_HANDLE MyICJI::getDefaultEqualityComparerClass(CORINFO_CLASS_HANDL
     return result;
 }
 
-void MyICJI::expandRawHandleIntrinsic(CORINFO_RESOLVED_TOKEN* pResolvedToken, CORINFO_GENERICHANDLE_RESULT* pResult)
+// Given T, return the type of the SZGenericArrayEnumerator<T>.
+// Returns null if the type can't be determined exactly.
+CORINFO_CLASS_HANDLE MyICJI::getSZArrayHelperEnumeratorClass(CORINFO_CLASS_HANDLE cls)
+{
+    jitInstance->mc->cr->AddCall("getSZArrayHelperEnumeratorClass");
+    CORINFO_CLASS_HANDLE result = jitInstance->mc->repGetSZArrayHelperEnumeratorClass(cls);
+    return result;
+}
+
+void MyICJI::expandRawHandleIntrinsic(CORINFO_RESOLVED_TOKEN* pResolvedToken, CORINFO_METHOD_HANDLE callerHandle, CORINFO_GENERICHANDLE_RESULT* pResult)
 {
     jitInstance->mc->cr->AddCall("expandRawHandleIntrinsic");
-    jitInstance->mc->repExpandRawHandleIntrinsic(pResolvedToken, pResult);
+    jitInstance->mc->repExpandRawHandleIntrinsic(pResolvedToken, callerHandle, pResult);
 }
 
 // Is the given type in System.Private.Corelib and marked with IntrinsicAttribute?
@@ -265,14 +296,6 @@ void MyICJI::methodMustBeLoadedBeforeCodeIsRun(CORINFO_METHOD_HANDLE method)
 {
     jitInstance->mc->cr->AddCall("methodMustBeLoadedBeforeCodeIsRun");
     jitInstance->mc->cr->recMethodMustBeLoadedBeforeCodeIsRun(method);
-}
-
-CORINFO_METHOD_HANDLE MyICJI::mapMethodDeclToMethodImpl(CORINFO_METHOD_HANDLE method)
-{
-    jitInstance->mc->cr->AddCall("mapMethodDeclToMethodImpl");
-    LogError("Hit unimplemented mapMethodDeclToMethodImpl");
-    DebugBreakorAV(17);
-    return 0;
 }
 
 // Returns the global cookie for the /GS unsafe buffer checks
@@ -395,6 +418,13 @@ CORINFO_CLASS_HANDLE MyICJI::getTypeInstantiationArgument(CORINFO_CLASS_HANDLE c
     return result;
 }
 
+CORINFO_CLASS_HANDLE MyICJI::getMethodInstantiationArgument(CORINFO_METHOD_HANDLE ftn, unsigned index)
+{
+    jitInstance->mc->cr->AddCall("getMethodInstantiationArgument");
+    CORINFO_CLASS_HANDLE result = jitInstance->mc->repGetMethodInstantiationArgument(ftn, index);
+    return result;
+}
+
 size_t MyICJI::printClassName(CORINFO_CLASS_HANDLE cls, char* buffer, size_t bufferSize, size_t* pRequiredBufferSize)
 {
     jitInstance->mc->cr->AddCall("printClassName");
@@ -416,24 +446,11 @@ uint32_t MyICJI::getClassAttribs(CORINFO_CLASS_HANDLE cls)
     return jitInstance->mc->repGetClassAttribs(cls);
 }
 
-CORINFO_MODULE_HANDLE MyICJI::getClassModule(CORINFO_CLASS_HANDLE cls)
+// Returns the assembly name of the class "cls".
+const char* MyICJI::getClassAssemblyName(CORINFO_CLASS_HANDLE cls)
 {
-    jitInstance->mc->cr->AddCall("getClassModule");
-    return jitInstance->mc->repGetClassModule(cls);
-}
-
-// Returns the assembly that contains the module "mod".
-CORINFO_ASSEMBLY_HANDLE MyICJI::getModuleAssembly(CORINFO_MODULE_HANDLE mod)
-{
-    jitInstance->mc->cr->AddCall("getModuleAssembly");
-    return jitInstance->mc->repGetModuleAssembly(mod);
-}
-
-// Returns the name of the assembly "assem".
-const char* MyICJI::getAssemblyName(CORINFO_ASSEMBLY_HANDLE assem)
-{
-    jitInstance->mc->cr->AddCall("getAssemblyName");
-    return jitInstance->mc->repGetAssemblyName(assem);
+    jitInstance->mc->cr->AddCall("getClassAssemblyName");
+    return jitInstance->mc->repGetClassAssemblyName(cls);
 }
 
 // Allocate and delete process-lifetime objects.  Should only be
@@ -455,12 +472,16 @@ void MyICJI::LongLifetimeFree(void* obj)
     DebugBreakorAV(33);
 }
 
-size_t MyICJI::getClassModuleIdForStatics(CORINFO_CLASS_HANDLE   cls,
-                                          CORINFO_MODULE_HANDLE* pModule,
-                                          void**                 ppIndirection)
+void* MyICJI::getClassThreadStaticDynamicInfo(CORINFO_CLASS_HANDLE cls)
 {
-    jitInstance->mc->cr->AddCall("getClassModuleIdForStatics");
-    return jitInstance->mc->repGetClassModuleIdForStatics(cls, pModule, ppIndirection);
+    jitInstance->mc->cr->AddCall("getClassThreadStaticDynamicInfo");
+    return jitInstance->mc->repGetClassThreadStaticDynamicInfo(cls);
+}
+
+void* MyICJI::getClassStaticDynamicInfo(CORINFO_CLASS_HANDLE cls)
+{
+    jitInstance->mc->cr->AddCall("getClassStaticDynamicInfo");
+    return jitInstance->mc->repGetClassStaticDynamicInfo(cls);
 }
 
 bool MyICJI::getIsClassInitedFlagAddress(CORINFO_CLASS_HANDLE  cls,
@@ -505,7 +526,7 @@ unsigned MyICJI::getClassAlignmentRequirement(CORINFO_CLASS_HANDLE cls, bool fDo
     return jitInstance->mc->repGetClassAlignmentRequirement(cls, fDoubleAlignHint);
 }
 
-// This is only called for Value classes.  It returns a boolean array
+// This called for ref and value classes.  It returns a boolean array
 // in representing of 'cls' from a GC perspective.  The class is
 // assumed to be an array of machine words
 // (of length // getClassSize(cls) / sizeof(void*)),
@@ -651,21 +672,22 @@ CORINFO_CLASS_HANDLE MyICJI::getObjectType(CORINFO_OBJECT_HANDLE objPtr)
 }
 
 bool MyICJI::getReadyToRunHelper(CORINFO_RESOLVED_TOKEN* pResolvedToken,
-                                 CORINFO_LOOKUP_KIND*    pGenericLookupKind,
                                  CorInfoHelpFunc         id,
+                                 CORINFO_METHOD_HANDLE   callerHandle,
                                  CORINFO_CONST_LOOKUP*   pLookup)
 {
     jitInstance->mc->cr->AddCall("getReadyToRunHelper");
-    return jitInstance->mc->repGetReadyToRunHelper(pResolvedToken, pGenericLookupKind, id, pLookup);
+    return jitInstance->mc->repGetReadyToRunHelper(pResolvedToken, id, callerHandle, pLookup);
 }
 
 void MyICJI::getReadyToRunDelegateCtorHelper(CORINFO_RESOLVED_TOKEN* pTargetMethod,
                                              mdToken                 targetConstraint,
                                              CORINFO_CLASS_HANDLE    delegateType,
+                                             CORINFO_METHOD_HANDLE   callerHandle,
                                              CORINFO_LOOKUP*         pLookup)
 {
     jitInstance->mc->cr->AddCall("getReadyToRunDelegateCtorHelper");
-    jitInstance->mc->repGetReadyToRunDelegateCtorHelper(pTargetMethod, targetConstraint, delegateType, pLookup);
+    jitInstance->mc->repGetReadyToRunDelegateCtorHelper(pTargetMethod, targetConstraint, delegateType, callerHandle, pLookup);
 }
 
 // This function tries to initialize the class (run the class constructor).
@@ -762,6 +784,20 @@ bool MyICJI::isExactType(CORINFO_CLASS_HANDLE cls)
     return jitInstance->mc->repIsExactType(cls);
 }
 
+// Returns true if a class handle represents a generic type.
+TypeCompareState MyICJI::isGenericType(CORINFO_CLASS_HANDLE cls)
+{
+    jitInstance->mc->cr->AddCall("isGenericType");
+    return jitInstance->mc->repIsGenericType(cls);
+}
+
+// Returns true if a class handle represents a Nullable type.
+TypeCompareState MyICJI::isNullableType(CORINFO_CLASS_HANDLE cls)
+{
+    jitInstance->mc->cr->AddCall("isNullableType");
+    return jitInstance->mc->repIsNullableType(cls);
+}
+
 // Returns TypeCompareState::Must if cls is known to be an enum.
 // For enums with known exact type returns the underlying
 // type in underlyingType when the provided pointer is
@@ -856,15 +892,15 @@ CORINFO_CLASS_HANDLE MyICJI::getFieldClass(CORINFO_FIELD_HANDLE field)
 // the field's value class (if 'structType' == 0, then don't bother
 // the structure info).
 //
-// 'memberParent' is typically only set when verifying.  It should be the
-// result of calling getMemberParent.
+// 'fieldOwnerHint' is, potentially, a more exact owner of the field.
+// it's fine for it to be non-precise, it's just a hint.
 CorInfoType MyICJI::getFieldType(CORINFO_FIELD_HANDLE  field,
                                  CORINFO_CLASS_HANDLE* structType,
-                                 CORINFO_CLASS_HANDLE  memberParent /* IN */
+                                 CORINFO_CLASS_HANDLE  fieldOwnerHint /* IN */
                                  )
 {
     jitInstance->mc->cr->AddCall("getFieldType");
-    return jitInstance->mc->repGetFieldType(field, structType, memberParent);
+    return jitInstance->mc->repGetFieldType(field, structType, fieldOwnerHint);
 }
 
 // return the data member's instance offset
@@ -889,10 +925,10 @@ uint32_t MyICJI::getThreadLocalFieldInfo(CORINFO_FIELD_HANDLE field, bool isGCTy
     return jitInstance->mc->repGetThreadLocalFieldInfo(field, isGCType);
 }
 
-void MyICJI::getThreadLocalStaticBlocksInfo(CORINFO_THREAD_STATIC_BLOCKS_INFO* pInfo, bool isGCType)
+void MyICJI::getThreadLocalStaticBlocksInfo(CORINFO_THREAD_STATIC_BLOCKS_INFO* pInfo)
 {
     jitInstance->mc->cr->AddCall("getThreadLocalStaticBlocksInfo");
-    jitInstance->mc->repGetThreadLocalStaticBlocksInfo(pInfo, isGCType);
+    jitInstance->mc->repGetThreadLocalStaticBlocksInfo(pInfo);
 }
 
 void MyICJI::getThreadLocalStaticInfo_NativeAOT(CORINFO_THREAD_STATIC_INFO_NATIVEAOT* pInfo)
@@ -1022,9 +1058,52 @@ void MyICJI::reportRichMappings(
     uint32_t                          numMappings)
 {
     jitInstance->mc->cr->AddCall("reportRichMappings");
-    // TODO: record these mappings
+    // Compile output that we do not currently save
     freeArray(inlineTreeNodes);
     freeArray(mappings);
+}
+
+void MyICJI::reportAsyncDebugInfo(
+    ICorDebugInfo::AsyncInfo*             asyncInfo,
+    ICorDebugInfo::AsyncSuspensionPoint*  suspensionPoints,
+    ICorDebugInfo::AsyncContinuationVarInfo* vars,
+    uint32_t                              numVars)
+{
+    jitInstance->mc->cr->AddCall("reportAsyncDebugInfo");
+    // Compile output that we do not currently save
+    freeArray(suspensionPoints);
+    freeArray(vars);
+}
+
+void MyICJI::reportMetadata(const char* key, const void* value, size_t length)
+{
+    jitInstance->mc->cr->AddCall("reportMetadata");
+
+    if (strcmp(key, "MethodFullName") == 0)
+    {
+        char* buf = static_cast<char*>(jitInstance->mc->cr->allocateMemory(length + 1));
+        memcpy(buf, value, length + 1);
+        jitInstance->mc->cr->MethodFullName = buf;
+        return;
+    }
+
+    if (strcmp(key, "TieringName") == 0)
+    {
+        char* buf = static_cast<char*>(jitInstance->mc->cr->allocateMemory(length + 1));
+        memcpy(buf, value, length + 1);
+        jitInstance->mc->cr->TieringName = buf;
+        return;
+    }
+
+#define JITMETADATAINFO(name, type, flags)
+#define JITMETADATAMETRIC(name, type, flags) \
+    if ((strcmp(key, #name) == 0) && (length == sizeof(type)))   \
+    {                                                            \
+        memcpy(&jitInstance->mc->cr->name, value, sizeof(type)); \
+        return;                                                  \
+    }
+
+#include "jitmetadatalist.h"
 }
 
 /*-------------------------- Misc ---------------------------------------*/
@@ -1127,22 +1206,10 @@ void MyICJI::getEEInfo(CORINFO_EE_INFO* pEEInfoOut)
     jitInstance->mc->repGetEEInfo(pEEInfoOut);
 }
 
-// Returns name of the JIT timer log
-const char16_t* MyICJI::getJitTimeLogFilename()
+void MyICJI::getAsyncInfo(CORINFO_ASYNC_INFO* pAsyncInfo)
 {
-    jitInstance->mc->cr->AddCall("getJitTimeLogFilename");
-    // we have the ability to replay this, but we treat it in this case as EE context
-    //  return jitInstance->eec->jitTimeLogFilename;
-
-    // We want to be able to set DOTNET_JitTimeLogFile or COMPlus_JitTimeLogFile when replaying, to collect JIT
-    // statistics. So, just do a getenv() call. This isn't quite as thorough as
-    // the normal CLR config value functions (which also check the registry), and we've
-    // also hard-coded the variable name here instead of using:
-    //      CLRConfig::GetConfigValue(CLRConfig::INTERNAL_JitTimeLogFile);
-    // like in the VM, but it works for our purposes.
-    const char16_t* dotnetVar = (const char16_t*)GetEnvironmentVariableWithDefaultW(W("DOTNET_JitTimeLogFile"));
-    return dotnetVar != nullptr ? dotnetVar :
-        (const char16_t*)GetEnvironmentVariableWithDefaultW(W("COMPlus_JitTimeLogFile"));
+    jitInstance->mc->cr->AddCall("getAsyncInfo");
+    jitInstance->mc->repGetAsyncInfo(pAsyncInfo);
 }
 
 /*********************************************************************************/
@@ -1166,14 +1233,15 @@ size_t MyICJI::printMethodName(CORINFO_METHOD_HANDLE ftn, char* buffer, size_t b
     return jitInstance->mc->repPrintMethodName(ftn, buffer, bufferSize, pRequiredBufferSize);
 }
 
-const char* MyICJI::getMethodNameFromMetadata(CORINFO_METHOD_HANDLE ftn,                /* IN */
-                                              const char**          className,          /* OUT */
-                                              const char**          namespaceName,      /* OUT */
-                                              const char**          enclosingClassName /* OUT */
+const char* MyICJI::getMethodNameFromMetadata(CORINFO_METHOD_HANDLE ftn,                 /* IN */
+                                              const char**          className,           /* OUT */
+                                              const char**          namespaceName,       /* OUT */
+                                              const char**          enclosingClassNames, /* OUT */
+                                              size_t                maxEnclosingClassNames
                                               )
 {
     jitInstance->mc->cr->AddCall("getMethodNameFromMetadata");
-    return jitInstance->mc->repGetMethodNameFromMetadata(ftn, className, namespaceName, enclosingClassName);
+    return jitInstance->mc->repGetMethodNameFromMetadata(ftn, className, namespaceName, enclosingClassNames, maxEnclosingClassNames);
 }
 
 // this function is for debugging only.  It returns a value that
@@ -1194,16 +1262,22 @@ bool MyICJI::getSystemVAmd64PassStructInRegisterDescriptor(
     return jitInstance->mc->repGetSystemVAmd64PassStructInRegisterDescriptor(structHnd, structPassInRegDescPtr);
 }
 
-uint32_t MyICJI::getLoongArch64PassStructInRegisterFlags(CORINFO_CLASS_HANDLE structHnd)
+void MyICJI::getSwiftLowering(CORINFO_CLASS_HANDLE structHnd, CORINFO_SWIFT_LOWERING* pLowering)
 {
-    jitInstance->mc->cr->AddCall("getLoongArch64PassStructInRegisterFlags");
-    return jitInstance->mc->repGetLoongArch64PassStructInRegisterFlags(structHnd);
+    jitInstance->mc->cr->AddCall("getSwiftLowering");
+    jitInstance->mc->repGetSwiftLowering(structHnd, pLowering);
 }
 
-uint32_t MyICJI::getRISCV64PassStructInRegisterFlags(CORINFO_CLASS_HANDLE structHnd)
+void MyICJI::getFpStructLowering(CORINFO_CLASS_HANDLE structHnd, CORINFO_FPSTRUCT_LOWERING* pLowering)
 {
-    jitInstance->mc->cr->AddCall("getRISCV64PassStructInRegisterFlags");
-    return jitInstance->mc->repGetRISCV64PassStructInRegisterFlags(structHnd);
+    jitInstance->mc->cr->AddCall("getFpStructLowering");
+    jitInstance->mc->repGetFpStructLowering(structHnd, pLowering);
+}
+
+CorInfoWasmType MyICJI::getWasmLowering(CORINFO_CLASS_HANDLE structHnd)
+{
+    jitInstance->mc->cr->AddCall("getWasmLowering");
+    return jitInstance->mc->repGetWasmLowering(structHnd);
 }
 
 // Stuff on ICorDynamicInfo
@@ -1220,10 +1294,10 @@ int32_t* MyICJI::getAddrOfCaptureThreadGlobal(void** ppIndirection)
 }
 
 // return the native entry point to an EE helper (see CorInfoHelpFunc)
-void* MyICJI::getHelperFtn(CorInfoHelpFunc ftnNum, void** ppIndirection)
+void MyICJI::getHelperFtn(CorInfoHelpFunc ftnNum, CORINFO_CONST_LOOKUP *pNativeEntrypoint, CORINFO_METHOD_HANDLE *methodHandle)
 {
     jitInstance->mc->cr->AddCall("getHelperFtn");
-    return jitInstance->mc->repGetHelperFtn(ftnNum, ppIndirection);
+    jitInstance->mc->repGetHelperFtn(ftnNum, pNativeEntrypoint, methodHandle);
 }
 
 // return a callable address of the function (native code). This function
@@ -1249,24 +1323,9 @@ void MyICJI::getFunctionFixedEntryPoint(
     jitInstance->mc->repGetFunctionFixedEntryPoint(ftn, isUnsafeFunctionPointer, pResult);
 }
 
-// get the synchronization handle that is passed to monXstatic function
-void* MyICJI::getMethodSync(CORINFO_METHOD_HANDLE ftn, void** ppIndirection)
-{
-    jitInstance->mc->cr->AddCall("getMethodSync");
-    return jitInstance->mc->repGetMethodSync(ftn, ppIndirection);
-}
-
 // These entry points must be called if a handle is being embedded in
 // the code to be passed to a JIT helper function. (as opposed to just
 // being passed back into the ICorInfo interface.)
-
-// get slow lazy string literal helper to use (CORINFO_HELP_STRCNS*).
-// Returns CORINFO_HELP_UNDEF if lazy string literal helper cannot be used.
-CorInfoHelpFunc MyICJI::getLazyStringLiteralHelper(CORINFO_MODULE_HANDLE handle)
-{
-    jitInstance->mc->cr->AddCall("getLazyStringLiteralHelper");
-    return jitInstance->mc->repGetLazyStringLiteralHelper(handle);
-}
 
 CORINFO_MODULE_HANDLE MyICJI::embedModuleHandle(CORINFO_MODULE_HANDLE handle, void** ppIndirection)
 {
@@ -1301,10 +1360,11 @@ CORINFO_FIELD_HANDLE MyICJI::embedFieldHandle(CORINFO_FIELD_HANDLE handle, void*
 //
 void MyICJI::embedGenericHandle(CORINFO_RESOLVED_TOKEN* pResolvedToken,
                                 bool fEmbedParent, // TRUE - embeds parent type handle of the field/method handle
+                                CORINFO_METHOD_HANDLE callerHandle,
                                 CORINFO_GENERICHANDLE_RESULT* pResult)
 {
     jitInstance->mc->cr->AddCall("embedGenericHandle");
-    jitInstance->mc->repEmbedGenericHandle(pResolvedToken, fEmbedParent, pResult);
+    jitInstance->mc->repEmbedGenericHandle(pResolvedToken, fEmbedParent, callerHandle, pResult);
 }
 
 // Return information used to locate the exact enclosing type of the current method.
@@ -1327,20 +1387,18 @@ void MyICJI::getAddressOfPInvokeTarget(CORINFO_METHOD_HANDLE method, CORINFO_CON
     jitInstance->mc->repGetAddressOfPInvokeTarget(method, pLookup);
 }
 
-// Generate a cookie based on the signature that would needs to be passed
-// to CORINFO_HELP_PINVOKE_CALLI
+// Generate a cookie based on the signature to pass to CORINFO_HELP_PINVOKE_CALLI
 LPVOID MyICJI::GetCookieForPInvokeCalliSig(CORINFO_SIG_INFO* szMetaSig, void** ppIndirection)
 {
     jitInstance->mc->cr->AddCall("GetCookieForPInvokeCalliSig");
     return jitInstance->mc->repGetCookieForPInvokeCalliSig(szMetaSig, ppIndirection);
 }
 
-// returns true if a VM cookie can be generated for it (might be false due to cross-module
-// inlining, in which case the inlining should be aborted)
-bool MyICJI::canGetCookieForPInvokeCalliSig(CORINFO_SIG_INFO* szMetaSig)
+// Generate a cookie based on the signature to pass to INTOP_CALLI
+LPVOID MyICJI::GetCookieForInterpreterCalliSig(CORINFO_SIG_INFO* szMetaSig)
 {
-    jitInstance->mc->cr->AddCall("canGetCookieForPInvokeCalliSig");
-    return jitInstance->mc->repCanGetCookieForPInvokeCalliSig(szMetaSig);
+    jitInstance->mc->cr->AddCall("GetCookieForInterpreterCalliSig");
+    return jitInstance->mc->repGetCookieForInterpreterCalliSig(szMetaSig);
 }
 
 // Gets a handle that is checked to see if the current method is
@@ -1386,13 +1444,6 @@ void MyICJI::getCallInfo(
         ThrowRecordedException(exceptionCode);
 }
 
-// returns the class's domain ID for accessing shared statics
-unsigned MyICJI::getClassDomainID(CORINFO_CLASS_HANDLE cls, void** ppIndirection)
-{
-    jitInstance->mc->cr->AddCall("getClassDomainID");
-    return jitInstance->mc->repGetClassDomainID(cls, ppIndirection);
-}
-
 bool MyICJI::getStaticFieldContent(CORINFO_FIELD_HANDLE field, uint8_t* buffer, int bufferSize, int valueOffset, bool ignoreMovableObjects)
 {
     jitInstance->mc->cr->AddCall("getStaticFieldContent");
@@ -1413,18 +1464,10 @@ CORINFO_CLASS_HANDLE MyICJI::getStaticFieldCurrentClass(CORINFO_FIELD_HANDLE fie
 }
 
 // registers a vararg sig & returns a VM cookie for it (which can contain other stuff)
-CORINFO_VARARGS_HANDLE MyICJI::getVarArgsHandle(CORINFO_SIG_INFO* pSig, void** ppIndirection)
+CORINFO_VARARGS_HANDLE MyICJI::getVarArgsHandle(CORINFO_SIG_INFO* pSig, CORINFO_METHOD_HANDLE methHnd, void** ppIndirection)
 {
     jitInstance->mc->cr->AddCall("getVarArgsHandle");
-    return jitInstance->mc->repGetVarArgsHandle(pSig, ppIndirection);
-}
-
-// returns true if a VM cookie can be generated for it (might be false due to cross-module
-// inlining, in which case the inlining should be aborted)
-bool MyICJI::canGetVarArgsHandle(CORINFO_SIG_INFO* pSig)
-{
-    jitInstance->mc->cr->AddCall("canGetVarArgsHandle");
-    return jitInstance->mc->repCanGetVarArgsHandle(pSig);
+    return jitInstance->mc->repGetVarArgsHandle(pSig, methHnd, ppIndirection);
 }
 
 // Allocate a string literal on the heap and return a handle to it
@@ -1475,6 +1518,19 @@ bool MyICJI::getTailCallHelpers(
     return jitInstance->mc->repGetTailCallHelpers(callToken, sig, flags, pResult);
 }
 
+CORINFO_METHOD_HANDLE MyICJI::getAsyncResumptionStub(void** entryPoint)
+{
+    jitInstance->mc->cr->AddCall("getAsyncResumptionStub");
+    return jitInstance->mc->repGetAsyncResumptionStub(entryPoint);
+}
+
+CORINFO_CLASS_HANDLE MyICJI::getContinuationType(size_t dataSize, bool* objRefs, size_t objRefsSize)
+{
+    jitInstance->mc->cr->AddCall("getContinuationType");
+    CORINFO_CLASS_HANDLE result = jitInstance->mc->repGetContinuationType(dataSize, objRefs, objRefsSize);
+    return result;
+}
+
 bool MyICJI::convertPInvokeCalliToCall(CORINFO_RESOLVED_TOKEN* pResolvedToken, bool fMustConvert)
 {
     jitInstance->mc->cr->AddCall("convertPInvokeCalliToCall");
@@ -1484,7 +1540,7 @@ bool MyICJI::convertPInvokeCalliToCall(CORINFO_RESOLVED_TOKEN* pResolvedToken, b
 bool MyICJI::notifyInstructionSetUsage(CORINFO_InstructionSet instructionSet, bool supported)
 {
     jitInstance->mc->cr->AddCall("notifyInstructionSetUsage");
-    return supported;
+    return jitInstance->mc->repNotifyInstructionSetUsage(instructionSet, supported);
 }
 
 void MyICJI::updateEntryPointForTailCall(CORINFO_CONST_LOOKUP* entryPoint)
@@ -1499,16 +1555,7 @@ void MyICJI::updateEntryPointForTailCall(CORINFO_CONST_LOOKUP* entryPoint)
 uint32_t MyICJI::getJitFlags(CORJIT_FLAGS* jitFlags, uint32_t sizeInBytes)
 {
     jitInstance->mc->cr->AddCall("getJitFlags");
-    uint32_t ret = jitInstance->mc->repGetJitFlags(jitFlags, sizeInBytes);
-    if (jitInstance->forceClearAltJitFlag)
-    {
-        jitFlags->Clear(CORJIT_FLAGS::CORJIT_FLAG_ALT_JIT);
-    }
-    else if (jitInstance->forceSetAltJitFlag)
-    {
-        jitFlags->Set(CORJIT_FLAGS::CORJIT_FLAG_ALT_JIT);
-    }
-    return ret;
+    return jitInstance->getJitFlags(jitFlags, sizeInBytes);
 }
 
 // Runs the given function with the given parameter under an error trap
@@ -1544,69 +1591,69 @@ void MyICJI::allocMem(AllocMemArgs* pArgs)
 {
     jitInstance->mc->cr->AddCall("allocMem");
 
-    // TODO-Cleanup: Could hot block size be ever 0?
-    size_t codeAlignment      = sizeof(void*);
-    size_t hotCodeAlignedSize = static_cast<size_t>(pArgs->hotCodeSize);
+    uint8_t* hotCodeBlock = nullptr;
+    size_t hotCodeSize = 0;
+    uint8_t* coldCodeBlock = nullptr;
+    size_t coldCodeSize = 0;
+    uint8_t* roDataBlock = nullptr;
+    size_t roDataSize = 0;
+    unsigned roDataAlignment = 0;
 
-    if ((pArgs->flag & CORJIT_ALLOCMEM_FLG_32BYTE_ALIGN) != 0)
+    for (unsigned i = 0; i < pArgs->chunksCount; i++)
     {
-         codeAlignment = 32;
+        AllocMemChunk& chunk = pArgs->chunks[i];
+        if ((chunk.flags & CORJIT_ALLOCMEM_HOT_CODE) != 0)
+        {
+            hotCodeSize = chunk.size;
+            unsigned codeAlignment = std::max((uint32_t)sizeof(void*), chunk.alignment);
+            size_t hotCodeSizePadded = chunk.size + codeAlignment - 1;
+            hotCodeBlock = (uint8_t*)jitInstance->mc->cr->allocateMemory(hotCodeSizePadded);
+            hotCodeBlock = (uint8_t*)ALIGN_UP_SPMI(hotCodeBlock, codeAlignment);
+            chunk.block = hotCodeBlock;
+            chunk.blockRW = chunk.block;
+        }
+        else if ((pArgs->chunks[i].flags & CORJIT_ALLOCMEM_COLD_CODE) != 0)
+        {
+            coldCodeSize = chunk.size;
+            coldCodeBlock = (uint8_t*)jitInstance->mc->cr->allocateMemory(coldCodeSize);
+            chunk.block = coldCodeBlock;
+            chunk.blockRW = chunk.block;
+        }
+        else
+        {
+            roDataAlignment = std::max(roDataAlignment, chunk.alignment);
+            roDataSize = ALIGN_UP_SPMI(roDataSize, chunk.alignment);
+            roDataSize += chunk.size;
+        }
     }
-    else if ((pArgs->flag & CORJIT_ALLOCMEM_FLG_16BYTE_ALIGN) != 0)
+
+    if (roDataSize > 0)
     {
-         codeAlignment = 16;
+        size_t roDataSizePadded = roDataSize + roDataAlignment - 1;
+        roDataBlock = (uint8_t*)jitInstance->mc->cr->allocateMemory(roDataSizePadded);
+        roDataBlock = (uint8_t*)ALIGN_UP_SPMI(roDataBlock, roDataAlignment);
+        size_t offset = 0;
+        // Zero the block to ensure all the padding we allocated is zeroed for the later comparisons
+        memset(roDataBlock, 0, roDataSize);
+
+        for (unsigned i = 0; i < pArgs->chunksCount; i++)
+        {
+            AllocMemChunk& chunk = pArgs->chunks[i];
+            if ((chunk.flags & (CORJIT_ALLOCMEM_HOT_CODE | CORJIT_ALLOCMEM_COLD_CODE)) != 0)
+            {
+                continue;
+            }
+
+            offset = ALIGN_UP_SPMI(offset, chunk.alignment);
+            chunk.block = (uint8_t*)roDataBlock + offset;
+            chunk.blockRW = chunk.block;
+
+            offset += chunk.size;
+        }
     }
-    hotCodeAlignedSize = ALIGN_UP_SPMI(hotCodeAlignedSize, codeAlignment);
-    hotCodeAlignedSize = hotCodeAlignedSize + (codeAlignment - sizeof(void*));
-    pArgs->hotCodeBlock      = jitInstance->mc->cr->allocateMemory(hotCodeAlignedSize);
-    pArgs->hotCodeBlock      = ALIGN_UP_SPMI(pArgs->hotCodeBlock, codeAlignment);
 
-    if (pArgs->coldCodeSize > 0)
-        pArgs->coldCodeBlock = jitInstance->mc->cr->allocateMemory(pArgs->coldCodeSize);
-    else
-        pArgs->coldCodeBlock = nullptr;
-
-    if (pArgs->roDataSize > 0)
-    {
-        size_t roDataAlignment   = sizeof(void*);
-        size_t roDataAlignedSize = static_cast<size_t>(pArgs->roDataSize);
-
-        if ((pArgs->flag & CORJIT_ALLOCMEM_FLG_RODATA_64BYTE_ALIGN) != 0)
-        {
-            roDataAlignment = 64;
-        }
-        else if ((pArgs->flag & CORJIT_ALLOCMEM_FLG_RODATA_32BYTE_ALIGN) != 0)
-        {
-            roDataAlignment = 32;
-        }
-        else if ((pArgs->flag & CORJIT_ALLOCMEM_FLG_RODATA_16BYTE_ALIGN) != 0)
-        {
-            roDataAlignment = 16;
-        }
-        else if (pArgs->roDataSize >= 8)
-        {
-            roDataAlignment = 8;
-        }
-
-        // We need to round the roDataSize up to the alignment size and then
-        // overallocate by at most alignment - sizeof(void*) to ensure that
-        // we can offset roDataBlock to be an aligned address and that the
-        // allocation contains at least the originally requested size after
-
-        roDataAlignedSize = ALIGN_UP_SPMI(roDataAlignedSize, roDataAlignment);
-        roDataAlignedSize = roDataAlignedSize + (roDataAlignment - sizeof(void*));
-        pArgs->roDataBlock = jitInstance->mc->cr->allocateMemory(roDataAlignedSize);
-        pArgs->roDataBlock = ALIGN_UP_SPMI(pArgs->roDataBlock, roDataAlignment);
-    }
-    else
-        pArgs->roDataBlock = nullptr;
-
-    pArgs->hotCodeBlockRW = pArgs->hotCodeBlock;
-    pArgs->coldCodeBlockRW = pArgs->coldCodeBlock;
-    pArgs->roDataBlockRW = pArgs->roDataBlock;
-
-    jitInstance->mc->cr->recAllocMem(pArgs->hotCodeSize, pArgs->coldCodeSize, pArgs->roDataSize, pArgs->xcptnsCount, pArgs->flag, &pArgs->hotCodeBlock,
-                                     &pArgs->coldCodeBlock, &pArgs->roDataBlock);
+    jitInstance->mc->cr->recAllocMem((ULONG)hotCodeSize, (ULONG)coldCodeSize, (ULONG)roDataSize, pArgs->xcptnsCount, hotCodeBlock,
+                                     coldCodeBlock, roDataBlock);
 }
 
 // Reserve memory for the method/funclet's unwind information.
@@ -1722,7 +1769,7 @@ int MyICJI::doAssert(const char* szFile, int iLine, const char* szExpr)
     sprintf_s(buff, sizeof(buff), "%s (%d) - %s", szFile, iLine, szExpr);
 
     LogIssue(ISSUE_ASSERT, "#%d %s", jitInstance->mc->index, buff);
-    jitInstance->mc->cr->recMessageLog(buff);
+    jitInstance->mc->cr->recMessageLog("%s", buff);
 
     // Under "/boa", ask the user if they want to attach a debugger. If they do, the debugger will be attached,
     // then we'll call DebugBreakorAV(), which will issue a __debugbreak() and actually cause
@@ -1759,11 +1806,12 @@ HRESULT MyICJI::getPgoInstrumentationResults(CORINFO_METHOD_HANDLE      ftnHnd,
                                              PgoInstrumentationSchema **pSchema,                    // pointer to the schema table which describes the instrumentation results (pointer will not remain valid after jit completes)
                                              uint32_t *                 pCountSchemaItems,          // pointer to the count schema items
                                              uint8_t **                 pInstrumentationData,       // pointer to the actual instrumentation data (pointer will not remain valid after jit completes)
-                                             PgoSource*                 pPgoSource)
+                                             PgoSource*                 pPgoSource,
+                                             bool*                      pDynamicPgo)
 
 {
     jitInstance->mc->cr->AddCall("getPgoInstrumentationResults");
-    return jitInstance->mc->repGetPgoInstrumentationResults(ftnHnd, pSchema, pCountSchemaItems, pInstrumentationData, pPgoSource);
+    return jitInstance->mc->repGetPgoInstrumentationResults(ftnHnd, pSchema, pCountSchemaItems, pInstrumentationData, pPgoSource, pDynamicPgo);
 }
 
 // Associates a native call site, identified by its offset in the native code stream, with
@@ -1779,23 +1827,29 @@ void MyICJI::recordCallSite(uint32_t              instrOffset, /* IN */
     jitInstance->mc->cr->repRecordCallSite(instrOffset, callSig, methodHandle);
 }
 
+void MyICJI::recordWasmManagedCallSig(CORINFO_SIG_INFO* callSig /* IN */)
+{
+    jitInstance->mc->cr->AddCall("recordWasmManagedCallSig");
+    // No-op for SuperPMI replay. Only meaningful for ReadyToRun Wasm compilation.
+}
+
 // A relocation is recorded if we are pre-jitting.
 // A jump thunk may be inserted if we are jitting
-void MyICJI::recordRelocation(void*    location,   /* IN  */
-                              void*    locationRW, /* IN  */
-                              void*    target,     /* IN  */
-                              uint16_t fRelocType, /* IN  */
-                              int32_t  addlDelta   /* IN  */
+void MyICJI::recordRelocation(void*        location,   /* IN  */
+                              void*        locationRW, /* IN  */
+                              void*        target,     /* IN  */
+                              CorInfoReloc fRelocType, /* IN  */
+                              int32_t      addlDelta   /* IN  */
                               )
 {
     jitInstance->mc->cr->AddCall("recordRelocation");
     jitInstance->mc->cr->repRecordRelocation(location, target, fRelocType, addlDelta);
 }
 
-uint16_t MyICJI::getRelocTypeHint(void* target)
+CorInfoReloc MyICJI::getRelocTypeHint(void* target)
 {
     jitInstance->mc->cr->AddCall("getRelocTypeHint");
-    uint16_t result = jitInstance->mc->repGetRelocTypeHint(target);
+    CorInfoReloc result = jitInstance->mc->repGetRelocTypeHint(target);
     return result;
 }
 
@@ -1808,5 +1862,19 @@ uint32_t MyICJI::getExpectedTargetArchitecture()
 {
     jitInstance->mc->cr->AddCall("getExpectedTargetArchitecture");
     DWORD result = jitInstance->mc->repGetExpectedTargetArchitecture();
+    return result;
+}
+
+CORINFO_WASM_TYPE_SYMBOL_HANDLE MyICJI::getWasmTypeSymbol(CorInfoWasmType* types, size_t typesSize)
+{
+    jitInstance->mc->cr->AddCall("getWasmTypeSymbol");
+    CORINFO_WASM_TYPE_SYMBOL_HANDLE result = jitInstance->mc->repGetWasmTypeSymbol(types, typesSize);
+    return result;
+}
+
+CORINFO_METHOD_HANDLE MyICJI::getSpecialCopyHelper(CORINFO_CLASS_HANDLE type)
+{
+    jitInstance->mc->cr->AddCall("getSpecialCopyHelper");
+    CORINFO_METHOD_HANDLE result = jitInstance->mc->repGetSpecialCopyHelper(type);
     return result;
 }

@@ -7,7 +7,6 @@ using System.Text;
 
 namespace System.Diagnostics.Tracing
 {
-#if FEATURE_PERFTRACING
     internal static class EventPipePayloadDecoder
     {
         /// <summary>
@@ -56,12 +55,12 @@ namespace System.Diagnostics.Tracing
                 }
                 else if (parameterType == typeof(byte) || enumType == typeof(byte))
                 {
-                    decodedFields[i] = MemoryMarshal.Read<byte>(payload);
+                    decodedFields[i] = payload[0];
                     payload = payload.Slice(sizeof(byte));
                 }
                 else if (parameterType == typeof(sbyte) || enumType == typeof(sbyte))
                 {
-                    decodedFields[i] = MemoryMarshal.Read<sbyte>(payload);
+                    decodedFields[i] = (sbyte)payload[0];
                     payload = payload.Slice(sizeof(sbyte));
                 }
                 else if (parameterType == typeof(short) || enumType == typeof(short))
@@ -138,5 +137,4 @@ namespace System.Diagnostics.Tracing
             return decodedFields;
         }
     }
-#endif // FEATURE_PERFTRACING
 }

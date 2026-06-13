@@ -77,7 +77,7 @@ namespace ILCompiler
                 bool foundMatch = false;
                 foreach (DefType type in assembly.GetAllTypes())
                 {
-                    if (type.Namespace != fullname)
+                    if (!type.Namespace.StringEquals(fullname))
                         continue;
 
                     foundMatch = true;
@@ -161,6 +161,17 @@ namespace ILCompiler
             return base.ProcessExportedType(exported, assembly, nav);
         }
 #endif
+
+        protected override MetadataType? ProcessExportedType(MetadataType exported, ModuleDesc assembly, XPathNavigator nav)
+        {
+            // Rooting module metadata roots type forwarder metadata for all types in the module that are reflection visible.
+            // (We don't track individual type forwarders right now.)
+            // TODO-ILTRIM: add handling of type forwards
+#if !ILTRIM
+            _dependencies.Add(_factory.ModuleMetadata(assembly), "Type used through forwarder");
+#endif
+            return base.ProcessExportedType(exported, assembly, nav);
+        }
 
         protected override void ProcessType(TypeDesc type, XPathNavigator nav)
         {

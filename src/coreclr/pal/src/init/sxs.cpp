@@ -64,7 +64,7 @@ AllocatePalThread(CPalThread **ppThread)
         goto exit;
     }
 
-#if !HAVE_MACH_EXCEPTIONS
+#if !HAVE_MACH_EXCEPTIONS && HAVE_SIGALTSTACK
     // Ensure alternate stack for SIGSEGV handling. Our SIGSEGV handler is set to
     // run on an alternate stack and the stack needs to be allocated per thread.
     if (!pThread->EnsureSignalAlternateStack())
@@ -89,7 +89,8 @@ AllocatePalThread(CPalThread **ppThread)
     // possibly release it.
     (void)g_pObjectManager->RevokeHandle(pThread, hThread);
 
-    PROCAddThread(pThread, pThread);
+    // Unmask the activation signal so that GC can suspend this thread
+    UnmaskActivationSignal();
 
 exit:
     *ppThread = pThread;

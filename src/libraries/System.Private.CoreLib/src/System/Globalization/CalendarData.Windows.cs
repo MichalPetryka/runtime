@@ -1,11 +1,9 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-
-#pragma warning disable 8500 // taking address of managed type
 
 namespace System.Globalization
 {
@@ -355,7 +353,7 @@ namespace System.Globalization
             return true;
         }
 
-        internal static int GetCalendarsCore(string localeName, bool useUserOverride, CalendarId[] calendars)
+        internal static unsafe int GetCalendarsCore(string localeName, bool useUserOverride, CalendarId[] calendars)
         {
             Debug.Assert(!GlobalizationMode.Invariant);
 

@@ -36,11 +36,11 @@ internal sealed class ValueTaskSource : IValueTaskSource
     }
 
     /// <summary>
-    /// Returns <c>true</c> is this task source was completed, i.e. <see cref="TrySetResult"/> or <see cref="TrySetException(Exception)"/> was called.
+    /// Returns <c>true</c> if this task source was completed, i.e. <see cref="TrySetResult"/> or <see cref="TrySetException(Exception)"/> was called.
     /// </summary>
     public bool IsCompleted => (State)Volatile.Read(ref Unsafe.As<State, byte>(ref _state)) == State.Completed;
     /// <summary>
-    /// Returns <c>true</c> is this task source was completed successfully, i.e. <see cref="TrySetResult"/> was called and set the result.
+    /// Returns <c>true</c> if this task source was completed successfully, i.e. <see cref="TrySetResult"/> was called and set the result.
     /// </summary>
     public bool IsCompletedSuccessfully => IsCompleted && _valueTaskSource.GetStatus(_valueTaskSource.Version) == ValueTaskSourceStatus.Succeeded;
 
@@ -55,7 +55,7 @@ internal sealed class ValueTaskSource : IValueTaskSource
     {
         lock (this)
         {
-            // Set up value task either way, so the the caller can get the result even if they do not start the operation.
+            // Set up value task either way, so the caller can get the result even if they do not start the operation.
             valueTask = new ValueTask(this, _valueTaskSource.Version);
 
             // Cancellation might kick off synchronously, re-entering the lock and changing the state to completed.

@@ -57,10 +57,6 @@ namespace System.Text.Json.Serialization
             return new JsonTypeInfo<T>(this, options);
         }
 
-        internal override Type? KeyType => null;
-
-        internal override Type? ElementType => null;
-
         /// <summary>
         /// Indicates whether <see langword="null"/> should be passed to the converter on serialization,
         /// and whether <see cref="JsonTokenType.Null"/> should be passed on deserialization.
@@ -214,7 +210,7 @@ namespace System.Text.Json.Serialization
             bool success;
 
             if (
-#if NETCOREAPP
+#if NET
                 !typeof(T).IsValueType &&
 #endif
                 CanBePolymorphic)
@@ -367,7 +363,7 @@ namespace System.Text.Json.Serialization
             bool success;
 
             if (
-#if NETCOREAPP
+#if NET
                 // Short-circuit the check against "is not null"; treated as a constant by recent versions of the JIT.
                 !typeof(T).IsValueType &&
 #else
@@ -386,7 +382,7 @@ namespace System.Text.Json.Serialization
                     ResolvePolymorphicConverter(value, jsonTypeInfo, options, ref state) :
                     null;
 
-                if (!isContinuation && options.ReferenceHandlingStrategy != ReferenceHandlingStrategy.None &&
+                if (!isContinuation && options.ReferenceHandlingStrategy != JsonKnownReferenceHandler.Unspecified &&
                     TryHandleSerializedObjectReference(writer, value, options, polymorphicConverter, ref state))
                 {
                     // The reference handler wrote reference metadata, serialization complete.
@@ -462,8 +458,11 @@ namespace System.Text.Json.Serialization
             {
                 // If not JsonDictionaryConverter<T> then we are JsonObject.
                 // Avoid a type reference to JsonObject and its converter to support trimming.
+                // The WriteExtensionDataValue virtual method is overridden by the JsonObject converter.
                 Debug.Assert(Type == typeof(Nodes.JsonObject));
-                return TryWrite(writer, value, options, ref state);
+                WriteExtensionDataValue(writer, value!, options);
+
+                return true;
             }
 
             if (writer.CurrentDepth >= options.EffectiveMaxDepth)
@@ -495,6 +494,19 @@ namespace System.Text.Json.Serialization
             state.Pop(success);
 
             return success;
+        }
+
+        /// <summary>
+        /// Used to support JsonObject as an extension property in a loosely-typed, trimmable manner.
+        /// </summary>
+        /// <remarks>
+        /// Writes the extension data contents without wrapping object braces.
+        /// </remarks>
+        internal virtual void WriteExtensionDataValue(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+        {
+            Debug.Fail("Should not be reachable.");
+
+            throw new InvalidOperationException();
         }
 
         /// <inheritdoc/>
@@ -530,6 +542,10 @@ namespace System.Text.Json.Serialization
 
                     break;
 
+                case JsonTokenType.None:
+                    Debug.Assert(IsRootLevelMultiContentStreamingConverter);
+                    break;
+
                 default:
                     if (isValueConverter)
                     {
@@ -542,8 +558,8 @@ namespace System.Text.Json.Serialization
                     else
                     {
                         // A non-value converter (object or collection) should always have Start and End tokens
-                        // unless it is polymorphic or supports null value reads.
-                        if (!CanBePolymorphic && !(HandleNullOnRead && tokenType == JsonTokenType.Null))
+                        // unless it is polymorphic, supports null value reads, or handles multiple token types.
+                        if (!CanBePolymorphic && !SupportsMultipleTokenTypes && !(HandleNullOnRead && tokenType == JsonTokenType.Null))
                         {
                             ThrowHelper.ThrowJsonException_SerializationConverterRead(this);
                         }
@@ -635,10 +651,7 @@ namespace System.Text.Json.Serialization
 
         internal virtual void WriteAsPropertyNameCore(Utf8JsonWriter writer, [DisallowNull] T value, JsonSerializerOptions options, bool isWritingExtensionDataProperty)
         {
-            if (value is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             if (isWritingExtensionDataProperty)
             {

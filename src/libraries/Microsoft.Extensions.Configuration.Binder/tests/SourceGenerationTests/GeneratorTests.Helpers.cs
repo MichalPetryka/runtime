@@ -9,9 +9,11 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Binder.SourceGeneration;
@@ -66,7 +68,6 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
         }
 
         private static readonly Assembly[] s_compilationAssemblyRefs = new[] {
-            typeof(BitArray).Assembly,
             typeof(ConfigurationBinder).Assembly,
             typeof(ConfigurationBuilder).Assembly,
             typeof(CultureInfo).Assembly,
@@ -78,6 +79,7 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
             typeof(IDictionary).Assembly,
             typeof(OptionsBuilder<>).Assembly,
             typeof(OptionsConfigurationServiceCollectionExtensions).Assembly,
+            typeof(Stack<>).Assembly,
             typeof(Uri).Assembly,
         };
 
@@ -97,6 +99,26 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
             Assert.NotNull(source);
             Assert.Empty(result.Diagnostics);
             Assert.True(source.Value.SourceText.Lines.Count > 10);
+            await VerifySuppressedCallsMatchInterceptedCalls(result);
+        }
+
+        private static bool s_initializedInterceptorVersion;
+        private static int s_interceptorVersion;
+        private static int GetInterceptorVersion()
+        {
+            if (!s_initializedInterceptorVersion)
+            {
+                MethodInfo method = typeof(ConfigurationBindingGenerator).GetMethod(
+                    "DetermineInterceptableVersion",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+
+                Assert.NotNull(method);
+
+                s_interceptorVersion = (int)method.Invoke(null, null);
+                s_initializedInterceptorVersion = true;
+            }
+
+            return s_interceptorVersion;
         }
 
         private static async Task<ConfigBindingGenRunResult> VerifyAgainstBaselineUsingFile(
@@ -106,18 +128,22 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
             ExpectedDiagnostics expectedDiags = ExpectedDiagnostics.None)
         {
             string environmentSubFolder =
-#if NETCOREAPP
+#if NET
     "netcoreapp"
 #else
     "net462"
 #endif
             ;
+
             string path = extType is ExtensionClassType.None
-                ? Path.Combine("Baselines", environmentSubFolder, filename)
-                : Path.Combine("Baselines", environmentSubFolder, extType.ToString(), filename);
+                ? Path.Combine("Baselines", environmentSubFolder, "Version" + GetInterceptorVersion().ToString(), filename)
+                : Path.Combine("Baselines", environmentSubFolder, extType.ToString(), "Version" + GetInterceptorVersion().ToString(), filename);
             string baseline = LineEndingsHelper.Normalize(File.ReadAllText(path));
             string[] expectedLines = baseline.Replace("%VERSION%", typeof(ConfigurationBindingGenerator).Assembly.GetName().Version?.ToString())
                                              .Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+
+            // Normalize the source since the interceptor attribute uses a hash of the text.
+            testSourceCode = testSourceCode.Replace("\r\n", "\n");
 
             ConfigBindingGenRunResult result = await RunGeneratorAndUpdateCompilation(testSourceCode);
             result.ValidateDiagnostics(expectedDiags);
@@ -138,7 +164,7 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
                 string source = string.Join(Environment.NewLine, lines).TrimEnd(Environment.NewLine.ToCharArray()) + Environment.NewLine;
                 path = Path.Combine($"{repoRootDir}\\src\\libraries\\Microsoft.Extensions.Configuration.Binder\\tests\\SourceGenerationTests\\", path);
 
-#if NETCOREAPP
+#if NET
                 await File.WriteAllTextAsync(path, source);
 #else
                 File.WriteAllText(path, source);
@@ -148,6 +174,8 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
 #endif
 
             Assert.True(resultEqualsBaseline, errorMessage);
+
+            await VerifySuppressedCallsMatchInterceptedCalls(result);
 
             return result;
         }
@@ -176,6 +204,19 @@ namespace Microsoft.Extensions.SourceGeneration.Configuration.Binder.Tests
                 assemblies.Remove(exclusion.Assembly);
             }
             return assemblies;
+        }
+
+        public static byte[] CreateAssemblyImage(Compilation compilation)
+        {
+            MemoryStream ms = new MemoryStream();
+            var emitResult = compilation.Emit(ms);
+            if (!emitResult.Success)
+            {
+                // Explicit failures to include in the test output.
+                string errorMessage = string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString()));
+                throw new InvalidOperationException(errorMessage);
+            }
+            return ms.ToArray();
         }
     }
 }

@@ -15,7 +15,7 @@ using CombinedDependencyList = System.Collections.Generic.List<ILCompiler.Depend
 namespace ILCompiler.DependencyAnalysis
 {
     [DebuggerTypeProxy(typeof(MethodCodeNodeDebugView))]
-    public class MethodCodeNode : ObjectNode, IMethodBodyNode, INodeWithCodeInfo, INodeWithDebugInfo, ISymbolDefinitionNode, ISpecialUnboxThunkNode
+    public class MethodCodeNode : ObjectNode, IMethodBodyNode, INodeWithCodeInfo, INodeWithDebugInfo, INodeWithFunclets, ISpecialUnboxThunkNode, IMethodCodeNodeWithTypeSignature
     {
         private MethodDesc _method;
         private ObjectData _methodCode;
@@ -26,7 +26,6 @@ namespace ILCompiler.DependencyAnalysis
         private DebugVarInfo[] _debugVarInfos;
         private DebugEHClauseInfo[] _debugEHClauseInfos;
         private DependencyList _nonRelocationDependencies;
-        private bool _isFoldable;
         private MethodDebugInformation _debugInfo;
         private TypeDesc[] _localTypes;
 
@@ -38,11 +37,10 @@ namespace ILCompiler.DependencyAnalysis
             _method = method;
         }
 
-        public void SetCode(ObjectData data, bool isFoldable)
+        public void SetCode(ObjectData data)
         {
             Debug.Assert(_methodCode == null);
             _methodCode = data;
-            _isFoldable = isFoldable;
         }
 
         public MethodDesc Method =>  _method;
@@ -52,11 +50,12 @@ namespace ILCompiler.DependencyAnalysis
         public override ObjectNodeSection GetSection(NodeFactory factory)
         {
             return factory.Target.IsWindows ?
-                (_isFoldable ? ObjectNodeSection.FoldableManagedCodeWindowsContentSection : ObjectNodeSection.ManagedCodeWindowsContentSection) :
-                (_isFoldable ? ObjectNodeSection.FoldableManagedCodeUnixContentSection : ObjectNodeSection.ManagedCodeUnixContentSection);
+                ObjectNodeSection.ManagedCodeWindowsContentSection : ObjectNodeSection.ManagedCodeUnixContentSection;
         }
 
         public override bool StaticDependenciesAreComputed => _methodCode != null;
+
+        public override bool InterestingForDynamicDependencyAnalysis => _method.HasInstantiation || _method.OwningType.HasInstantiation;
 
         public virtual void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
@@ -91,7 +90,7 @@ namespace ILCompiler.DependencyAnalysis
                 dependencies.Add(_ehInfo, "Exception handling information");
             }
 
-            if (MethodAssociatedDataNode.MethodHasAssociatedData(factory, this))
+            if (MethodAssociatedDataNode.MethodHasAssociatedData(this))
             {
                 dependencies ??= new DependencyList();
                 dependencies.Add(new DependencyListEntry(factory.MethodAssociatedData(this), "Method associated data"));
@@ -119,9 +118,12 @@ namespace ILCompiler.DependencyAnalysis
         public byte[] GCInfo => _gcInfo;
         public MethodExceptionHandlingInfoNode EHInfo => _ehInfo;
 
+        // TODO-WASM: Appropriately extract funclet kinds from eh clause info
+        public FuncletKind[] GetFuncletKinds() => throw new NotImplementedException();
+
         public ISymbolNode GetAssociatedDataNode(NodeFactory factory)
         {
-            if (MethodAssociatedDataNode.MethodHasAssociatedData(factory, this))
+            if (MethodAssociatedDataNode.MethodHasAssociatedData(this))
                 return factory.MethodAssociatedData(this);
 
             return null;
@@ -257,6 +259,10 @@ namespace ILCompiler.DependencyAnalysis
 
         public IEnumerable<NativeSequencePoint> GetNativeSequencePoints()
         {
+            // This can be null if we're not generating debug info
+            if (_debugLocInfos == null)
+                yield break;
+
             var sequencePoints = new (string Document, int LineNumber)[_debugLocInfos.Length * 4 /* chosen empirically */];
             try
             {
@@ -270,6 +276,15 @@ namespace ILCompiler.DependencyAnalysis
                     }
                     sequencePoints[offset] = (sequencePoint.Document, sequencePoint.LineNumber);
                 }
+
+                // Propagate last known document/line number forward to enable correct mapping when IL offsets decrease at higher native offsets
+                for (int i = 1; i < sequencePoints.Length; i++)
+                {
+                    if (sequencePoints[i].Document == null && sequencePoints[i - 1].Document != null)
+                    {
+                        sequencePoints[i] = (sequencePoints[i - 1].Document, sequencePoints[i - 1].LineNumber);
+                    }
+                }
             }
             catch (BadImageFormatException)
             {
@@ -280,22 +295,26 @@ namespace ILCompiler.DependencyAnalysis
             }
 
             int previousNativeOffset = -1;
+            string previousDocument = null;
+            int previousLineNumber = -1;
+            // OffsetMapping is sorted in order of increasing native offset (but not necessarily by IL offset)
             foreach (var nativeMapping in _debugLocInfos)
             {
                 if (nativeMapping.NativeOffset == previousNativeOffset)
                     continue;
 
-                if (nativeMapping.ILOffset < sequencePoints.Length)
+                var sequencePoint = sequencePoints[Math.Min(nativeMapping.ILOffset, sequencePoints.Length - 1)];
+                // Emit sequence point if its line number or document differ from the previous one.
+                // See WalkILOffsetsCallback in src/coreclr/vm/debugdebugger.cpp for more details.
+                if (sequencePoint.Document != null && (sequencePoint.Document != previousDocument || sequencePoint.LineNumber != previousLineNumber))
                 {
-                    var sequencePoint = sequencePoints[nativeMapping.ILOffset];
-                    if (sequencePoint.Document != null)
-                    {
-                        yield return new NativeSequencePoint(
-                            nativeMapping.NativeOffset,
-                            sequencePoint.Document,
-                            sequencePoint.LineNumber);
-                        previousNativeOffset = nativeMapping.NativeOffset;
-                    }
+                    yield return new NativeSequencePoint(
+                        nativeMapping.NativeOffset,
+                        sequencePoint.Document,
+                        sequencePoint.LineNumber);
+                    previousNativeOffset = nativeMapping.NativeOffset;
+                    previousDocument = sequencePoint.Document;
+                    previousLineNumber = sequencePoint.LineNumber;
                 }
             }
         }

@@ -20,11 +20,12 @@ namespace System.Runtime.InteropServices.JavaScript
     {
         internal JSMarshalerArgumentImpl slot;
 
+        // keep in sync with JSMarshalerArgumentOffsets in marshal.ts
         [StructLayout(LayoutKind.Explicit, Pack = 32, Size = 32)]
         internal struct JSMarshalerArgumentImpl
         {
             [FieldOffset(0)]
-            internal bool BooleanValue;
+            internal bool BooleanValue;  // note this is 1 byte
             [FieldOffset(0)]
             internal byte ByteValue;
             [FieldOffset(0)]
@@ -60,13 +61,24 @@ namespace System.Runtime.InteropServices.JavaScript
 
             [FieldOffset(16)]
             internal IntPtr ContextHandle;
+
+            [FieldOffset(20)]
+            internal bool ReceiverShouldFree; // note this is 1 byte
+
+            [FieldOffset(24)]
+            internal IntPtr CallerNativeTID;
+
+            [FieldOffset(28)]
+            internal IntPtr SyncDoneSemaphorePtr;
         }
 
         /// <summary>
         /// This API supports JSImport infrastructure and is not intended to be used directly from your code.
         /// </summary>
+#if !DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Initialize()
+#endif
+        public void Initialize()
         {
             slot.Type = MarshalerType.None;
 #if FEATURE_WASM_MANAGED_THREADS
@@ -75,14 +87,18 @@ namespace System.Runtime.InteropServices.JavaScript
             JSProxyContext.JSImportWithUnknownContext();
             slot.ContextHandle = IntPtr.Zero;
 #endif
+            slot.ReceiverShouldFree = false;
         }
 
 #if FEATURE_WASM_MANAGED_THREADS
+#if !DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal unsafe void InitializeWithContext(JSProxyContext knownProxyContext)
         {
             slot.Type = MarshalerType.None;
             slot.ContextHandle = knownProxyContext.ContextHandle;
+            slot.ReceiverShouldFree = false;
         }
 #endif
         // this is always called from ToManaged() marshaler
@@ -103,11 +119,11 @@ namespace System.Runtime.InteropServices.JavaScript
                 // during JSExport, this is marshaling parameters and it would be set by:
                 //    - alloc_stack_frame
                 //    - set_js_handle/set_gc_handle
-                var proxyContextGCHandle = (GCHandle)slot.ContextHandle;
-                if (proxyContextGCHandle == default)
+                if (slot.ContextHandle == IntPtr.Zero)
                 {
-                    Environment.FailFast($"ContextHandle not set, ManagedThreadId: {Environment.CurrentManagedThreadId}. {Environment.NewLine} {Environment.StackTrace}");
+                    Environment.FailFast($"ContextHandle not set (ManagedThreadId {Environment.CurrentManagedThreadId}): {Environment.NewLine} {Environment.StackTrace}");
                 }
+                var proxyContextGCHandle = (GCHandle)slot.ContextHandle;
                 var argumentContext = (JSProxyContext)proxyContextGCHandle.Target!;
                 return argumentContext;
 #endif

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
     <TestRuntime>true</TestRuntime>
+    <IncludeRemoteExecutor>true</IncludeRemoteExecutor>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- SYSLIB0013: Uri.EscapeUriString is obsolete
          SYSLIB0037: AssemblyName members HashAlgorithm, ProcessorArchitecture, and VersionCompatibility are obsolete. -->
@@ -9,6 +10,9 @@
 
     <!-- these tests depend on the pdb files -->
     <DebuggerSupport Condition="'$(DebuggerSupport)' == '' and '$(TargetOS)' == 'browser'">true</DebuggerSupport>
+    <!-- https://github.com/dotnet/runtime/issues/126862 -->
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>false</EnableAotAnalyzer>
   </PropertyGroup>
   <ItemGroup>
     <RdXmlFile Include="default.rd.xml" />
@@ -33,6 +37,7 @@
     <Compile Include="MethodInfoTests.cs" />
     <Compile Include="MethodInvokerTests.cs" />
     <Compile Include="ModuleTests.cs" />
+    <Compile Include="OleAutBinderTests.cs" />
     <Compile Include="Common.cs" />
     <Compile Include="ParameterInfoTests.cs" />
     <Compile Include="PropertyInfoTests.cs" />
@@ -76,6 +81,7 @@
     <ProjectReference Include="UnloadableAssembly\UnloadableAssembly.csproj" />
     <ProjectReference Include="TestExe\System.Reflection.TestExe.csproj" />
     <ProjectReference Include="TestAssembly\TestAssembly.csproj" />
+    <ProjectReference Include="Hello工程123\Hello工程123.csproj" />
   </ItemGroup>
     <ItemGroup Condition="'$(TargetOS)' == 'browser'">
     <WasmFilesToIncludeFromPublishDir Include="$(AssemblyName).dll" />
@@ -86,5 +92,6 @@
 
     <!-- Assemblies that should be excluded from the bundle -->
     <__ExcludeFromBundle Include="TestAssembly.dll" />
+    <__ExcludeFromBundle Include="Hello工程123.dll" />
   </ItemGroup>
 </Project>

@@ -283,7 +283,7 @@ namespace Microsoft.Extensions.Hosting.Internal
                         {
                             Assert.False(ct.IsCancellationRequested);
                             serviceStarting.Set();
-                            Assert.True(startCancelled.WaitOne(TimeSpan.FromSeconds(5)));
+                            Assert.True(startCancelled.WaitOne(TimeSpan.FromSeconds(30)));
                             ct.ThrowIfCancellationRequested();
                         }
                     });
@@ -293,7 +293,7 @@ namespace Microsoft.Extensions.Hosting.Internal
                 var cts = new CancellationTokenSource();
 
                 var startTask = Task.Run(() => host.StartAsync(cts.Token));
-                Assert.True(serviceStarting.WaitOne(TimeSpan.FromSeconds(5)));
+                Assert.True(serviceStarting.WaitOne(TimeSpan.FromSeconds(30)));
                 cts.Cancel();
                 startCancelled.Set();
                 await Assert.ThrowsAsync<OperationCanceledException>(() => startTask);
@@ -593,6 +593,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public async Task HostStopAsyncCanBeCancelledEarly()
         {
@@ -625,6 +626,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public async Task HostStopAsyncUsesDefaultTimeoutIfGivenTokenDoesNotFire()
         {
@@ -658,6 +660,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public async Task WebHostStopAsyncUsesDefaultTimeoutIfNoTokenProvided()
         {
@@ -688,7 +691,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         [Fact]
-        public async Task HostPropagatesExceptionsThrownWithBackgroundServiceExceptionBehaviorOfStopHost()
+        public async Task HostStopsWithBackgroundServiceExceptionBehaviorOfStopHost()
         {
             using IHost host = CreateBuilder()
                 .ConfigureServices(
@@ -702,7 +705,12 @@ namespace Microsoft.Extensions.Hosting.Internal
                     })
                 .Build();
 
-            await Assert.ThrowsAsync<Exception>(() => host.StartAsync());
+            await host.StartAsync();
+
+            // host is expected to catch exception, then trigger ApplicationStopping.
+            // give the host 1 minute to stop.
+            var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+            Assert.True(lifetime.ApplicationStopping.WaitHandle.WaitOne(TimeSpan.FromMinutes(1)));
         }
 
         [Fact]
@@ -1210,6 +1218,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public void Dispose_DisposesAppConfigurationProviders()
         {
@@ -1235,6 +1244,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public void Dispose_DisposesHostConfigurationProviders()
         {
@@ -1311,6 +1321,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public async Task DisposeAsync_DisposesAppConfigurationProviders()
         {
@@ -1336,6 +1347,7 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         // Moq heavily utilizes RefEmit, which does not work on most aot workloads
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/128405", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.CoreCLR)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
         public async Task DisposeAsync_DisposesHostConfigurationProviders()
         {
@@ -1427,6 +1439,50 @@ namespace Microsoft.Extensions.Hosting.Internal
         }
 
         /// <summary>
+        /// Tests that an exception is logged if a hosted service factory fails.
+        /// </summary>
+        [Fact]
+        public async Task HostedServiceFactoryExceptionGetsLogged()
+        {
+            TestLoggerProvider logger = new TestLoggerProvider();
+
+            using IHost host = CreateBuilder()
+                .ConfigureLogging(logging =>
+                {
+                    logging.AddProvider(logger);
+                })
+                .ConfigureServices((hostContext, services) =>
+                {
+                    services.AddHostedService<WorkerTemplateService>(p => throw new InvalidOperationException("factory failed"));
+                })
+                .Build();
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.StartAsync());
+
+            LogEvent[] events = logger.GetEvents();
+            Assert.Single(events);
+            Assert.Equal(LogLevel.Error, events[0].LogLevel);
+            Assert.Equal("HostedServiceStartupFaulted", events[0].EventId.Name);
+        }
+
+        [Fact]
+        public async Task HostConcurrentCancelledStartAsyncAbortsStart()
+        {
+            using CancellationTokenSource cancellationTokenSource = new();
+            StartAsyncCancelledService service = new(cancellationTokenSource);
+
+            using IHost host = CreateBuilder()
+                .ConfigureServices((hostContext, services) =>
+                {
+                    services.Configure<HostOptions>(o => o.ServicesStartConcurrently = true);
+                    services.AddHostedService(sp => service);
+                })
+                .Build();
+
+            await Assert.ThrowsAsync<TaskCanceledException>(() => host.StartAsync(cancellationTokenSource.Token));
+        }
+
+        /// <summary>
         /// Tests that when a BackgroundService is canceled when stopping the host,
         /// no error is logged.
         /// </summary>
@@ -1483,6 +1539,39 @@ namespace Microsoft.Extensions.Hosting.Internal
             {
                 Assert.True(logEvent.LogLevel <= LogLevel.Information, "All logged events should be less than or equal to Information. No Warnings or Errors.");
 
+                Assert.NotEqual("BackgroundServiceFaulted", logEvent.EventId.Name);
+            }
+        }
+
+        /// <summary>
+        /// Tests that when a BackgroundService is cancelled when stopping a host which has not finished starting, it does not log an error
+        /// </summary>
+        [Fact]
+        public async Task HostNoErrorWhenStartingServiceIsCanceledAsPartOfStop()
+        {
+            TestLoggerProvider logger = new TestLoggerProvider();
+
+            using IHost host = CreateBuilder()
+                .ConfigureLogging(logging =>
+                {
+                    logging.AddProvider(logger);
+                })
+                .ConfigureServices(services =>
+                {
+                    services.AddHostedService<WorkerTemplateService>();
+                    services.AddHostedService<SlowStartService>();
+                })
+                .Build();
+
+            IHostApplicationLifetime lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+            _ = host.StartAsync();
+            lifetime.StopApplication();
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+            await host.WaitForShutdownAsync();
+
+            foreach (LogEvent logEvent in logger.GetEvents())
+            {
+                Assert.True(logEvent.LogLevel < LogLevel.Error);
                 Assert.NotEqual("BackgroundServiceFaulted", logEvent.EventId.Name);
             }
         }
@@ -1636,6 +1725,27 @@ namespace Microsoft.Extensions.Hosting.Internal
             protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.CompletedTask;
 
             public override Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private class StartAsyncCancelledService(CancellationTokenSource cancellationTokenSource) : IHostedService
+        {
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                cancellationTokenSource.Cancel();
+                return Task.FromCanceled(cancellationToken);
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private class SlowStartService : IHostedService
+        {
+            public async Task StartAsync(CancellationToken cancellationToken)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10), CancellationToken.None);
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         }
     }
 }

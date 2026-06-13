@@ -1,8 +1,10 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace System.Security.Cryptography.Pkcs
@@ -72,7 +74,7 @@ namespace System.Security.Cryptography.Pkcs
                 destination);
         }
 
-        private static void Derive(
+        private static unsafe void Derive(
             ReadOnlySpan<char> password,
             HashAlgorithmName hashAlgorithm,
             int iterationCount,
@@ -115,9 +117,15 @@ namespace System.Security.Cryptography.Pkcs
             // The password is a null-terminated UTF-16BE version of the input.
             int passLen = checked((password.Length + 1) * 2);
 
-            // If password == default then the span represents the null string (as opposed to
+            // If password contains a null ref then the span represents the null string (as opposed to
             // an empty string), and the P block should then have size 0 in the next step.
+#if NETSTANDARD
+#pragma warning disable CA2265 // Do not compare Span<T> to 'default'
             if (password == default)
+#pragma warning restore CA2265
+#else
+            if (Unsafe.IsNullRef(ref MemoryMarshal.GetReference(password)))
+#endif
             {
                 passLen = 0;
             }
@@ -137,7 +145,7 @@ namespace System.Security.Cryptography.Pkcs
             scoped Span<byte> I;
             byte[]? IRented = null;
 
-            if (ILen <= 1024)
+            if ((uint)ILen <= 1024)
             {
                 I = stackalloc byte[ILen];
             }
@@ -147,7 +155,6 @@ namespace System.Security.Cryptography.Pkcs
                 I = IRented.AsSpan(0, ILen);
             }
 
-            KdfWorkLimiter.RecordIterations(iterationCount);
             IncrementalHash hash = IncrementalHash.CreateHash(hashAlgorithm);
 
             try
@@ -226,7 +233,7 @@ namespace System.Security.Cryptography.Pkcs
             }
         }
 
-        private static void AddPlusOne(Span<byte> into, Span<byte> addend)
+        private static void AddPlusOne(Span<byte> into, ReadOnlySpan<byte> addend)
         {
             Debug.Assert(into.Length == addend.Length);
 

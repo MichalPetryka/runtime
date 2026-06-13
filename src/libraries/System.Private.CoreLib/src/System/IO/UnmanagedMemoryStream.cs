@@ -3,6 +3,7 @@
 
 using System.Buffers;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -390,7 +391,7 @@ namespace System.IO
                     try
                     {
                         _buffer.AcquirePointer(ref pointer);
-                        Buffer.Memmove(ref MemoryMarshal.GetReference(buffer), ref *(pointer + pos + _offset), (nuint)nInt);
+                        SpanHelpers.Memmove(ref MemoryMarshal.GetReference(buffer), ref *(pointer + pos + _offset), (nuint)nInt);
                     }
                     finally
                     {
@@ -402,7 +403,7 @@ namespace System.IO
                 }
                 else
                 {
-                    Buffer.Memmove(ref MemoryMarshal.GetReference(buffer), ref *(_mem + pos), (nuint)nInt);
+                    SpanHelpers.Memmove(ref MemoryMarshal.GetReference(buffer), ref *(_mem + pos), (nuint)nInt);
                 }
             }
 
@@ -669,7 +670,7 @@ namespace System.IO
                 try
                 {
                     _buffer.AcquirePointer(ref pointer);
-                    Buffer.Memmove(ref *(pointer + pos + _offset), ref MemoryMarshal.GetReference(buffer), (nuint)buffer.Length);
+                    SpanHelpers.Memmove(ref *(pointer + pos + _offset), ref MemoryMarshal.GetReference(buffer), (nuint)buffer.Length);
                 }
                 finally
                 {
@@ -681,7 +682,7 @@ namespace System.IO
             }
             else
             {
-                Buffer.Memmove(ref *(_mem + pos), ref MemoryMarshal.GetReference(buffer), (nuint)buffer.Length);
+                SpanHelpers.Memmove(ref *(_mem + pos), ref MemoryMarshal.GetReference(buffer), (nuint)buffer.Length);
             }
 
             _position = n;
@@ -709,7 +710,7 @@ namespace System.IO
             }
             catch (Exception ex)
             {
-                Debug.Assert(!(ex is OperationCanceledException));
+                Debug.Assert(ex is not OperationCanceledException);
                 return Task.FromException(ex);
             }
         }

@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.IO;
 
 using ILCompiler;
+using Internal.Text;
 using System.Runtime.CompilerServices;
 
 namespace Internal.TypeSystem.Ecma
@@ -39,7 +40,8 @@ namespace Internal.TypeSystem.Ecma
                 if (!_mutableModule._moduleToModuleRefString.TryGetValue(module, out moduleRefString))
                 {
                     Debug.Assert(_mutableModule.ModuleThatIsCurrentlyTheSourceOfNewReferences != null &&
-                        _mutableModule._compilationGroup.CrossModuleInlineableModule(_mutableModule.ModuleThatIsCurrentlyTheSourceOfNewReferences));
+                        (_mutableModule._compilationGroup.CrossModuleInlineableModule(_mutableModule.ModuleThatIsCurrentlyTheSourceOfNewReferences)
+                        || _mutableModule.CreatingTokensForAsyncMethod));
 
                     if (module == _typeSystemContext.SystemModule)
                     {
@@ -74,7 +76,7 @@ namespace Internal.TypeSystem.Ecma
                 return result;
             }
 
-            public ManagedBinaryEmitterForInternalUse(AssemblyName assemblyName,
+            public ManagedBinaryEmitterForInternalUse(AssemblyNameInfo assemblyName,
                                                       TypeSystemContext typeSystemContext,
                                                       AssemblyFlags assemblyFlags,
                                                       byte[] publicKeyArray,
@@ -166,9 +168,7 @@ namespace Internal.TypeSystem.Ecma
             private void ResetEmitter()
             {
                 _reader = null;
-                AssemblyName assemblyName = new AssemblyName();
-                assemblyName.Name = _assemblyName;
-                assemblyName.Version = _version;
+                AssemblyNameInfo assemblyName = new AssemblyNameInfo(name: _assemblyName, version: _version);
 
                 _currentBinaryEmitter = new ManagedBinaryEmitterForInternalUse(assemblyName, _module.Context, _assemblyFlags, _publicKeyArray, _hashAlgorithm, _moduleToIndex, _module);
                 foreach (var entry in _values)
@@ -298,7 +298,7 @@ namespace Internal.TypeSystem.Ecma
             _cache = new Cache(this, assemblyName, assemblyFlags, publicKeyArray, version, hashAlgorithm, moduleToIndex);
             TryGetHandle = _cache.CreateCacheFunc<TypeSystemEntity>(GetHandleForTypeSystemEntity);
             TryGetStringHandle = _cache.CreateCacheFunc<string>(GetUserStringHandle);
-            TryGetAssemblyRefHandle = _cache.CreateCacheFunc<AssemblyName>(GetAssemblyRefHandle);
+            TryGetAssemblyRefHandle = _cache.CreateCacheFunc<AssemblyNameInfo>(GetAssemblyRefHandle);
         }
 
         class DisableNewTokensException : Exception { }
@@ -320,12 +320,12 @@ namespace Internal.TypeSystem.Ecma
 
         private int GetAssemblyRefHandle(TypeSystemMetadataEmitter emitter, object name)
         {
-            return MetadataTokens.GetToken(emitter.GetAssemblyRef((AssemblyName)name));
+            return MetadataTokens.GetToken(emitter.GetAssemblyRef((AssemblyNameInfo)name));
         }
 
         public Func<TypeSystemEntity, int?> TryGetHandle { get; }
         public Func<string, int?> TryGetStringHandle { get; }
-        public Func<AssemblyName, int?> TryGetAssemblyRefHandle { get; }
+        public Func<AssemblyNameInfo, int?> TryGetAssemblyRefHandle { get; }
         public EntityHandle? TryGetEntityHandle(TypeSystemEntity tse)
         {
             var handle = TryGetHandle(tse);
@@ -354,6 +354,8 @@ namespace Internal.TypeSystem.Ecma
         public byte[] MetadataBlob => _cache.MetadataBlob;
 
         public int ModuleTypeSort => 1;
+
+        public bool CreatingTokensForAsyncMethod { get; set; }
 
         public int CompareTo(IEcmaModule other)
         {
@@ -402,7 +404,7 @@ namespace Internal.TypeSystem.Ecma
             }
             throw new ArgumentException("Invalid UserStringHandle passed to MutableModule.GetObject");
         }
-        public override object GetType(string nameSpace, string name, NotFoundBehavior notFoundBehavior) => throw new NotImplementedException();
+        public override object GetType(Utf8Span nameSpace, Utf8Span name, NotFoundBehavior notFoundBehavior) => throw new NotImplementedException();
         public TypeDesc GetType(EntityHandle handle)
         {
             TypeDesc type = GetObject(handle, NotFoundBehavior.Throw) as TypeDesc;

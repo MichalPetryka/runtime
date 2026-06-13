@@ -34,6 +34,27 @@ namespace System.Security.Cryptography
             _key = InitializeKey(key);
         }
 
+        private HMACManagedHashProvider(HashProvider hash1, HashProvider hash2, byte[] key, int blockSize, int hashSize, bool hashing)
+        {
+            _hash1 = hash1;
+            _hash2 = hash2;
+            _key = key;
+            _blockSizeValue = blockSize;
+            _hashSizeValue = hashSize;
+            _hashing = hashing;
+
+            // This constructor is used for cloning so the key should be pre-adjusted.
+            Debug.Assert(_key.Length <= _blockSizeValue);
+        }
+
+        public override HashProvider Clone()
+        {
+            HashProvider hash1Clone = _hash1.Clone();
+            HashProvider hash2Clone = _hash2.Clone();
+            byte[] keyClone = _key.AsSpan().ToArray();
+            return new HMACManagedHashProvider(hash1Clone, hash2Clone, keyClone, _blockSizeValue, _hashSizeValue, _hashing);
+        }
+
         private byte[] InitializeKey(ReadOnlySpan<byte> key)
         {
             if (key.Length > _blockSizeValue)
@@ -67,7 +88,7 @@ namespace System.Security.Cryptography
             return written;
         }
 
-        public override int GetCurrentHash(Span<byte> destination)
+        public override unsafe int GetCurrentHash(Span<byte> destination)
         {
             if (!_hashing)
             {
@@ -90,7 +111,7 @@ namespace System.Security.Cryptography
         private void AppendInnerBuffer() => AppendPaddingBuffer(0x36, _hash1);
         private void AppendOuterBuffer() => AppendPaddingBuffer(0x5C, _hash2);
 
-        private void AppendPaddingBuffer(byte paddingConstant, HashProvider hash)
+        private unsafe void AppendPaddingBuffer(byte paddingConstant, HashProvider hash)
         {
             Span<byte> paddingBuffer = stackalloc byte[_blockSizeValue];
             paddingBuffer.Fill(paddingConstant);

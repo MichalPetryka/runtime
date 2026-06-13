@@ -49,7 +49,7 @@ namespace System.Tests
             Assert.True(Activator.CreateInstance<StructWithPublicDefaultConstructor>().ConstructorInvoked);
 
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/51912", typeof(PlatformDetection), nameof(PlatformDetection.IsBuiltWithAggressiveTrimming), nameof(PlatformDetection.IsBrowser))]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/129223", typeof(PlatformDetection), nameof(PlatformDetection.IsBuiltWithAggressiveTrimming), nameof(PlatformDetection.IsWasm))]
         public void CreateInstanceT_StructWithPrivateDefaultConstructor_ThrowsMissingMethodException() =>
             Assert.Throws<MissingMethodException>(() => Activator.CreateInstance<StructWithPrivateDefaultConstructor>());
 
@@ -60,6 +60,22 @@ namespace System.Tests
         [Fact]
         public void CreateInstanceT_StructWithDefaultConstructorThatThrows_ThrowsTargetInvocationException() =>
             Assert.Throws<TargetInvocationException>(() => Activator.CreateInstance<StructWithDefaultConstructorThatThrows>());
+
+        [Fact]
+        public void CreateInstanceT_GenericTypes()
+        {
+            TestGenericClassWithDefaultConstructor<string>();
+            TestGenericClassWithDefaultConstructor<int>();
+
+            TestGenericStructWithDefaultConstructor<string>();
+            TestGenericStructWithDefaultConstructor<int>();
+
+            void TestGenericClassWithDefaultConstructor<T>()
+                => Assert.Equal(typeof(T), Activator.CreateInstance<GenericClassWithDefaultConstructor<T>>().TypeOfT);
+
+            void TestGenericStructWithDefaultConstructor<T>()
+                => Assert.Equal(typeof(T), Activator.CreateInstance<GenericStructWithDefaultConstructor<T>>().TypeOfT);
+        }
 
         private interface IInterface
         {
@@ -95,6 +111,28 @@ namespace System.Tests
         {
             public ClassWithDefaultConstructorThatThrows() =>
                 throw new Exception();
+        }
+
+        public class GenericClassWithDefaultConstructor<T>
+        {
+            public GenericClassWithDefaultConstructor() =>
+                TypeOfT = typeof(T);
+
+            public Type TypeOfT { get; }
+        }
+
+        public struct StructWithDefaultConstructorThatThrows
+        {
+            public StructWithDefaultConstructorThatThrows() =>
+                throw new Exception();
+        }
+
+        public struct GenericStructWithDefaultConstructor<T>
+        {
+            public GenericStructWithDefaultConstructor() =>
+                TypeOfT = typeof(T);
+
+            public Type TypeOfT { get; }
         }
     }
 }

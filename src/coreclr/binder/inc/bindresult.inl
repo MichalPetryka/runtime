@@ -99,7 +99,7 @@ void BindResult::SetAttemptResult(HRESULT hr, Assembly *pAssembly, bool isInCont
         pAssembly->AddRef();
 
     BindResult::AttemptResult &result = isInContext ? m_inContextAttempt : m_applicationAssembliesAttempt;
-    result.Assembly = pAssembly;
+    result.AssemblyHolder = pAssembly;
     result.HResult = hr;
     result.Attempted = true;
 }
@@ -112,13 +112,29 @@ const BindResult::AttemptResult* BindResult::GetAttempt(bool foundInContext) con
 
 void BindResult::AttemptResult::Set(const BindResult::AttemptResult *result)
 {
-    BINDER_SPACE::Assembly *assembly = result->Assembly;
+    BINDER_SPACE::Assembly *assembly = result->AssemblyHolder;
     if (assembly != nullptr)
         assembly->AddRef();
 
-    Assembly = assembly;
+    AssemblyHolder = assembly;
     HResult = result->HResult;
     Attempted = result->Attempted;
+}
+
+LPCWSTR BindResult::GetDiagnosticInfo() const
+{
+    return m_diagnosticInfo.GetUnicode();
+}
+
+void BindResult::AppendDiagnosticInfo(const SString& info)
+{
+    if (info.IsEmpty())
+        return;
+
+    if (!m_diagnosticInfo.IsEmpty())
+        m_diagnosticInfo.AppendUTF8("\n");
+
+    m_diagnosticInfo.Append(info);
 }
 
 }

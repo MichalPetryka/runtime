@@ -14,6 +14,8 @@ namespace System.Net.Security
 {
     public partial class SslStream
     {
+        internal static bool DisableTlsResume { get; }
+
         private class FakeOptions
         {
             public string TargetHost;
@@ -22,6 +24,7 @@ namespace System.Net.Security
             public RemoteCertificateValidationCallback? CertValidationDelegate;
             public LocalCertificateSelectionCallback? CertSelectionDelegate;
             public X509RevocationMode CertificateRevocationCheckMode;
+            public SslStream? SslStream;
 
             public void UpdateOptions(SslServerAuthenticationOptions sslServerAuthenticationOptions)
             {
@@ -38,6 +41,7 @@ namespace System.Net.Security
 
         private FakeOptions _sslAuthenticationOptions = new FakeOptions();
         private SslConnectionInfo _connectionInfo;
+        internal SafeDeleteSslContext? _securityContext;
         internal ChannelBinding? GetChannelBinding(ChannelBindingKind kind) => null;
         private bool _remoteCertificateExposed;
         private X509Certificate2? LocalClientCertificate;
@@ -52,12 +56,12 @@ namespace System.Net.Security
             // Without setting (or using) these members you will get a build exception in the unit test project.
             // The code that normally uses these in the main solution is in the implementation of SslStream.
 
-            if (_nestedWrite == 0)
+            if (_nestedWrite == NestedState.StreamNotInUse)
             {
 
             }
             _exception = null;
-            _nestedWrite = 0;
+            _nestedWrite = NestedState.StreamNotInUse;
             _handshakeCompleted = false;
         }
 
@@ -100,6 +104,23 @@ namespace System.Net.Security
         internal static X509Certificate2? FindCertificateWithPrivateKey(object instance, bool isServer, X509Certificate certificate)
         {
             return null;
+        }
+
+        internal bool VerifyRemoteCertificate(X509Certificate2? certificate, X509Chain? chain, SslCertificateTrust? trust, ref ProtocolToken alertToken, out SslPolicyErrors sslPolicyErrors, out X509ChainStatusFlags chainStatus)
+        {
+            chainStatus = X509ChainStatusFlags.NoError;
+            sslPolicyErrors = SslPolicyErrors.None;
+            return true;
+        }
+
+        internal static Exception CreateCertificateValidationException(SslAuthenticationOptions options, SslPolicyErrors sslPolicyErrors, X509ChainStatusFlags chainStatus)
+        {
+            return new Exception();
+        }
+
+        internal static TlsAlertMessage GetAlertMessageFromChain(X509Chain chain)
+        {
+            return TlsAlertMessage.CloseNotify;
         }
     }
 

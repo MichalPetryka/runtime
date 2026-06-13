@@ -4,9 +4,7 @@ Starting with .NET 8 Preview 7, it's possible to build shared libraries and comm
 
 Not a full Android experience is available - it's only possible to publish for two Bionic RID: linux-bionic-arm64 and linux-bionic-x64. Publishing for Android RIDs (android-arm64/android-x64) is not possible. This limited experience corresponds to building with [Android NDK](https://developer.android.com/ndk) from Native code - the limitations are similar. Interop with Java needs to be done manually through JNI, if necessary.
 
-The minimum API level is 21 at the time of writing the document, but search for AndroidApiLevelMin in this repo for more up-to-date information.
-
-NOTE: There's an existing issue that puts the minimum Android version where things work to Android 10: https://github.com/dotnet/runtime/issues/92196
+The minimum API level has been raised to 24 in .NET 11. Search for `AndroidApiLevelMin` in this repo for the current value.
 
 To build for Bionic:
 
@@ -22,12 +20,22 @@ To build for Bionic:
   ```sh
   $ dotnet publish -r linux-bionic-arm64 -p:DisableUnsupportedError=true -p:PublishAotUsingRuntimePack=true
   ```
-* You should have a binary under `bin\Release\net8.0\linux-bionic-arm64\publish`. Copy it to an Android device. Either `adb push` or using some GUI.
+* You should have a binary under `bin\Release\net11.0\linux-bionic-arm64\publish`. Copy it to an Android device. Either `adb push` or using some GUI.
 * You can probably run it with `adb shell`, but I used Termux: open Termux, give it access to file system by running `termux-setup-storage`. This will give you access to phone storage under `~/storage`. Copy the binary from `~/storage/...` to `~` (internal storage is not executable and you won't be able to run stuff from it). Then `chmod +x HelloBionic` and `./HelloBionic`. You should see Hello World.
 
 Command line apps are not very interesting for Android. The more interesting scenario are shared libraries that can be called into from Java/Kotlin through JNI. This is very similar to building shared libraries in other languages like C/C++/Rust. `PublishAot` allows building shared libraries that are callable from non-.NET languages. See https://learn.microsoft.com/dotnet/core/deploying/native-aot/interop#native-exports.
 
 For an example of a Native AOT shared library invoked through JNI from Java see https://github.com/josephmoresena/NativeAOT-AndroidHelloJniLib.
+
+## Known issues
+
+If you hit `error : version script assignment of 'V1.0' to symbol '_init' failed: symbol not defined` - this is a known issue with .NET 8 release https://github.com/dotnet/runtime/issues/92272, you can add following lines to your csproj to work around:
+
+```xml
+<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux-bionic'))">
+  <LinkerArg Include="-Wl,--undefined-version" />
+</ItemGroup>
+```
 
 ## Libssl dependency
 

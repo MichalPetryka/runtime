@@ -13,15 +13,13 @@
 #endif // DACCESS_COMPILE
 #include "CommonTypes.h"
 #include "CommonMacros.h"
-#include "PalRedhawkCommon.h"
-#include "PalRedhawk.h"
+#include "PalLimitedContext.h"
+#include "Pal.h"
 #include "daccess.h"
 #include "stressLog.h"
 #include "holder.h"
-#include "Crst.h"
 #include "rhassert.h"
 #include "slist.h"
-#include "varint.h"
 #include "regdisplay.h"
 #include "StackFrameIterator.h"
 #include "thread.h"
@@ -29,9 +27,8 @@
 #include "threadstore.h"
 #include "threadstore.inl"
 #include "thread.inl"
-
-template<typename T> inline T VolatileLoad(T const * pt) { return *(T volatile const *)pt; }
-template<typename T> inline void VolatileStore(T* pt, T val) { *(T volatile *)pt = val; }
+#include "volatile.h"
+#include "minipal/time.h"
 
 #ifdef STRESS_LOG
 
@@ -47,7 +44,15 @@ GPTR_IMPL(StressLog, g_pStressLog /*, &StressLog::theLog*/);
    variable-speed CPUs (for power management), this is not accurate, but may
    be good enough.
 */
-inline __declspec(naked) unsigned __int64 getTimeStamp() {
+
+inline
+#ifdef TARGET_WINDOWS
+__declspec(naked)
+#else
+__attribute__((naked))
+#endif
+uint64_t getTimeStamp()
+{
 
    __asm {
         RDTSC   // read time stamp counter
@@ -56,9 +61,9 @@ inline __declspec(naked) unsigned __int64 getTimeStamp() {
 }
 
 #else // HOST_X86
-unsigned __int64 getTimeStamp()
+uint64_t getTimeStamp()
 {
-    return PalQueryPerformanceCounter();
+    return (uint64_t)minipal_hires_ticks();
 }
 
 #endif // HOST_X86 else
@@ -67,15 +72,15 @@ unsigned __int64 getTimeStamp()
 /* Get the frequency corresponding to 'getTimeStamp'.  For non-x86
    architectures, this is just the performance counter frequency.
 */
-unsigned __int64 getTickFrequency()
+uint64_t getTickFrequency()
 {
-    return PalQueryPerformanceFrequency();
+    return (uint64_t)minipal_hires_tick_frequency();
 }
 
 #endif // DACCESS_COMPILE
 
 StressLog StressLog::theLog = { 0, 0, 0, 0, 0, 0 };
-const static unsigned __int64 RECYCLE_AGE = 0x40000000L;        // after a billion cycles, we can discard old threads
+const static uint64_t RECYCLE_AGE = 0x40000000L;        // after a billion cycles, we can discard old threads
 
 /*********************************************************************************/
 
@@ -90,10 +95,10 @@ void StressLog::Initialize(unsigned facilities,  unsigned level, unsigned maxByt
         return;
     }
 
-    g_pStressLog = &theLog;
+    bool success = minipal_mutex_init(&theLog.lock);
+    _ASSERTE(success);
 
-    theLog.pLock = new (nothrow) CrstStatic();
-    theLog.pLock->Init(CrstStressLog);
+    g_pStressLog = &theLog;
     if (maxBytesPerThread < STRESSLOG_CHUNK_SIZE)
     {
         maxBytesPerThread = STRESSLOG_CHUNK_SIZE;
@@ -112,7 +117,7 @@ void StressLog::Initialize(unsigned facilities,  unsigned level, unsigned maxByt
 
     theLog.tickFrequency = getTickFrequency();
 
-    PalGetSystemTimeAsFileTime (&theLog.startTime);
+    theLog.startTime = minipal_get_system_time();
     theLog.startTimeStamp = getTimeStamp();
 
     theLog.moduleOffset = (size_t)hMod; // HMODULES are base addresses.
@@ -140,8 +145,7 @@ ThreadStressLog* StressLog::CreateThreadStressLog(Thread * pThread) {
         return NULL;
     }
 
-    CrstHolder holder(theLog.pLock);
-
+    minipal::MutexHolder holder(theLog.lock);
     msgs = CreateThreadStressLogHelper(pThread);
 
     return msgs;
@@ -155,7 +159,7 @@ ThreadStressLog* StressLog::CreateThreadStressLogHelper(Thread * pThread) {
     // See if we can recycle a dead thread
     if (VolatileLoad(&theLog.deadCount) > 0)
     {
-        unsigned __int64 recycleStamp = getTimeStamp() - RECYCLE_AGE;
+        uint64_t recycleStamp = getTimeStamp() - RECYCLE_AGE;
         msgs = VolatileLoad(&theLog.logs);
         //find out oldest dead ThreadStressLog in case we can't find one within
         //recycle age but can't create a new chunk
@@ -398,7 +402,7 @@ bool StressLog::Initialize()
     ThreadStressLog* logs = 0;
 
     ThreadStressLog* curThreadStressLog = this->logs;
-    unsigned __int64 lastTimeStamp = 0; // timestamp of last log entry
+    uint64_t lastTimeStamp = 0; // timestamp of last log entry
     while(curThreadStressLog != 0)
     {
         if (!curThreadStressLog->IsReadyForRead())
@@ -466,7 +470,7 @@ inline void ThreadStressLog::Activate (Thread * /*pThread*/)
     // a previous record.  Update curPtr to reflect the last safe beginning of a record,
     // but curPtr shouldn't wrap around, otherwise it'll break our assumptions about stress
     // log
-    curPtr = (StressMsg*)((char*)curPtr - StressMsg::maxMsgSize());
+    curPtr = (StressMsg*)((char*)curPtr - StressMsg::maxMsgSize);
     if (curPtr < (StressMsg*)curWriteChunk->StartPtr())
     {
         curPtr = (StressMsg *)curWriteChunk->StartPtr();
@@ -572,4 +576,3 @@ void StressLog::EnumStressLogMemRanges(/*STRESSLOGMEMRANGECALLBACK*/void* slmrcb
 #endif // !DACCESS_COMPILE
 
 #endif // STRESS_LOG
-

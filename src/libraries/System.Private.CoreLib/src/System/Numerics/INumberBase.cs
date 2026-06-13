@@ -195,7 +195,7 @@ namespace System.Numerics
         /// <returns><c>true</c> if <paramref name="value" /> is an odd integer; otherwise, <c>false</c>.</returns>
         /// <remarks>
         ///     <para>This correctly handles floating-point values and so <c>3.0</c> will return <c>true</c> while <c>3.3</c> will return <c>false</c>.</para>
-        ///     <para>This functioning returning <c>false</c> does not imply that <see cref="IsOddInteger(TSelf)" /> will return <c>true</c>. A number with a fractional portion, <c>3.3</c>, is neither even nor odd.</para>
+        ///     <para>This functioning returning <c>false</c> does not imply that <see cref="IsEvenInteger(TSelf)" /> will return <c>true</c>. A number with a fractional portion, <c>3.3</c>, is neither even nor odd.</para>
         /// </remarks>
         static abstract bool IsOddInteger(TSelf value);
 
@@ -216,7 +216,10 @@ namespace System.Numerics
         /// <summary>Determines if a value represents a real value.</summary>
         /// <param name="value">The value to be checked.</param>
         /// <returns><c>true</c> if <paramref name="value" /> is a real number; otherwise, <c>false</c>.</returns>
-        /// <remarks>This function returns <c>true</c> for a complex number <c>a + bi</c> where <c>b</c> is zero.</remarks>
+        /// <remarks>
+        ///     <para>This function returns <c>true</c> for a complex number <c>a + bi</c> where <c>b</c> is zero.</para>
+        ///     <para>This function checks values against the extended real number line, thus returns <c>true</c> for positive and negative infinity.</para>
+        /// </remarks>
         static abstract bool IsRealNumber(TSelf value);
 
         /// <summary>Determines if a value is subnormal.</summary>
@@ -258,6 +261,17 @@ namespace System.Numerics
         /// <remarks>For <see cref="IFloatingPointIeee754{TSelf}" /> this method matches the IEEE 754:2019 <c>minimumMagnitudeNumber</c> function. This requires NaN inputs to not be propagated back to the caller and for <c>-0.0</c> to be treated as less than <c>+0.0</c>.</remarks>
         static abstract TSelf MinMagnitudeNumber(TSelf x, TSelf y);
 
+        /// <summary>Computes an estimate of (<paramref name="left"/> * <paramref name="right"/>) + <paramref name="addend"/>.</summary>
+        /// <param name="left">The value to be multiplied with <paramref name="right" />.</param>
+        /// <param name="right">The value to be multiplied with <paramref name="left" />.</param>
+        /// <param name="addend">The value to be added to the result of <paramref name="left" /> multiplied by <paramref name="right" />.</param>
+        /// <returns>An estimate of (<paramref name="left"/> * <paramref name="right"/>) + <paramref name="addend"/>.</returns>
+        /// <remarks>
+        ///   <para>On hardware that natively supports <see cref="IFloatingPointIeee754{TSelf}.FusedMultiplyAdd" />, this may return a result that was rounded as one ternary operation.</para>
+        ///   <para>On hardware without specialized support, this may just return (<paramref name="left"/> * <paramref name="right"/>) + <paramref name="addend"/>.</para>
+        /// </remarks>
+        static virtual TSelf MultiplyAddEstimate(TSelf left, TSelf right, TSelf addend) => (left * right) + addend;
+
         /// <summary>Parses a string into a value.</summary>
         /// <param name="s">The string to parse.</param>
         /// <param name="style">A bitwise combination of number styles that can be present in <paramref name="s" />.</param>
@@ -287,7 +301,7 @@ namespace System.Numerics
         /// <exception cref="ArgumentException"><paramref name="style" /> is not a supported <see cref="NumberStyles" /> value.</exception>
         /// <exception cref="FormatException"><paramref name="utf8Text" /> is not in the correct format.</exception>
         /// <exception cref="OverflowException"><paramref name="utf8Text" /> is not representable by <typeparamref name="TSelf" />.</exception>
-        static virtual TSelf Parse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider)
+        static virtual unsafe TSelf Parse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider)
         {
             // Convert text using stackalloc for <= 256 characters and ArrayPool otherwise
 
@@ -295,7 +309,7 @@ namespace System.Numerics
             scoped Span<char> utf16Text;
             int textMaxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Text.Length);
 
-            if (textMaxCharCount < 256)
+            if (textMaxCharCount <= 256)
             {
                 utf16TextArray = null;
                 utf16Text = stackalloc char[256];
@@ -303,7 +317,7 @@ namespace System.Numerics
             else
             {
                 utf16TextArray = ArrayPool<char>.Shared.Rent(textMaxCharCount);
-                utf16Text = utf16TextArray.AsSpan(0, textMaxCharCount);
+                utf16Text = utf16TextArray;
             }
 
             OperationStatus utf8TextStatus = Utf8.ToUtf16(utf8Text, utf16Text, out _, out int utf16TextLength, replaceInvalidSequences: false);
@@ -421,7 +435,7 @@ namespace System.Numerics
         /// <param name="result">On return, contains the result of successfully parsing <paramref name="utf8Text" /> or an undefined value on failure.</param>
         /// <returns><c>true</c> if <paramref name="utf8Text" /> was successfully parsed; otherwise, <c>false</c>.</returns>
         /// <exception cref="ArgumentException"><paramref name="style" /> is not a supported <see cref="NumberStyles" /> value.</exception>
-        static virtual bool TryParse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider, [MaybeNullWhen(false)] out TSelf result)
+        static virtual unsafe bool TryParse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider, [MaybeNullWhen(false)] out TSelf result)
         {
             // Convert text using stackalloc for <= 256 characters and ArrayPool otherwise
 
@@ -429,7 +443,7 @@ namespace System.Numerics
             scoped Span<char> utf16Text;
             int textMaxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Text.Length);
 
-            if (textMaxCharCount < 256)
+            if (textMaxCharCount <= 256)
             {
                 utf16TextArray = null;
                 utf16Text = stackalloc char[256];
@@ -437,7 +451,7 @@ namespace System.Numerics
             else
             {
                 utf16TextArray = ArrayPool<char>.Shared.Rent(textMaxCharCount);
-                utf16Text = utf16TextArray.AsSpan(0, textMaxCharCount);
+                utf16Text = utf16TextArray;
             }
 
             OperationStatus utf8TextStatus = Utf8.ToUtf16(utf8Text, utf16Text, out _, out int utf16TextLength, replaceInvalidSequences: false);
@@ -469,13 +483,13 @@ namespace System.Numerics
             return succeeded;
         }
 
-        bool IUtf8SpanFormattable.TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+        unsafe bool IUtf8SpanFormattable.TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
         {
             char[]? utf16DestinationArray;
             scoped Span<char> utf16Destination;
             int destinationMaxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Destination.Length);
 
-            if (destinationMaxCharCount < 256)
+            if (destinationMaxCharCount <= 256)
             {
                 utf16DestinationArray = null;
                 utf16Destination = stackalloc char[256];
@@ -483,7 +497,7 @@ namespace System.Numerics
             else
             {
                 utf16DestinationArray = ArrayPool<char>.Shared.Rent(destinationMaxCharCount);
-                utf16Destination = utf16DestinationArray.AsSpan(0, destinationMaxCharCount);
+                utf16Destination = utf16DestinationArray;
             }
 
             if (!TryFormat(utf16Destination, out int charsWritten, format, provider))
@@ -523,7 +537,7 @@ namespace System.Numerics
             return false;
         }
 
-        static TSelf IUtf8SpanParsable<TSelf>.Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
+        static unsafe TSelf IUtf8SpanParsable<TSelf>.Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
         {
             // Convert text using stackalloc for <= 256 characters and ArrayPool otherwise
 
@@ -531,7 +545,7 @@ namespace System.Numerics
             scoped Span<char> utf16Text;
             int textMaxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Text.Length);
 
-            if (textMaxCharCount < 256)
+            if (textMaxCharCount <= 256)
             {
                 utf16TextArray = null;
                 utf16Text = stackalloc char[256];
@@ -539,7 +553,7 @@ namespace System.Numerics
             else
             {
                 utf16TextArray = ArrayPool<char>.Shared.Rent(textMaxCharCount);
-                utf16Text = utf16TextArray.AsSpan(0, textMaxCharCount);
+                utf16Text = utf16TextArray;
             }
 
             OperationStatus utf8TextStatus = Utf8.ToUtf16(utf8Text, utf16Text, out _, out int utf16TextLength, replaceInvalidSequences: false);
@@ -570,7 +584,7 @@ namespace System.Numerics
             return result;
         }
 
-        static bool IUtf8SpanParsable<TSelf>.TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, [MaybeNullWhen(returnValue: false)] out TSelf result)
+        static unsafe bool IUtf8SpanParsable<TSelf>.TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, [MaybeNullWhen(returnValue: false)] out TSelf result)
         {
             // Convert text using stackalloc for <= 256 characters and ArrayPool otherwise
 
@@ -578,7 +592,7 @@ namespace System.Numerics
             scoped Span<char> utf16Text;
             int textMaxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Text.Length);
 
-            if (textMaxCharCount < 256)
+            if (textMaxCharCount <= 256)
             {
                 utf16TextArray = null;
                 utf16Text = stackalloc char[256];
@@ -586,7 +600,7 @@ namespace System.Numerics
             else
             {
                 utf16TextArray = ArrayPool<char>.Shared.Rent(textMaxCharCount);
-                utf16Text = utf16TextArray.AsSpan(0, textMaxCharCount);
+                utf16Text = utf16TextArray;
             }
 
             OperationStatus utf8TextStatus = Utf8.ToUtf16(utf8Text, utf16Text, out _, out int utf16TextLength, replaceInvalidSequences: false);

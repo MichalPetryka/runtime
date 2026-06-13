@@ -45,7 +45,7 @@ namespace System.Security.Cryptography
             if (requiredOutputLength > outputBuffer.Length - outputOffset)
                 ThrowHelper.ThrowArgumentOutOfRange(ThrowHelper.ExceptionArgument.outputBuffer);
 
-            Span<byte> input = inputBuffer.AsSpan(inputOffset, inputCount);
+            ReadOnlySpan<byte> input = new ReadOnlySpan<byte>(inputBuffer, inputOffset, inputCount);
             Span<byte> output = outputBuffer.AsSpan(outputOffset, requiredOutputLength);
 
             OperationStatus status = Base64.EncodeToUtf8(input, output, out int consumed, out int written, isFinalBlock: false);
@@ -66,7 +66,7 @@ namespace System.Security.Cryptography
             if (inputCount == 0)
                 return Array.Empty<byte>();
 
-            Span<byte> input = inputBuffer.AsSpan(inputOffset, inputCount);
+            ReadOnlySpan<byte> input = new ReadOnlySpan<byte>(inputBuffer, inputOffset, inputCount);
 
             int inputBlocks = Math.DivRem(inputCount, InputBlockSize, out int inputRemainder);
             int outputBlocks = inputBlocks + (inputRemainder != 0 ? 1 : 0);
@@ -139,7 +139,7 @@ namespace System.Security.Cryptography
         public bool CanTransformMultipleBlocks => true;
         public virtual bool CanReuseTransform => true;
 
-        public int TransformBlock(byte[] inputBuffer, int inputOffset, int inputCount, byte[] outputBuffer, int outputOffset)
+        public unsafe int TransformBlock(byte[] inputBuffer, int inputOffset, int inputCount, byte[] outputBuffer, int outputOffset)
         {
             // inputCount != InputBlockSize is allowed
             ThrowHelper.ValidateTransformBlock(inputBuffer, inputOffset, inputCount);
@@ -155,7 +155,7 @@ namespace System.Security.Cryptography
             Span<byte> transformBuffer = stackalloc byte[StackAllocSize];
             if (bytesToTransform > StackAllocSize)
             {
-                transformBuffer = transformBufferArray = CryptoPool.Rent(inputCount);
+                transformBuffer = transformBufferArray = CryptoPool.Rent(bytesToTransform);
             }
 
             transformBuffer = AppendInputBuffers(inputBufferSpan, transformBuffer);
@@ -181,7 +181,7 @@ namespace System.Security.Cryptography
             return written;
         }
 
-        public byte[] TransformFinalBlock(byte[] inputBuffer, int inputOffset, int inputCount)
+        public unsafe byte[] TransformFinalBlock(byte[] inputBuffer, int inputOffset, int inputCount)
         {
             // inputCount != InputBlockSize is allowed
             ThrowHelper.ValidateTransformBlock(inputBuffer, inputOffset, inputCount);
@@ -189,6 +189,7 @@ namespace System.Security.Cryptography
 
             if (inputCount == 0)
             {
+                Reset();
                 return Array.Empty<byte>();
             }
 
@@ -201,7 +202,7 @@ namespace System.Security.Cryptography
 
             if (bytesToTransform > StackAllocSize)
             {
-                transformBuffer = transformBufferArray = CryptoPool.Rent(inputCount);
+                transformBuffer = transformBufferArray = CryptoPool.Rent(bytesToTransform);
             }
 
             transformBuffer = AppendInputBuffers(inputBufferSpan, transformBuffer);
@@ -306,6 +307,10 @@ namespace System.Security.Cryptography
             if (status == OperationStatus.Done)
             {
                 Debug.Assert(consumed == bytesToTransform);
+            }
+            else if (status == OperationStatus.DestinationTooSmall)
+            {
+                ThrowHelper.ThrowArgumentOutOfRange(ThrowHelper.ExceptionArgument.outputBuffer);
             }
             else
             {

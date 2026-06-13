@@ -7,7 +7,6 @@ namespace System.Runtime.InteropServices
 {
     // Wrapper that is converted to a variant with VT_CURRENCY.
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("CurrencyWrapper and support for marshalling to the VARIANT type may be unavailable in future releases.")]
     public sealed class CurrencyWrapper
     {
         public CurrencyWrapper(decimal obj)
@@ -17,10 +16,10 @@ namespace System.Runtime.InteropServices
 
         public CurrencyWrapper(object obj)
         {
-            if (!(obj is decimal))
+            if (obj is not decimal d)
                 throw new ArgumentException(SR.Arg_MustBeDecimal, nameof(obj));
 
-            WrappedObject = (decimal)obj;
+            WrappedObject = d;
         }
 
         public decimal WrappedObject { get; }

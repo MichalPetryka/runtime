@@ -103,7 +103,7 @@ struct Agnostic_CORINFO_METHODNAME_TOKENin
     DWORDLONG ftn;
     DWORD     className;
     DWORD     namespaceName;
-    DWORD     enclosingClassName;
+    DWORD     maxEnclosingClassNames;
 };
 
 struct Agnostic_CORINFO_METHODNAME_TOKENout
@@ -111,7 +111,7 @@ struct Agnostic_CORINFO_METHODNAME_TOKENout
     DWORD methodName;
     DWORD className;
     DWORD namespaceName;
-    DWORD enclosingClassName;
+    DWORD enclosingClassNames;
 };
 
 struct Agnostic_CORINFO_RESOLVED_TOKENin
@@ -172,13 +172,14 @@ struct Agnostic_CORINFO_EE_INFO
     struct Agnostic_InlinedCallFrameInfo
     {
         DWORD size;
-        DWORD offsetOfGSCookie;
-        DWORD offsetOfFrameVptr;
+        DWORD sizeWithSecretStubArg;
         DWORD offsetOfFrameLink;
         DWORD offsetOfCallSiteSP;
         DWORD offsetOfCalleeSavedFP;
         DWORD offsetOfCallTarget;
         DWORD offsetOfReturnAddress;
+        DWORD offsetOfSecretStubArg;
+        DWORD offsetOfSPAfterProlog;
     } inlinedCallFrameInfo;
     DWORD offsetOfThreadFrame;
     DWORD offsetOfGCState;
@@ -190,6 +191,22 @@ struct Agnostic_CORINFO_EE_INFO
     DWORD maxUncheckedOffsetForNullObject;
     DWORD targetAbi;
     DWORD osType;
+};
+
+struct Agnostic_CORINFO_ASYNC_INFO
+{
+    DWORDLONG continuationClsHnd;
+    DWORDLONG continuationNextFldHnd;
+    DWORDLONG continuationResumeInfoFldHnd;
+    DWORDLONG continuationStateFldHnd;
+    DWORDLONG continuationFlagsFldHnd;
+    DWORDLONG captureExecutionContextMethHnd;
+    DWORDLONG captureContinuationContextMethHnd;
+    DWORDLONG captureContextsMethHnd;
+    DWORDLONG restoreContextsMethHnd;
+    DWORDLONG restoreContextsOnSuspensionMethHnd;
+    DWORDLONG finishSuspensionNoContinuationContextMethHnd;
+    DWORDLONG finishSuspensionWithContinuationContextMethHnd;
 };
 
 struct Agnostic_GetOSRInfo
@@ -255,23 +272,29 @@ struct Agnostic_CORINFO_CONST_LOOKUP
     DWORDLONG handle; // actually a union of two pointer sized things
 };
 
+struct Agnostic_GetHelperFtn
+{
+    Agnostic_CORINFO_CONST_LOOKUP helperLookup;
+    DWORDLONG                     helperMethod;
+};
+
 struct Agnostic_CORINFO_LOOKUP_KIND
 {
     DWORD needsRuntimeLookup;
     DWORD runtimeLookupKind;
-    WORD  runtimeLookupFlags;
 };
 
 struct Agnostic_CORINFO_RUNTIME_LOOKUP
 {
-    DWORDLONG signature;
-    DWORD     helper;
-    DWORD     indirections;
-    DWORD     testForNull;
-    WORD      sizeOffset;
-    DWORDLONG offsets[CORINFO_MAXINDIRECTIONS];
-    DWORD     indirectFirstOffset;
-    DWORD     indirectSecondOffset;
+    DWORDLONG                     signature;
+    DWORD                         helper;
+    DWORD                         indirections;
+    DWORD                         testForNull;
+    WORD                          sizeOffset;
+    DWORDLONG                     offsets[CORINFO_MAXINDIRECTIONS];
+    DWORD                         indirectFirstOffset;
+    DWORD                         indirectSecondOffset;
+    Agnostic_CORINFO_CONST_LOOKUP helperEntryPoint;
 };
 
 struct Agnostic_CORINFO_LOOKUP
@@ -423,7 +446,14 @@ struct Agnostic_CheckMethodModifier
 struct Agnostic_EmbedGenericHandle
 {
     Agnostic_CORINFO_RESOLVED_TOKEN ResolvedToken;
+    DWORDLONG                       hCallerHandle;
     DWORD                           fEmbedParent;
+};
+
+struct Agnostic_ExpandRawHandleIntrinsic
+{
+    Agnostic_CORINFO_RESOLVED_TOKENin ResolvedToken;
+    DWORDLONG                         hCallerHandle;
 };
 
 struct Agnostic_CORINFO_GENERICHANDLE_RESULT
@@ -512,6 +542,7 @@ struct Agnostic_GetPgoInstrumentationResults
     DWORD dataByteCount;
     DWORD result;
     DWORD pgoSource;
+    DWORD dynamicPgo;
 };
 
 struct Agnostic_GetProfilingHandle
@@ -530,7 +561,7 @@ struct Agnostic_GetThreadLocalStaticBlocksInfo
     DWORD                         offsetOfThreadLocalStoragePointer;
     DWORD                         offsetOfMaxThreadStaticBlocks;
     DWORD                         offsetOfThreadStaticBlocks;
-    DWORD                         offsetOfGCDataPointer;
+    DWORD                         offsetOfBaseOfThreadLocalData;
 };
 
 struct Agnostic_GetThreadStaticInfo_NativeAOT
@@ -614,6 +645,35 @@ struct Agnostic_GetSystemVAmd64PassStructInRegisterDescriptor
     DWORD result;
 };
 
+struct Agnostic_GetSwiftLowering
+{
+    DWORD byReference;
+    DWORD loweredElements[MAX_SWIFT_LOWERED_ELEMENTS];
+    DWORD offsets[MAX_SWIFT_LOWERED_ELEMENTS];
+    DWORD numLoweredElements;
+};
+
+struct Agnostic_GetFpStructLowering
+{
+    DWORD byIntegerCallConv;
+    DWORD loweredElements[MAX_FPSTRUCT_LOWERED_ELEMENTS];
+    DWORD offsets[MAX_FPSTRUCT_LOWERED_ELEMENTS];
+    DWORD numLoweredElements;
+};
+
+struct Agnostic_GetContinuationTypeIn
+{
+    DWORDLONG dataSize;
+    DWORD     objRefs;
+    DWORD     objRefsSize;
+};
+
+struct Agnostic_GetWasmTypeSymbol
+{
+    DWORD types;
+    DWORD typesSize;
+};
+
 struct Agnostic_ResolveVirtualMethodKey
 {
     DWORDLONG                       virtualMethod;
@@ -627,11 +687,18 @@ struct Agnostic_ResolveVirtualMethodResult
 {
     bool                            returnValue;
     DWORDLONG                       devirtualizedMethod;
-    bool                            requiresInstMethodTableArg;
-    DWORDLONG                       exactContext;
+    DWORDLONG                       tokenLookupContext;
     DWORD                           detail;
     Agnostic_CORINFO_RESOLVED_TOKEN resolvedTokenDevirtualizedMethod;
     Agnostic_CORINFO_RESOLVED_TOKEN resolvedTokenDevirtualizedUnboxedMethod;
+    Agnostic_CORINFO_LOOKUP         instParamLookup;
+};
+
+struct Agnostic_GetInstantiatedEntryResult
+{
+    DWORDLONG                       methodHandle;
+    DWORDLONG                       classHandle;
+    DWORDLONG                       result;
 };
 
 struct ResolveTokenValue
@@ -652,12 +719,7 @@ struct GetVarArgsHandleValue
     DWORD     pSig_Index;
     DWORDLONG scope;
     DWORD     token;
-};
-
-struct CanGetVarArgsHandleValue
-{
-    DWORDLONG scope;
-    DWORD     token;
+    DWORDLONG methHnd;
 };
 
 struct GetCookieForPInvokeCalliSigValue
@@ -668,8 +730,10 @@ struct GetCookieForPInvokeCalliSigValue
     DWORD     token;
 };
 
-struct CanGetCookieForPInvokeCalliSigValue
+struct GetCookieForInterpreterCalliSigValue
 {
+    DWORD     cbSig;
+    DWORD     pSig_Index;
     DWORDLONG scope;
     DWORD     token;
 };
@@ -677,8 +741,8 @@ struct CanGetCookieForPInvokeCalliSigValue
 struct GetReadyToRunHelper_TOKENin
 {
     Agnostic_CORINFO_RESOLVED_TOKEN ResolvedToken;
-    Agnostic_CORINFO_LOOKUP_KIND    GenericLookupKind;
     DWORD                           id;
+    DWORDLONG                       callerHandle;
 };
 
 struct GetReadyToRunHelper_TOKENout
@@ -692,6 +756,7 @@ struct GetReadyToRunDelegateCtorHelper_TOKENIn
     Agnostic_CORINFO_RESOLVED_TOKEN TargetMethod;
     mdToken                         targetConstraint;
     DWORDLONG                       delegateType;
+    DWORDLONG                       callerHandle;
 };
 
 struct Agnostic_RecordRelocation
@@ -708,7 +773,6 @@ struct Capture_AllocMemDetails
     ULONG              coldCodeSize;
     ULONG              roDataSize;
     ULONG              xcptnsCount;
-    CorJitAllocMemFlag flag;
     void*              hotCodeBlock;
     void*              coldCodeBlock;
     void*              roDataBlock;
@@ -732,7 +796,6 @@ struct Agnostic_AllocMemDetails
     DWORD     coldCodeSize;
     DWORD     roDataSize;
     DWORD     xcptnsCount;
-    DWORD     flag;
     DWORD     hotCodeBlock_offset;
     DWORD     coldCodeBlock_offset;
     DWORD     roDataBlock_offset;

@@ -69,7 +69,7 @@ namespace System.Text.Json
             int indent = Indentation;
             Debug.Assert(indent <= _indentLength * _options.MaxDepth);
 
-            int maxRequired = indent + JsonConstants.MaximumFormatSingleLength + 1 + s_newLineLength; // Optionally, 1 list separator and 1-2 bytes for new line
+            int maxRequired = indent + JsonConstants.MaximumFormatSingleLength + 1 + _newLineLength; // Optionally, 1 list separator and 1-2 bytes for new line
 
             if (_memory.Length - BytesPending < maxRequired)
             {
@@ -106,7 +106,7 @@ namespace System.Text.Json
             // the .NET Core 3.0 logic of forwarding to the UTF16 formatter and transcoding it back to UTF8,
             // with some additional changes to remove dependencies on Span APIs which don't exist downlevel.
 
-#if NETCOREAPP
+#if NET
             return Utf8Formatter.TryFormat(value, destination, out bytesWritten);
 #else
             string utf16Text = value.ToString(JsonConstants.SingleFormatString, CultureInfo.InvariantCulture);
@@ -142,7 +142,7 @@ namespace System.Text.Json
 #endif
         }
 
-        internal void WriteNumberValueAsString(float value)
+        internal unsafe void WriteNumberValueAsString(float value)
         {
             Span<byte> utf8Number = stackalloc byte[JsonConstants.MaximumFormatSingleLength];
             bool result = TryFormatSingle(value, utf8Number, out int bytesWritten);

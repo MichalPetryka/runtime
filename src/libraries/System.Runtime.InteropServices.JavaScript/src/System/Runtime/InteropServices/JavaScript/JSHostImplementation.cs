@@ -33,14 +33,6 @@ namespace System.Runtime.InteropServices.JavaScript
             throw new InvalidOperationException();
         }
 
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static RuntimeMethodHandle GetMethodHandleFromIntPtr(IntPtr ptr)
-        {
-            var temp = new IntPtrAndHandle { ptr = ptr };
-            return temp.methodHandle;
-        }
-
         /// <summary>
         /// Gets the MethodInfo for the Task{T}.Result property getter.
         /// </summary>
@@ -72,7 +64,9 @@ namespace System.Runtime.InteropServices.JavaScript
             throw new InvalidOperationException();
         }
 
+#if !DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public static void ThrowException(ref JSMarshalerArgument arg)
         {
             arg.ToManaged(out Exception? ex);
@@ -93,7 +87,9 @@ namespace System.Runtime.InteropServices.JavaScript
                 ConfigureAwaitOptions.ForceYielding); // this helps to finish the import before we bind the module in [JSImport]
         }
 
+#if !DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public static async Task<JSObject> CancellationHelper(Task<JSObject> jsTask, CancellationToken cancellationToken)
         {
             if (jsTask.IsCompletedSuccessfully)
@@ -105,7 +101,7 @@ namespace System.Runtime.InteropServices.JavaScript
                 CancelablePromise.CancelPromise((Task<JSObject>)s!);
             }, jsTask))
             {
-                return await jsTask.ConfigureAwait(true);
+                return await jsTask.ConfigureAwait(false);
             }
         }
 
@@ -113,29 +109,27 @@ namespace System.Runtime.InteropServices.JavaScript
         public static unsafe JSFunctionBinding GetMethodSignature(ReadOnlySpan<JSMarshalerType> types, string? functionName, string? moduleName)
         {
             int argsCount = types.Length - 1;
-            int size = JSFunctionBinding.JSBindingHeader.JSMarshalerSignatureHeaderSize + ((argsCount + 2) * sizeof(JSFunctionBinding.JSBindingType));
+            int size = checked(JSFunctionBinding.JSBindingHeader.JSMarshalerSignatureHeaderSize + ((argsCount + 2) * sizeof(JSFunctionBinding.JSBindingType)));
 
             int functionNameBytes = 0;
             int functionNameOffset = 0;
             if (functionName != null)
             {
                 functionNameOffset = size;
-                size += 4;
-                functionNameBytes = functionName.Length * 2;
-                size += functionNameBytes;
+                functionNameBytes = checked(functionName.Length * 2);
+                size = checked(size + 4 + functionNameBytes);
             }
             int moduleNameBytes = 0;
             int moduleNameOffset = 0;
             if (moduleName != null)
             {
                 moduleNameOffset = size;
-                size += 4;
-                moduleNameBytes = moduleName.Length * 2;
-                size += moduleNameBytes;
+                moduleNameBytes = checked(moduleName.Length * 2);
+                size = checked(size + 4 + moduleNameBytes);
             }
 
             // this is never unallocated
-            IntPtr buffer = Marshal.AllocHGlobal(size);
+            IntPtr buffer = (IntPtr)NativeMemory.Alloc((nuint)size);
 
             var signature = new JSFunctionBinding
             {
@@ -161,6 +155,7 @@ namespace System.Runtime.InteropServices.JavaScript
                 var type = signature.Sigs[i] = types[i + 1]._signatureType;
             }
             signature.IsAsync = types[0]._signatureType.Type == MarshalerType.Task;
+            signature.IsDiscardNoWait = types[0]._signatureType.Type == MarshalerType.DiscardNoWait;
 
             signature.Header[0].ImportHandle = signature.ImportHandle;
             signature.Header[0].FunctionNameLength = functionNameBytes;
@@ -188,7 +183,7 @@ namespace System.Runtime.InteropServices.JavaScript
 
         public static unsafe void FreeMethodSignatureBuffer(JSFunctionBinding signature)
         {
-            Marshal.FreeHGlobal((nint)signature.Header);
+            NativeMemory.Free(signature.Header);
             signature.Header = null;
             signature.Sigs = null;
         }
@@ -208,6 +203,74 @@ namespace System.Runtime.InteropServices.JavaScript
             AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(dllBytes));
         }
 
+        public static unsafe Task<int>? CallEntrypoint(IntPtr assemblyNamePtr, string?[]? args, bool waitForDebugger)
+        {
+            try
+            {
+                void* ptr;
+                Interop.Runtime.AssemblyGetEntryPoint(assemblyNamePtr, waitForDebugger ? 1 : 0, &ptr);
+                RuntimeMethodHandle methodHandle = GetMethodHandleFromIntPtr((IntPtr)ptr);
+                // this would not work for generic types. But Main() could not be generic, so we are fine.
+                MethodInfo? method = MethodBase.GetMethodFromHandle(methodHandle) as MethodInfo;
+                if (method == null)
+                {
+                    throw new InvalidOperationException(SR.CannotResolveManagedEntrypointHandle);
+                }
+
+                object[] argsToPass = System.Array.Empty<object>();
+                Task<int>? result = null;
+                var parameterInfos = method.GetParameters();
+                if (parameterInfos.Length > 0 && parameterInfos[0].ParameterType == typeof(string[]))
+                {
+                    argsToPass = new object[] { args ?? System.Array.Empty<string>() };
+                }
+                if (method.ReturnType == typeof(void))
+                {
+                    method.Invoke(null, argsToPass);
+#if FEATURE_WASM_MANAGED_THREADS
+                    result = Task.FromResult(0);
+#endif
+                }
+                else if (method.ReturnType == typeof(int))
+                {
+                    int intResult = (int)method.Invoke(null, argsToPass)!;
+                    result = Task.FromResult(intResult);
+                }
+                else if (method.ReturnType == typeof(Task))
+                {
+                    Task methodResult = (Task)method.Invoke(null, argsToPass)!;
+                    TaskCompletionSource<int> tcs = new TaskCompletionSource<int>();
+                    result = tcs.Task;
+                    methodResult.ContinueWith((t) =>
+                    {
+                        if (t.IsFaulted)
+                        {
+                            tcs.SetException(t.Exception!);
+                        }
+                        else
+                        {
+                            tcs.SetResult(0);
+                        }
+                    }, TaskScheduler.Default);
+                }
+                else if (method.ReturnType == typeof(Task<int>))
+                {
+                    result = (Task<int>)method.Invoke(null, argsToPass)!;
+                }
+                else
+                {
+                    throw new InvalidOperationException(SR.Format(SR.ReturnTypeNotSupportedForMain, method.ReturnType.FullName));
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                if (ex is TargetInvocationException refEx && refEx.InnerException != null)
+                    ex = refEx.InnerException;
+                return Task.FromException<int>(ex);
+            }
+        }
+
 #if FEATURE_WASM_MANAGED_THREADS
         [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "external_eventloop")]
         private static extern ref bool GetThreadExternalEventloop(Thread @this);
@@ -218,5 +281,83 @@ namespace System.Runtime.InteropServices.JavaScript
         }
 #endif
 
+#if !DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static RuntimeMethodHandle GetMethodHandleFromIntPtr(IntPtr ptr)
+        {
+            var temp = new IntPtrAndHandle { ptr = ptr };
+            return temp.methodHandle;
+        }
+
+        // The BCL implementations of IndexOf/LastIndexOf/Trim are vectorized & fast,
+        //  but they pull in a bunch of code that is otherwise not necessarily
+        //  useful during early app startup, so we use simple scalar implementations
+        private static int SmallIndexOf(string s, char ch, int direction = 1)
+        {
+            if (s.Length < 1)
+                return -1;
+            int start_index = (direction > 0) ? 0 : s.Length - 1,
+                end_index = (direction > 0) ? s.Length - 1 : 0;
+            for (int i = start_index; i != end_index; i += direction)
+            {
+                if (s[i] == ch)
+                    return i;
+            }
+            return -1;
+        }
+
+        private static string SmallTrim(string s)
+        {
+            if (s.Length < 1)
+                return s;
+            int head = 0, tail = s.Length - 1;
+            while (head < s.Length)
+            {
+                if (s[head] == ' ')
+                    head++;
+                else
+                    break;
+            }
+            while (tail >= 0)
+            {
+                if (s[tail] == ' ')
+                    tail--;
+                else
+                    break;
+            }
+            if ((head > 0) || (tail < s.Length - 1))
+                return s.Substring(head, tail - head + 1);
+            else
+                return s;
+        }
+
+        private static (string assemblyName, string nameSpace, string shortClassName, string methodName) ParseFQN(string fqn)
+        {
+            var assembly = fqn.Substring(SmallIndexOf(fqn, '[') + 1, SmallIndexOf(fqn, ']') - 1);
+            fqn = SmallTrim(fqn);
+            fqn = fqn.Substring(SmallIndexOf(fqn, ']') + 1);
+            fqn = SmallTrim(fqn);
+            var methodName = fqn.Substring(SmallIndexOf(fqn, ':') + 1);
+            var className = fqn.Substring(0, SmallIndexOf(fqn, ':'));
+            className = SmallTrim(className);
+
+            var nameSpace = "";
+            var shortClassName = className;
+            var idx = SmallIndexOf(fqn, '.', -1);
+            if (idx != -1)
+            {
+                nameSpace = fqn.Substring(0, idx);
+                shortClassName = className.Substring(idx + 1);
+            }
+
+            if (string.IsNullOrEmpty(assembly))
+                throw new InvalidOperationException("No assembly name specified " + fqn);
+            if (string.IsNullOrEmpty(className))
+                throw new InvalidOperationException("No class name specified " + fqn);
+            if (string.IsNullOrEmpty(methodName))
+                throw new InvalidOperationException("No method name specified " + fqn);
+            return (assembly, nameSpace, shortClassName, methodName);
+        }
     }
 }

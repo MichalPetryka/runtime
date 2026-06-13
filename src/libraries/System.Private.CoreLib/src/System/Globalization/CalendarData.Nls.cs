@@ -3,10 +3,9 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
-#pragma warning disable 8500 // taking address of managed type
 
 namespace System.Globalization
 {

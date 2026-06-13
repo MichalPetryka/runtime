@@ -4,6 +4,7 @@
 using ILCompiler.DependencyAnalysis;
 using ILCompiler.DependencyAnalysisFramework;
 
+using Internal.Text;
 using Internal.TypeSystem;
 
 using Debug = System.Diagnostics.Debug;
@@ -23,14 +24,17 @@ namespace ILCompiler
             _rootAdder = rootAdder;
         }
 
-        public void AddCompilationRoot(MethodDesc method, string reason, string exportName = null)
+        public void AddCompilationRoot(MethodDesc method, string reason, Utf8String exportName, bool exportHidden = false)
         {
             MethodDesc canonMethod = method.GetCanonMethodTarget(CanonicalFormKind.Specific);
             IMethodNode methodEntryPoint = _factory.MethodEntrypoint(canonMethod);
             _rootAdder(methodEntryPoint, reason);
 
-            if (exportName != null)
-                _factory.NodeAliases.Add(methodEntryPoint, exportName);
+            if (!exportName.IsNull)
+            {
+                exportName = _factory.NameMangler.NodeMangler.ExternMethod(exportName, method);
+                _factory.NodeAliases.Add(methodEntryPoint, (exportName, exportHidden));
+            }
 
             if (canonMethod != method && method.HasInstantiation)
                 _rootAdder(_factory.MethodGenericDictionary(method), reason);
@@ -43,7 +47,14 @@ namespace ILCompiler
 
         public void AddReflectionRoot(TypeDesc type, string reason)
         {
-            _factory.TypeSystemContext.EnsureLoadableType(type);
+            TypeDesc lookedAtType = type;
+            do
+            {
+                _factory.TypeSystemContext.EnsureLoadableType(lookedAtType);
+                lookedAtType = (lookedAtType as MetadataType)?.ContainingType;
+            }
+            while (lookedAtType != null);
+
             _rootAdder(_factory.ReflectedType(type), reason);
         }
 
@@ -61,6 +72,7 @@ namespace ILCompiler
             if (!_factory.MetadataManager.IsReflectionBlocked(field))
             {
                 _factory.TypeSystemContext.EnsureLoadableType(field.OwningType);
+                _factory.TypeSystemContext.EnsureLoadableType(field.FieldType);
                 _rootAdder(_factory.ReflectedField(field), reason);
             }
         }
@@ -129,11 +141,12 @@ namespace ILCompiler
             }
         }
 
-        public void RootReadOnlyDataBlob(byte[] data, int alignment, string reason, string exportName)
+        public void RootReadOnlyDataBlob(byte[] data, int alignment, string reason, Utf8String exportName, bool exportHidden)
         {
-            var blob = _factory.ReadOnlyDataBlob("__readonlydata_" + exportName, data, alignment);
+            var blob = _factory.ReadOnlyDataBlob(Utf8String.Concat("__readonlydata_"u8, exportName.AsSpan()), data, alignment);
             _rootAdder(blob, reason);
-            _factory.NodeAliases.Add(blob, exportName);
+            exportName = _factory.NameMangler.NodeMangler.ExternVariable(exportName);
+            _factory.NodeAliases.Add(blob, (exportName, exportHidden));
         }
 
         public void RootDelegateMarshallingData(DefType type, string reason)

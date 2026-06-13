@@ -15,6 +15,8 @@
 #ifndef __EETOPROFINTERFACEIMPL_H__
 #define __EETOPROFINTERFACEIMPL_H__
 
+#if defined(PROFILING_SUPPORTED) || defined(PROFILING_SUPPORTED_DATA)
+
 #include <stddef.h>
 #include "profilepriv.h"
 #include "eeprofinterfaces.h"
@@ -480,6 +482,8 @@ public:
     {
         return m_pProfToEE;
     }
+
+    HRESULT EnumerateGCHeapObjectsCallback(ObjectCallback callback, void* callbackState);
 private:
 
     //
@@ -657,16 +661,16 @@ private:
         {
             LIMITED_METHOD_CONTRACT;
             FunctionIDAndClientID functionIDAndClientID;
-            functionIDAndClientID.functionID = NULL;
-            functionIDAndClientID.clientID   = NULL;
+            functionIDAndClientID.functionID = 0;
+            functionIDAndClientID.clientID   = 0;
             return functionIDAndClientID;
         }
 
         static bool IsNull(const FunctionIDAndClientID &functionIDAndClientID)
         {
             LIMITED_METHOD_CONTRACT;
-            _ASSERTE((functionIDAndClientID.functionID != NULL) || (functionIDAndClientID.clientID == NULL));
-            return functionIDAndClientID.functionID == NULL;
+            _ASSERTE((functionIDAndClientID.functionID != 0) || (functionIDAndClientID.clientID == 0));
+            return functionIDAndClientID.functionID == 0;
         }
     };
 
@@ -691,5 +695,7 @@ private:
     // Remember the fact we've timed out when waiting for concurrent GC. Will report the error later
     BOOL m_bHasTimedOutWaitingForConcurrentGC;
 };
+
+#endif // PROFILING_SUPPORTED || PROFILING_SUPPORTED_DATA
 
 #endif // __EETOPROFINTERFACEIMPL_H__

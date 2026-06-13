@@ -10,11 +10,11 @@ Module Name:
 Abstract:
     Read cpu limits for the current process
 --*/
-#ifdef __FreeBSD__
-#define _WITH_GETLINE
-#endif
-
 #include <cstdint>
+#include "cgroupcpu.h"
+
+#if defined(TARGET_LINUX)
+
 #include <cstddef>
 #include <cassert>
 #include <unistd.h>
@@ -22,21 +22,13 @@ Abstract:
 #include <stdio.h>
 #include <string.h>
 #include <sys/resource.h>
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#include <sys/param.h>
-#include <sys/mount.h>
-#else
 #include <sys/vfs.h>
-#endif
 #include <errno.h>
 #include <limits>
 
 #include "config.gc.h"
 
-#include "cgroupcpu.h"
-
 #define CGROUP2_SUPER_MAGIC 0x63677270
-#define TMPFS_MAGIC 0x01021994
 
 #define BASE_TEN 10
 
@@ -91,23 +83,22 @@ private:
         // modes because both of those involve cgroup v1 controllers managing
         // resources.
 
-#if !HAVE_NON_LEGACY_STATFS
-        return 0;
-#else
-
         struct statfs stats;
         int result = statfs("/sys/fs/cgroup", &stats);
         if (result != 0)
             return 0;
 
-        switch (stats.f_type)
+        if (stats.f_type == CGROUP2_SUPER_MAGIC)
         {
-            case TMPFS_MAGIC: return 1;
-            case CGROUP2_SUPER_MAGIC: return 2;
-            default:
-                return 0;
+            return 2;
         }
-#endif
+        else
+        {
+            // Assume that if /sys/fs/cgroup exists and the file system type is not cgroup2fs,
+            // it is cgroup v1. Typically the file system type is tmpfs, but other values have
+            // been seen in the wild.
+            return 1;
+        }
     }
 
     static bool IsCGroup1CpuSubsystem(const char *strTok){
@@ -507,3 +498,16 @@ bool GetCpuLimit(uint32_t* val)
 
     return CGroup::GetCpuLimit(val);
 }
+
+#else // !TARGET_LINUX
+
+void InitializeCpuCGroup()
+{
+}
+
+bool GetCpuLimit(uint32_t* val)
+{
+    return false;
+}
+
+#endif // TARGET_LINUX

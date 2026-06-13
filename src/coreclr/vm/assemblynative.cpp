@@ -25,6 +25,7 @@
 #include "typeparse.h"
 #include "encee.h"
 #include "threadsuspend.h"
+#include <caparser.h>
 
 #include "appdomainnative.hpp"
 #include "../binder/inc/bindertracing.h"
@@ -41,7 +42,6 @@ extern "C" void QCALLTYPE AssemblyNative_InternalLoad(NativeAssemblyNameParts* p
 
     BEGIN_QCALL;
 
-    DomainAssembly * pParentAssembly = NULL;
     Assembly * pRefAssembly = NULL;
     AssemblyBinder *pBinder = NULL;
 
@@ -62,10 +62,6 @@ extern "C" void QCALLTYPE AssemblyNative_InternalLoad(NativeAssemblyNameParts* p
         else if (pBinder == NULL)
         {
             pRefAssembly = SystemDomain::GetCallersAssembly(stackMark);
-        }
-        if (pRefAssembly)
-        {
-            pParentAssembly = pRefAssembly->GetDomainAssembly();
         }
     }
 
@@ -93,8 +89,8 @@ extern "C" void QCALLTYPE AssemblyNative_InternalLoad(NativeAssemblyNameParts* p
     spec.Init(ssName.GetUTF8(), &asmInfo,
         pAssemblyNameParts->_pPublicKeyOrToken, pAssemblyNameParts->_cbPublicKeyOrToken, pAssemblyNameParts->_flags);
 
-    if (pParentAssembly != NULL)
-        spec.SetParentAssembly(pParentAssembly);
+    if (pRefAssembly != NULL)
+        spec.SetParentAssembly(pRefAssembly);
 
     // Have we been passed the reference to the binder against which this load should be triggered?
     // If so, then use it to set the fallback load context binder.
@@ -138,7 +134,7 @@ Assembly* AssemblyNative::LoadFromPEImage(AssemblyBinder* pBinder, PEImage *pIma
     ReleaseHolder<BINDER_SPACE::Assembly> pAssembly;
 
     // Set the caller's assembly to be CoreLib
-    DomainAssembly *pCallersAssembly = SystemDomain::System()->SystemAssembly()->GetDomainAssembly();
+    Assembly *pCallersAssembly = SystemDomain::System()->SystemAssembly();
 
     // Initialize the AssemblySpec
     AssemblySpec spec;
@@ -149,19 +145,42 @@ Assembly* AssemblyNative::LoadFromPEImage(AssemblyBinder* pBinder, PEImage *pIma
 
     HRESULT hr = S_OK;
     PTR_AppDomain pCurDomain = GetAppDomain();
-    hr = pBinder->BindUsingPEImage(pImage, excludeAppPaths, &pAssembly);
+    ReleaseHolder<BINDER_SPACE::Assembly> pExistingAssembly;
+    hr = pBinder->BindUsingPEImage(pImage, excludeAppPaths, &pAssembly, &pExistingAssembly);
 
     if (hr != S_OK)
     {
         StackSString name;
         spec.GetDisplayName(0, name);
-        if (hr == COR_E_FILELOAD)
+        if (pExistingAssembly != nullptr)
         {
-            // Give a more specific message for the case when we found the assembly with the same name already loaded.
-            // Show the assembly name, since we know the error is about the assembly name.
+            // We have the existing assembly - extract its details for the error message.
+            StackSString simpleName;
+            spec.GetName(simpleName);
+
+            PathString loadedAssemblyName;
+            pExistingAssembly->GetAssemblyName()->GetDisplayName(loadedAssemblyName, BINDER_SPACE::AssemblyName::INCLUDE_VERSION | BINDER_SPACE::AssemblyName::INCLUDE_PUBLIC_KEY_TOKEN);
+            PathString loadedAssemblyPath{ pExistingAssembly->GetPEImage()->GetPath() };
+
             StackSString errorString;
-            errorString.LoadResource(CCompRC::Error, IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_IN_CONTEXT);
-            COMPlusThrow(kFileLoadException, IDS_EE_FILELOAD_ERROR_GENERIC, name, errorString);
+            SString format;
+            if (!loadedAssemblyPath.IsEmpty())
+            {
+                format.LoadResource(IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_WITH_VERSION_AND_PATH);
+                errorString.FormatMessage(FORMAT_MESSAGE_FROM_STRING, format.GetUnicode(), 0, 0, simpleName, loadedAssemblyName, loadedAssemblyPath);
+            }
+            else
+            {
+                format.LoadResource(IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_WITH_VERSION);
+                errorString.FormatMessage(FORMAT_MESSAGE_FROM_STRING, format.GetUnicode(), 0, 0, simpleName, loadedAssemblyName);
+            }
+            COMPlusThrowHR(hr, IDS_EE_FILELOAD_ERROR_GENERIC, name.GetUnicode(), errorString.GetUnicode());
+        }
+        else if (hr == COR_E_FILELOAD)
+        {
+            StackSString errorString;
+            errorString.LoadResource(IDS_HOST_ASSEMBLY_RESOLVER_ASSEMBLY_ALREADY_LOADED_IN_CONTEXT);
+            COMPlusThrowHR(hr, IDS_EE_FILELOAD_ERROR_GENERIC, name.GetUnicode(), errorString.GetUnicode());
         }
         else
         {
@@ -174,8 +193,7 @@ Assembly* AssemblyNative::LoadFromPEImage(AssemblyBinder* pBinder, PEImage *pIma
     PEAssemblyHolder pPEAssembly(PEAssembly::Open(pAssembly->GetPEImage(), pAssembly));
     bindOperation.SetResult(pPEAssembly.GetValue());
 
-    DomainAssembly *pDomainAssembly = pCurDomain->LoadDomainAssembly(&spec, pPEAssembly, FILE_LOADED);
-    RETURN pDomainAssembly->GetAssembly();
+    RETURN pCurDomain->LoadAssembly(&spec, pPEAssembly, FILE_LOADED);
 }
 
 extern "C" void QCALLTYPE AssemblyNative_LoadFromPath(INT_PTR ptrNativeAssemblyBinder, LPCWSTR pwzILPath, LPCWSTR pwzNIPath, QCall::ObjectHandleOnStack retLoadedAssembly)
@@ -197,18 +215,18 @@ extern "C" void QCALLTYPE AssemblyNative_LoadFromPath(INT_PTR ptrNativeAssemblyB
     if (pwzILPath != NULL)
     {
         pILImage = PEImage::OpenImage(pwzILPath,
-                                      MDInternalImport_Default,
-                                      BundleFileLocation::Invalid());
+            MDInternalImport_Default,
+            AssemblyProbeExtension::Probe(SString{ SString::Literal, pwzILPath }));
 
         // Need to verify that this is a valid CLR assembly.
         if (!pILImage->CheckILFormat())
-            THROW_BAD_FORMAT(BFA_BAD_IL, pILImage.GetValue());
+            THROW_BAD_FORMAT(BFA_BAD_IL, static_cast<PEImage*>(pILImage));
 
         LoaderAllocator* pLoaderAllocator = pBinder->GetLoaderAllocator();
         if (pLoaderAllocator && pLoaderAllocator->IsCollectible() && !pILImage->IsILOnly())
         {
             // Loading IJW assemblies into a collectible AssemblyLoadContext is not allowed
-            THROW_BAD_FORMAT(BFA_IJW_IN_COLLECTIBLE_ALC, pILImage.GetValue());
+            THROW_BAD_FORMAT(BFA_IJW_IN_COLLECTIBLE_ALC, static_cast<PEImage*>(pILImage));
         }
     }
 
@@ -236,9 +254,9 @@ extern "C" void QCALLTYPE AssemblyNative_LoadFromStream(INT_PTR ptrNativeAssembl
     BEGIN_QCALL;
 
     // Ensure that the invariants are in place
-    _ASSERTE(ptrNativeAssemblyBinder != NULL);
-    _ASSERTE((ptrAssemblyArray != NULL) && (cbAssemblyArrayLength > 0));
-    _ASSERTE((ptrSymbolArray == NULL) || (cbSymbolArrayLength > 0));
+    _ASSERTE(ptrNativeAssemblyBinder != (INT_PTR)NULL);
+    _ASSERTE((ptrAssemblyArray != (INT_PTR)NULL) && (cbAssemblyArrayLength > 0));
+    _ASSERTE((ptrSymbolArray == (INT_PTR)NULL) || (cbSymbolArrayLength > 0));
 
     PEImageHolder pILImage(PEImage::CreateFromByteArray((BYTE*)ptrAssemblyArray, (COUNT_T)cbAssemblyArrayLength));
 
@@ -280,7 +298,7 @@ extern "C" void QCALLTYPE AssemblyNative_LoadFromStream(INT_PTR ptrNativeAssembl
     {
 #ifdef DEBUGGING_SUPPORTED
         // If we were given symbols, save a copy of them.
-        if (ptrSymbolArray != NULL)
+        if (ptrSymbolArray != 0)
         {
             PBYTE pSymbolArray = reinterpret_cast<PBYTE>(ptrSymbolArray);
             pLoadedAssembly->GetModule()->SetSymbolBytes(pSymbolArray, (DWORD)cbSymbolArrayLength);
@@ -340,7 +358,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetLocation(QCall::AssemblyHandle pAsse
     END_QCALL;
 }
 
-extern "C" void QCALLTYPE AssemblyNative_GetTypeCore(QCall::AssemblyHandle assemblyHandle,
+extern "C" void QCALLTYPE AssemblyNative_GetTypeCore(QCall::AssemblyHandle pAssembly,
     LPCSTR szTypeName,
     LPCSTR * rgszNestedTypeNames,
     int32_t cNestedTypeNamesLength,
@@ -354,8 +372,6 @@ extern "C" void QCALLTYPE AssemblyNative_GetTypeCore(QCall::AssemblyHandle assem
     CONTRACTL_END;
 
     BEGIN_QCALL;
-
-    Assembly* pAssembly = assemblyHandle->GetAssembly();
 
     TypeHandle th = TypeHandle();
     Module* pManifestModule = pAssembly->GetModule();
@@ -425,7 +441,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetTypeCoreIgnoreCase(QCall::AssemblyHa
 
     BEGIN_QCALL;
 
-    Assembly* pAssembly = assemblyHandle->GetAssembly();
+    Assembly* pAssembly = assemblyHandle;
 
     TypeHandle th = TypeHandle();
     Module* pManifestModule = pAssembly->GetModule();
@@ -503,14 +519,13 @@ extern "C" void QCALLTYPE AssemblyNative_GetForwardedType(QCall::AssemblyHandle 
     LPCSTR pszClassName;
     mdToken mdImpl;
 
-    Assembly * pAsm = pAssembly->GetAssembly();
-    Module *pManifestModule = pAsm->GetModule();
+    Module *pManifestModule = pAssembly->GetModule();
     IfFailThrow(pManifestModule->GetMDImport()->GetExportedTypeProps(mdtExternalType, &pszNameSpace, &pszClassName, &mdImpl, NULL, NULL));
     if (TypeFromToken(mdImpl) == mdtAssemblyRef)
     {
         NameHandle typeName(pszNameSpace, pszClassName);
         typeName.SetTypeToken(pManifestModule, mdtExternalType);
-        TypeHandle typeHnd = pAsm->GetLoader()->LoadTypeHandleThrowIfFailed(&typeName);
+        TypeHandle typeHnd = pAssembly->GetLoader()->LoadTypeHandleThrowIfFailed(&typeName);
         {
             GCX_COOP();
             retType.Set(typeHnd.GetManagedClassObject());
@@ -520,16 +535,16 @@ extern "C" void QCALLTYPE AssemblyNative_GetForwardedType(QCall::AssemblyHandle 
     END_QCALL;
 }
 
-FCIMPL1(FC_BOOL_RET, AssemblyNative::IsDynamic, AssemblyBaseObject* pAssemblyUNSAFE)
+FCIMPL1(FC_BOOL_RET, AssemblyNative::GetIsDynamic, Assembly* pAssembly)
 {
-    FCALL_CONTRACT;
+    CONTRACTL
+    {
+        FCALL_CHECK;
+        PRECONDITION(CheckPointer(pAssembly));
+    }
+    CONTRACTL_END;
 
-    ASSEMBLYREF refAssembly = (ASSEMBLYREF)ObjectToOBJECTREF(pAssemblyUNSAFE);
-
-    if (refAssembly == NULL)
-        FCThrowRes(kArgumentNullException, W("Arg_InvalidHandle"));
-
-    FC_RETURN_BOOL(refAssembly->GetDomainAssembly()->GetPEAssembly()->IsDynamic());
+    FC_RETURN_BOOL(pAssembly->GetPEAssembly()->IsReflectionEmit());
 }
 FCIMPLEND
 
@@ -650,9 +665,9 @@ extern "C" BYTE * QCALLTYPE AssemblyNative_GetResource(QCall::AssemblyHandle pAs
     if (*pNameUTF8 == '\0')
         COMPlusThrow(kArgumentException, W("Format_StringZeroLength"));
 
-    pAssembly->GetResource(pNameUTF8, length,
+    pAssembly->GetPEAssembly()->GetResource(pNameUTF8, length,
                            &pbInMemoryResource, NULL, NULL,
-                           NULL, FALSE);
+                           NULL, pAssembly);
 
     END_QCALL;
 
@@ -679,12 +694,12 @@ extern "C" INT32 QCALLTYPE AssemblyNative_GetManifestResourceInfo(QCall::Assembl
     if (*pNameUTF8 == '\0')
         COMPlusThrow(kArgumentException, W("Format_StringZeroLength"));
 
-    DomainAssembly * pReferencedAssembly = NULL;
+    Assembly * pReferencedAssembly = NULL;
     LPCSTR pFileName = NULL;
     DWORD dwLocation = 0;
 
-    if (pAssembly->GetResource(pNameUTF8, NULL, NULL, &pReferencedAssembly, &pFileName,
-                              &dwLocation, FALSE))
+    if (pAssembly->GetPEAssembly()->GetResource(pNameUTF8, NULL, NULL, &pReferencedAssembly, &pFileName,
+                              &dwLocation, pAssembly))
     {
         if (pFileName)
             retFileName.Set(pFileName);
@@ -692,7 +707,7 @@ extern "C" INT32 QCALLTYPE AssemblyNative_GetManifestResourceInfo(QCall::Assembl
         GCX_COOP();
 
         if (pReferencedAssembly)
-            retAssembly.Set(pReferencedAssembly->GetExposedAssemblyObject());
+            retAssembly.Set(pReferencedAssembly->GetExposedObject());
 
         rv = dwLocation;
     }
@@ -711,16 +726,16 @@ extern "C" void QCALLTYPE AssemblyNative_GetModules(QCall::AssemblyHandle pAssem
     HENUMInternalHolder phEnum(pAssembly->GetMDImport());
     phEnum.EnumInit(mdtFile, mdTokenNil);
 
-    InlineSArray<DomainAssembly *, 8> modules;
+    InlineSArray<Module *, 8> modules;
 
-    modules.Append(pAssembly);
+    modules.Append(pAssembly->GetModule());
 
     mdFile mdFile;
     while (pAssembly->GetMDImport()->EnumNext(&phEnum, &mdFile))
     {
         if (fLoadIfNotFound)
         {
-            DomainAssembly* pModule = pAssembly->GetModule()->LoadModule(mdFile);
+            Module* pModule = pAssembly->GetModule()->LoadModule(mdFile);
             modules.Append(pModule);
         }
     }
@@ -737,9 +752,9 @@ extern "C" void QCALLTYPE AssemblyNative_GetModules(QCall::AssemblyHandle pAssem
 
         for(COUNT_T i = 0; i < modules.GetCount(); i++)
         {
-            DomainAssembly * pModule = modules[i];
+            Module * pModule = modules[i];
 
-            OBJECTREF o = pModule->GetExposedModuleObject();
+            OBJECTREF o = pModule->GetExposedObject();
             orModules->SetAt(i, o);
         }
 
@@ -751,20 +766,18 @@ extern "C" void QCALLTYPE AssemblyNative_GetModules(QCall::AssemblyHandle pAssem
     END_QCALL;
 }
 
-extern "C" BOOL QCALLTYPE AssemblyNative_GetIsCollectible(QCall::AssemblyHandle pAssembly)
+FCIMPL1(FC_BOOL_RET, AssemblyNative::GetIsCollectible, Assembly* pAssembly)
 {
-    QCALL_CONTRACT;
+    CONTRACTL
+    {
+        FCALL_CHECK;
+        PRECONDITION(CheckPointer(pAssembly));
+    }
+    CONTRACTL_END;
 
-    BOOL retVal = FALSE;
-
-    BEGIN_QCALL;
-
-    retVal = pAssembly->IsCollectible();
-
-    END_QCALL;
-
-    return retVal;
+    FC_RETURN_BOOL(pAssembly->IsCollectible());
 }
+FCIMPLEND
 
 extern volatile uint32_t g_cAssemblies;
 
@@ -819,10 +832,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetExportedTypes(QCall::AssemblyHandle 
     BEGIN_QCALL;
 
     InlineSArray<TypeHandle, 20> types;
-
-    Assembly * pAsm = pAssembly->GetAssembly();
-
-    IMDInternalImport *pImport = pAsm->GetMDImport();
+    IMDInternalImport *pImport = pAssembly->GetMDImport();
 
     {
         HENUMTypeDefInternalHolder phTDEnum(pImport);
@@ -850,7 +860,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetExportedTypes(QCall::AssemblyHandle 
 
             if (IsTdPublic(dwFlags))
             {
-                TypeHandle typeHnd = ClassLoader::LoadTypeDefThrowing(pAsm->GetModule(), mdTD,
+                TypeHandle typeHnd = ClassLoader::LoadTypeDefThrowing(pAssembly->GetModule(), mdTD,
                                                                       ClassLoader::ThrowIfNotFound,
                                                                       ClassLoader::PermitUninstDefOrRef);
                 types.Append(typeHnd);
@@ -898,8 +908,8 @@ extern "C" void QCALLTYPE AssemblyNative_GetExportedTypes(QCall::AssemblyHandle 
                 IsTdPublic(dwFlags))
             {
                 NameHandle typeName(pszNameSpace, pszClassName);
-                typeName.SetTypeToken(pAsm->GetModule(), mdCT);
-                TypeHandle typeHnd = pAsm->GetLoader()->LoadTypeHandleThrowIfFailed(&typeName);
+                typeName.SetTypeToken(pAssembly->GetModule(), mdCT);
+                TypeHandle typeHnd = pAssembly->GetLoader()->LoadTypeHandleThrowIfFailed(&typeName);
 
                 types.Append(typeHnd);
             }
@@ -939,10 +949,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetForwardedTypes(QCall::AssemblyHandle
     BEGIN_QCALL;
 
     InlineSArray<TypeHandle, 8> types;
-
-    Assembly * pAsm = pAssembly->GetAssembly();
-
-    IMDInternalImport *pImport = pAsm->GetMDImport();
+    IMDInternalImport *pImport = pAssembly->GetMDImport();
 
     // enumerate the ExportedTypes table
     {
@@ -968,8 +975,8 @@ extern "C" void QCALLTYPE AssemblyNative_GetForwardedTypes(QCall::AssemblyHandle
             if ((TypeFromToken(mdImpl) == mdtAssemblyRef) && (mdImpl != mdAssemblyRefNil))
             {
                 NameHandle typeName(pszNameSpace, pszClassName);
-                typeName.SetTypeToken(pAsm->GetModule(), mdCT);
-                TypeHandle typeHnd = pAsm->GetLoader()->LoadTypeHandleThrowIfFailed(&typeName);
+                typeName.SetTypeToken(pAssembly->GetModule(), mdCT);
+                TypeHandle typeHnd = pAssembly->GetLoader()->LoadTypeHandleThrowIfFailed(&typeName);
 
                 types.Append(typeHnd);
             }
@@ -1009,9 +1016,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetManifestResourceNames(QCall::Assembl
 
     BEGIN_QCALL;
 
-    Assembly * pAsm = pAssembly->GetAssembly();
-
-    IMDInternalImport *pImport = pAsm->GetMDImport();
+    IMDInternalImport *pImport = pAssembly->GetMDImport();
 
     HENUMInternalHolder phEnum(pImport);
     phEnum.EnumInit(mdtManifestResource, mdTokenNil);
@@ -1051,9 +1056,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetReferencedAssemblies(QCall::Assembly
 {
     BEGIN_QCALL;
 
-    Assembly * pAsm = pAssembly->GetAssembly();
-
-    IMDInternalImport *pImport = pAsm->GetMDImport();
+    IMDInternalImport *pImport = pAssembly->GetMDImport();
 
     HENUMInternalHolder phEnum(pImport);
     phEnum.EnumInit(mdtAssemblyRef, mdTokenNil);
@@ -1083,7 +1086,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetReferencedAssemblies(QCall::Assembly
         AssemblySpec spec;
         spec.InitializeSpec(mdAssemblyRef, pImport);
 
-        gc.pObj = (ASSEMBLYNAMEREF) AllocateObject(pAsmNameClass);
+        gc.pObj = NULL;
         spec.AssemblyNameInit(&gc.pObj);
 
         gc.ItemArray->SetAt(i, (OBJECTREF) gc.pObj);
@@ -1103,11 +1106,11 @@ extern "C" void QCALLTYPE AssemblyNative_GetEntryPoint(QCall::AssemblyHandle pAs
 
     BEGIN_QCALL;
 
-    pMeth = pAssembly->GetAssembly()->GetEntryPoint();
+    pMeth = pAssembly->GetEntryPoint();
     if (pMeth != NULL)
     {
         GCX_COOP();
-        retMethod.Set(pMeth->GetStubMethodInfo());
+        retMethod.Set(pMeth->AllocateStubMethodInfo());
     }
 
     END_QCALL;
@@ -1136,16 +1139,13 @@ extern "C" void QCALLTYPE AssemblyNative_GetExecutingAssembly(QCall::StackCrawlM
 {
     QCALL_CONTRACT;
 
-    DomainAssembly * pExecutingAssembly = NULL;
-
     BEGIN_QCALL;
 
     Assembly* pAssembly = SystemDomain::GetCallersAssembly(stackMark);
     if(pAssembly)
     {
-        pExecutingAssembly = pAssembly->GetDomainAssembly();
         GCX_COOP();
-        retAssembly.Set(pExecutingAssembly->GetExposedAssemblyObject());
+        retAssembly.Set(pAssembly->GetExposedObject());
     }
 
     END_QCALL;
@@ -1157,14 +1157,11 @@ extern "C" void QCALLTYPE AssemblyNative_GetEntryAssembly(QCall::ObjectHandleOnS
 
     BEGIN_QCALL;
 
-    DomainAssembly * pRootAssembly = NULL;
     Assembly * pAssembly = GetAppDomain()->GetRootAssembly();
-
     if (pAssembly)
     {
-        pRootAssembly = pAssembly->GetDomainAssembly();
         GCX_COOP();
-        retAssembly.Set(pRootAssembly->GetExposedAssemblyObject());
+        retAssembly.Set(pAssembly->GetExposedObject());
     }
 
     END_QCALL;
@@ -1178,7 +1175,7 @@ extern "C" void QCALLTYPE AssemblyNative_GetImageRuntimeVersion(QCall::AssemblyH
 
     // Retrieve the PEAssembly from the assembly.
     PEAssembly* pPEAssembly = pAssembly->GetPEAssembly();
-    PREFIX_ASSUME(pPEAssembly!=NULL);
+    _ASSERTE(pPEAssembly!=NULL);
 
     LPCSTR pszVersion = NULL;
     IfFailThrow(pPEAssembly->GetMDImport()->GetVersionString(&pszVersion));
@@ -1193,11 +1190,11 @@ extern "C" void QCALLTYPE AssemblyNative_GetImageRuntimeVersion(QCall::AssemblyH
 
 /*static*/
 
-extern "C" INT_PTR QCALLTYPE AssemblyNative_InitializeAssemblyLoadContext(INT_PTR ptrManagedAssemblyLoadContext, BOOL fRepresentsTPALoadContext, BOOL fIsCollectible)
+extern "C" INT_PTR QCALLTYPE AssemblyNative_InitializeAssemblyLoadContext(INT_PTR ptrAssemblyLoadContext, BOOL fRepresentsTPALoadContext, BOOL fIsCollectible)
 {
     QCALL_CONTRACT;
 
-    INT_PTR ptrNativeAssemblyBinder = NULL;
+    INT_PTR ptrNativeAssemblyBinder = 0;
 
     BEGIN_QCALL;
 
@@ -1228,8 +1225,8 @@ extern "C" INT_PTR QCALLTYPE AssemblyNative_InitializeAssemblyLoadContext(INT_PT
                 GCX_PREEMP();
                 // Some of the initialization functions are not virtual. Call through the derived class
                 // to prevent calling the base class version.
-                loaderAllocator->Init(pCurDomain);
-                loaderAllocator->InitVirtualCallStubManager(pCurDomain);
+                loaderAllocator->Init();
+                loaderAllocator->InitVirtualCallStubManager();
 
                 // Setup the managed proxy now, but do not actually transfer ownership to it.
                 // Once everything is setup and nothing can fail anymore, the ownership will be
@@ -1245,17 +1242,17 @@ extern "C" INT_PTR QCALLTYPE AssemblyNative_InitializeAssemblyLoadContext(INT_PT
             loaderAllocator->ActivateManagedTracking();
         }
 
-        IfFailThrow(CustomAssemblyBinder::SetupContext(pDefaultBinder, loaderAllocator, loaderAllocatorHandle, ptrManagedAssemblyLoadContext, &pCustomBinder));
+        IfFailThrow(CustomAssemblyBinder::SetupContext(pDefaultBinder, loaderAllocator, loaderAllocatorHandle, ptrAssemblyLoadContext, &pCustomBinder));
         ptrNativeAssemblyBinder = reinterpret_cast<INT_PTR>(pCustomBinder);
     }
     else
     {
         // We are initializing the managed instance of Assembly Load Context that would represent the TPA binder.
         // First, confirm we do not have an existing managed ALC attached to the TPA binder.
-        _ASSERTE(pDefaultBinder->GetManagedAssemblyLoadContext() == NULL);
+        _ASSERTE(pDefaultBinder->GetAssemblyLoadContext() == (INT_PTR)NULL);
 
         // Attach the managed TPA binding context with the native one.
-        pDefaultBinder->SetManagedAssemblyLoadContext(ptrManagedAssemblyLoadContext);
+        pDefaultBinder->SetAssemblyLoadContext(ptrAssemblyLoadContext);
         ptrNativeAssemblyBinder = reinterpret_cast<INT_PTR>(pDefaultBinder);
     }
 
@@ -1287,7 +1284,7 @@ extern "C" INT_PTR QCALLTYPE AssemblyNative_GetLoadContextForAssembly(QCall::Ass
 {
     QCALL_CONTRACT;
 
-    INT_PTR ptrManagedAssemblyLoadContext = NULL;
+    INT_PTR ptrAssemblyLoadContext = 0;
 
     BEGIN_QCALL;
 
@@ -1298,13 +1295,13 @@ extern "C" INT_PTR QCALLTYPE AssemblyNative_GetLoadContextForAssembly(QCall::Ass
     if (!pAssemblyBinder->IsDefault())
     {
         // Fetch the managed binder reference from the native binder instance
-        ptrManagedAssemblyLoadContext = pAssemblyBinder->GetManagedAssemblyLoadContext();
-        _ASSERTE(ptrManagedAssemblyLoadContext != NULL);
+        ptrAssemblyLoadContext = pAssemblyBinder->GetAssemblyLoadContext();
+        _ASSERTE(ptrAssemblyLoadContext != (INT_PTR)NULL);
     }
 
     END_QCALL;
 
-    return ptrManagedAssemblyLoadContext;
+    return ptrAssemblyLoadContext;
 }
 
 // static
@@ -1323,7 +1320,7 @@ extern "C" BOOL QCALLTYPE AssemblyNative_InternalTryGetRawMetadata(
     _ASSERTE(blobRef != nullptr);
     _ASSERTE(lengthRef != nullptr);
 
-    static_assert_no_msg(sizeof(*lengthRef) == sizeof(COUNT_T));
+    static_assert(sizeof(*lengthRef) == sizeof(COUNT_T));
     metadata = assembly->GetPEAssembly()->GetLoadedMetadata(reinterpret_cast<COUNT_T *>(lengthRef));
     *blobRef = reinterpret_cast<UINT8 *>(const_cast<PTR_VOID>(metadata));
     _ASSERTE(*lengthRef >= 0);
@@ -1446,10 +1443,463 @@ extern "C" BOOL QCALLTYPE AssemblyNative_IsApplyUpdateSupported()
     BEGIN_QCALL;
 
 #ifdef FEATURE_METADATA_UPDATER
-    result = CORDebuggerAttached() || g_pConfig->ForceEnc() || g_pConfig->DebugAssembliesModifiable();
+    result = (g_pConfig->ModifiableAssemblies() != MODIFIABLE_ASSM_NONE) &&
+             (CORDebuggerAttached() || g_pConfig->ModifiableAssemblies() == MODIFIABLE_ASSM_DEBUG);
 #endif
 
     END_QCALL;
 
     return result;
+}
+
+namespace
+{
+    LPCSTR TypeMapAssemblyTargetAttributeName = "System.Runtime.InteropServices.TypeMapAssemblyTargetAttribute`1";
+    LPCSTR TypeMapAttributeName = "System.Runtime.InteropServices.TypeMapAttribute`1";
+    LPCSTR TypeMapAssociationAttributeName = "System.Runtime.InteropServices.TypeMapAssociationAttribute`1";
+
+    bool IsTypeSpecForTypeMapGroup(
+        MethodTable* groupTypeMT,
+        Assembly* pAssembly,
+        mdToken typeSpec)
+    {
+        STANDARD_VM_CONTRACT;
+        _ASSERTE(groupTypeMT != NULL);
+        _ASSERTE(pAssembly != NULL);
+        _ASSERTE(TypeFromToken(typeSpec) == mdtTypeSpec);
+
+        IMDInternalImport* pImport = pAssembly->GetMDImport();
+
+        PCCOR_SIGNATURE sig;
+        ULONG sigLen;
+        IfFailThrow(pImport->GetTypeSpecFromToken(typeSpec, &sig, &sigLen));
+
+        SigPointer sigPointer{ sig, sigLen };
+
+        SigTypeContext context{};
+        TypeHandle typeMapAttribute = sigPointer.GetTypeHandleNT(pAssembly->GetModule(), &context);
+        if (typeMapAttribute.IsNull()
+            || !typeMapAttribute.HasInstantiation())    // All TypeMap attributes are generic.
+        {
+            return false;
+        }
+
+        Instantiation genericParams = typeMapAttribute.GetInstantiation();
+        if (genericParams.GetNumArgs() != 1) // All TypeMap attributes have a single generic parameter.
+            return false;
+
+        return genericParams[0] == groupTypeMT;
+    }
+
+    template<typename ATTR_PROCESSOR>
+    void ProcessTypeMapAttribute(
+        LPCSTR attributeName,
+        ATTR_PROCESSOR& processor,
+        MethodTable* groupTypeMT,
+        Assembly* pAssembly)
+    {
+        STANDARD_VM_CONTRACT;
+        _ASSERTE(attributeName != NULL);
+        _ASSERTE(groupTypeMT != NULL);
+        _ASSERTE(pAssembly != NULL);
+
+        HRESULT hr;
+        IMDInternalImport* pImport = pAssembly->GetMDImport();
+
+        // Find all the CustomAttributes with the supplied name
+        MDEnumHolder hEnum(pImport);
+        hr = pImport->EnumCustomAttributeByNameInit(
+            TokenFromRid(1, mdtAssembly),
+            attributeName,
+            &hEnum);
+        IfFailThrow(hr);
+
+        // Enumerate all instances of the CustomAttribute we asked about.
+        // Since the TypeMap attributes are generic, we need to narrow the
+        // search to only those that are instantiated over the "GroupType"
+        // that is supplied by the caller.
+        mdTypeSpec lastMatchingTypeSpec = mdTypeSpecNil;
+        mdCustomAttribute tkAttribute;
+        while (pImport->EnumNext(&hEnum, &tkAttribute))
+        {
+            mdToken tokenMember;
+            IfFailThrow(pImport->GetCustomAttributeProps(tkAttribute, &tokenMember));
+
+            mdToken tokenType;
+            IfFailThrow(pImport->GetParentToken(tokenMember, &tokenType));
+
+            // Ensure the parent token is a TypeSpec.
+            // This can occur if the attribute is redefined externally.
+            if (TypeFromToken(tokenType) != mdtTypeSpec)
+                continue;
+
+            // Determine if this TypeSpec contains the "GroupType" we are looking for.
+            // There is no requirement in ECMA-335 that the same TypeSpec be used
+            // for the same generic instantiation. It is true for Roslyn assemblies so we
+            // will do a check as an optimization, but we must fall back and re-check
+            // the TypeSpec contents to be sure it doesn't match.
+            if (tokenType != lastMatchingTypeSpec)
+            {
+                if (!IsTypeSpecForTypeMapGroup(groupTypeMT, pAssembly, tokenType))
+                    continue;
+
+                lastMatchingTypeSpec = (mdTypeSpec)tokenType;
+            }
+
+            // We've determined the attribute is the instantiation we want, now process the attribute contents.
+            void const* blob;
+            ULONG blobLen;
+            IfFailThrow(pImport->GetCustomAttributeAsBlob(tkAttribute, &blob, &blobLen));
+
+            // Pass the blob data off to the processor.
+            if (!processor.Process(blob, blobLen))
+            {
+                // The processor has indicated processing should stop.
+                break;
+            }
+        }
+    }
+
+#ifdef FEATURE_READYTORUN
+    template<typename TReadyToRunInfoFilter, typename TReadyToRunInfoCallback>
+    bool ProcessPrecachedTypeMapInfo(
+        TReadyToRunInfoFilter filter,
+        TReadyToRunInfoCallback callback,
+        Assembly* pAssembly
+    )
+    {
+        STANDARD_VM_CONTRACT;
+
+        PTR_Module pModule = pAssembly->GetModule();
+        if (!pModule->IsReadyToRun())
+        {
+            return false;
+        }
+
+        PTR_ReadyToRunInfo pR2RInfo = pModule->GetReadyToRunInfo();
+
+        if (filter(pR2RInfo))
+        {
+            return callback(pR2RInfo);
+        }
+        return false;
+    }
+#endif
+
+    class AssemblyPtrCollectionTraits : public DefaultSHashTraits<Assembly*>
+    {
+    public:
+        typedef Assembly* key_t;
+        static const key_t GetKey(Assembly* e) { LIMITED_METHOD_CONTRACT; return e; }
+        static count_t Hash(key_t key) { LIMITED_METHOD_CONTRACT; return (count_t)(size_t)key; }
+        static BOOL Equals(key_t lhs, key_t rhs) { LIMITED_METHOD_CONTRACT; return (lhs == rhs); }
+    };
+
+    using AssemblyPtrCollection = SHash<AssemblyPtrCollectionTraits>;
+
+    // Used for TypeMapAssemblyTargetAttribute`1 attribute.
+    class AssemblyTargetProcessor final
+    {
+        AssemblyPtrCollection _toProcess;
+        AssemblyPtrCollection _processed;
+
+    public:
+        AssemblyTargetProcessor(Assembly* first)
+        {
+            _toProcess.Add(first);
+        }
+
+        BOOL Process(void const* blob, ULONG blobLen)
+        {
+            CustomAttributeParser cap(blob, blobLen);
+            IfFailThrow(cap.ValidateProlog());
+
+            LPCUTF8 assemblyName;
+            ULONG assemblyNameLen;
+            IfFailThrow(cap.GetNonNullString(&assemblyName, &assemblyNameLen));
+
+            // Load the assembly
+            SString assemblyNameString{ SString::Utf8, assemblyName, assemblyNameLen };
+
+            AssemblySpec spec;
+            spec.Init(assemblyNameString);
+
+            Assembly* pAssembly = spec.LoadAssembly(FILE_LOADED);
+
+            // Only add the assembly if it is unknown.
+            if (_toProcess.Lookup(pAssembly) == NULL
+                && _processed.Lookup(pAssembly) == NULL)
+            {
+                _toProcess.Add(pAssembly);
+            }
+
+            return TRUE;
+        }
+
+        void Add(Assembly* assembly)
+        {
+            if (_toProcess.Lookup(assembly) == NULL
+                && _processed.Lookup(assembly) == NULL)
+            {
+                _toProcess.Add(assembly);
+            }
+        }
+
+        bool IsEmpty() const
+        {
+            return _toProcess.GetCount() == 0;
+        }
+
+        Assembly* GetNext()
+        {
+            AssemblyPtrCollection::Iterator first = _toProcess.Begin();
+            Assembly* tmp = *first;
+            _toProcess.Remove(first);
+            _ASSERTE(_toProcess.Lookup(tmp) == NULL);
+            _processed.Add(tmp);
+            _ASSERTE(_processed.Lookup(tmp) != NULL);
+            return tmp;
+        }
+    };
+
+    // Used for TypeMapAttribute`1 and TypeMapAssociationAttribute`1 attributes.
+    class MappingsProcessor final
+    {
+        BOOL (*_callback)(CallbackContext* context, ProcessAttributesCallbackArg* arg);
+        CallbackContext* _context;
+
+    public:
+        MappingsProcessor(
+            BOOL (*callback)(CallbackContext* context, ProcessAttributesCallbackArg* arg),
+            CallbackContext* context)
+            : _callback{ callback }
+            , _context{ context }
+        {
+            _ASSERTE(_callback != NULL);
+        }
+
+        BOOL Process(void const* blob, ULONG blobLen)
+        {
+            CustomAttributeParser cap(blob, blobLen);
+            IfFailThrow(cap.ValidateProlog());
+
+            // Observe that one of the constructors for TypeMapAttribute`1
+            // takes three (3) arguments, but we only ever look at two (2).
+            // This is because the third argument isn't needed by the
+            // mapping logic and is only used by the Trimmer.
+
+            LPCUTF8 str1;
+            ULONG strLen1;
+            IfFailThrow(cap.GetNonNullString(&str1, &strLen1));
+
+            LPCUTF8 str2;
+            ULONG strLen2;
+            IfFailThrow(cap.GetNonNullString(&str2, &strLen2));
+
+            ProcessAttributesCallbackArg arg;
+            arg.Utf8String1 = str1;
+            arg.Utf8String2 = str2;
+            arg.StringLen1 = strLen1;
+            arg.StringLen2 = strLen2;
+
+            return _callback(_context, &arg);
+        }
+    };
+}
+
+extern "C" void QCALLTYPE TypeMapLazyDictionary_ProcessAttributes(
+    QCall::AssemblyHandle pAssembly,
+    QCall::TypeHandle pGroupType,
+    BOOL (*newExternalTypeEntry)(CallbackContext* context, ProcessAttributesCallbackArg* arg),
+    BOOL (*newProxyTypeEntry)(CallbackContext* context, ProcessAttributesCallbackArg* arg),
+    BOOL (*newPrecachedExternalTypeMap)(CallbackContext* context),
+    BOOL (*newPrecachedProxyTypeMap)(CallbackContext* context),
+    CallbackContext* context)
+{
+    QCALL_CONTRACT;
+    _ASSERTE(pAssembly != NULL);
+    _ASSERTE(!pGroupType.AsTypeHandle().IsNull());
+    _ASSERTE(newExternalTypeEntry != NULL || newProxyTypeEntry != NULL);
+    _ASSERTE(context != NULL);
+
+    BEGIN_QCALL;
+
+    TypeHandle groupTypeTH = pGroupType.AsTypeHandle();
+    _ASSERTE(!groupTypeTH.IsTypeDesc());
+    MethodTable* groupTypeMT = groupTypeTH.AsMethodTable();
+
+    AssemblyTargetProcessor assemblies{ pAssembly };
+    ExternalTypeNameHash seenPreprocessedExternalEntries;
+    while (!assemblies.IsEmpty())
+    {
+        Assembly* currAssembly = assemblies.GetNext();
+
+        // Set the current assembly in the context.
+        {
+            GCX_COOP();
+            context->_currAssembly = currAssembly->GetExposedObject();
+        }
+        bool hasPrecachedExternal = false;
+        bool hasPrecachedProxy = false;
+        bool hasPrecachedTargets = false;
+
+#ifdef FEATURE_READYTORUN
+        // Only process the external type map if requested.
+        if (newExternalTypeEntry != nullptr)
+        {
+            hasPrecachedExternal = ProcessPrecachedTypeMapInfo(
+                [=](PTR_ReadyToRunInfo pR2RInfo) { return pR2RInfo->HasPrecachedExternalTypeMap(groupTypeMT); },
+                [=, &seenPreprocessedExternalEntries](PTR_ReadyToRunInfo pR2RInfo) -> BOOL
+                {
+                    if (!pR2RInfo->CheckForUniqueExternalTypeMapKeys(groupTypeMT, &seenPreprocessedExternalEntries))
+                    {
+                        return FALSE;
+                    }
+                    return newPrecachedExternalTypeMap(context);
+                },
+                currAssembly);
+        }
+
+        // Only process the proxy type map if requested.
+        if (newProxyTypeEntry != nullptr)
+        {
+            hasPrecachedProxy = ProcessPrecachedTypeMapInfo(
+                [=](PTR_ReadyToRunInfo pR2RInfo) { return pR2RInfo->HasPrecachedProxyTypeMap(groupTypeMT); },
+                [=](PTR_ReadyToRunInfo pR2RInfo) { return newPrecachedProxyTypeMap(context); },
+                currAssembly);
+        }
+
+        COUNT_T assemblyTargetCount = 0;
+        hasPrecachedTargets = ProcessPrecachedTypeMapInfo(
+            [=, &assemblyTargetCount](PTR_ReadyToRunInfo pR2RInfo) { return pR2RInfo->HasTypeMapAssemblyTargets(groupTypeMT, &assemblyTargetCount); },
+            [&](PTR_ReadyToRunInfo pR2RInfo)
+             {
+                CQuickArray<Module*> targetModules;
+                targetModules.ReSizeThrows(assemblyTargetCount);
+                COUNT_T numReturnedTargets = pR2RInfo->GetTypeMapAssemblyTargets(groupTypeMT, targetModules.Ptr(), assemblyTargetCount);
+                _ASSERTE(numReturnedTargets == assemblyTargetCount);
+                for (COUNT_T i = 0; i < assemblyTargetCount; i++)
+                {
+                    if (targetModules[i] == nullptr)
+                    {
+                        ThrowHR(COR_E_BADIMAGEFORMAT);
+                    }
+                    Assembly* targetAssembly = targetModules[i]->GetAssembly();
+                    assemblies.Add(targetAssembly);
+                }
+                return true;
+             },
+             currAssembly
+        );
+#endif // FEATURE_READYTORUN
+
+        if ((newExternalTypeEntry != nullptr && !hasPrecachedExternal) ||
+            (newProxyTypeEntry != nullptr && !hasPrecachedProxy) ||
+            !hasPrecachedTargets)
+        {
+            // Fall back to attribute parsing for the assembly targets if they were
+            // not found in the pre-cached R2R section, or if the external/proxy type
+            // maps were not pre-cached. When CrossGen2 fails to resolve an assembly
+            // target, it emits an assembly targets entry with count=0 but marks the
+            // external/proxy maps as invalid (state=0). Re-processing the assembly
+            // target attributes in that case ensures the runtime correctly loads (and
+            // throws for) unresolvable assemblies. The AssemblyTargetProcessor already
+            // deduplicates, so re-processing is safe.
+            ProcessTypeMapAttribute(
+                TypeMapAssemblyTargetAttributeName,
+                assemblies,
+                groupTypeMT,
+                currAssembly);
+
+            // We will only process the specific type maps if we have a callback to process
+            // the entry and the precached map was not calculated for this module.
+            if (newExternalTypeEntry != NULL && !hasPrecachedExternal)
+            {
+                MappingsProcessor onExternalType{ newExternalTypeEntry, context };
+                ProcessTypeMapAttribute(
+                    TypeMapAttributeName,
+                    onExternalType,
+                    groupTypeMT,
+                    currAssembly);
+            }
+
+            if (newProxyTypeEntry != NULL && !hasPrecachedProxy)
+            {
+                MappingsProcessor onProxyType{ newProxyTypeEntry, context };
+                ProcessTypeMapAttribute(
+                    TypeMapAssociationAttributeName,
+                    onProxyType,
+                    groupTypeMT,
+                    currAssembly);
+            }
+        }
+    }
+
+    END_QCALL;
+}
+
+extern "C" TADDR QCALLTYPE TypeMapLazyDictionary_FindPrecachedExternalTypeMapEntry(
+    QCall::ModuleHandle pModule,
+    QCall::TypeHandle pGroupType,
+    LPCUTF8 key)
+{
+    QCALL_CONTRACT;
+    _ASSERTE(pModule != NULL);
+    _ASSERTE(!pGroupType.AsTypeHandle().IsNull());
+
+    TypeHandle resultTypeHnd{};
+
+    BEGIN_QCALL;
+
+#ifdef FEATURE_READYTORUN
+    if (pModule->IsReadyToRun())
+    {
+        PTR_ReadyToRunInfo pR2RInfo = pModule->GetReadyToRunInfo();
+
+        TypeHandle groupTypeTH = pGroupType.AsTypeHandle();
+        _ASSERTE(!groupTypeTH.IsTypeDesc());
+        MethodTable* groupTypeMT = groupTypeTH.AsMethodTable();
+
+        resultTypeHnd = pR2RInfo->FindPrecachedExternalTypeMapEntry(
+            groupTypeMT,
+            key);
+    }
+#endif // FEATURE_READYTORUN
+
+    END_QCALL;
+
+    return resultTypeHnd.AsTAddr();
+}
+
+extern "C" TADDR QCALLTYPE TypeMapLazyDictionary_FindPrecachedProxyTypeMapEntry(
+    QCall::ModuleHandle pModule,
+    QCall::TypeHandle pGroupType,
+    QCall::TypeHandle pType)
+{
+    QCALL_CONTRACT;
+    _ASSERTE(pModule != NULL);
+    _ASSERTE(!pGroupType.AsTypeHandle().IsNull());
+
+    TypeHandle resultTypeHnd{};
+
+    BEGIN_QCALL;
+
+#ifdef FEATURE_READYTORUN
+    if (pModule->IsReadyToRun())
+    {
+        PTR_ReadyToRunInfo pR2RInfo = pModule->GetReadyToRunInfo();
+
+        TypeHandle groupTypeTH = pGroupType.AsTypeHandle();
+        _ASSERTE(!groupTypeTH.IsTypeDesc());
+        MethodTable* groupTypeMT = groupTypeTH.AsMethodTable();
+
+        resultTypeHnd = pR2RInfo->FindPrecachedProxyTypeMapEntry(
+            groupTypeMT,
+            pType.AsTypeHandle());
+    }
+#endif // FEATURE_READYTORUN
+
+    END_QCALL;
+
+    return resultTypeHnd.AsTAddr();
 }

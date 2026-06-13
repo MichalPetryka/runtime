@@ -186,6 +186,12 @@ export function invoke1V(arg1) {
     fn(arg1);
 }
 
+export function invoke1O(arg1) {
+    const JavaScriptTestHelper = dllExports.System.Runtime.InteropServices.JavaScript.Tests.JavaScriptTestHelper;
+    const fn = JavaScriptTestHelper['Optimized1O'];
+    fn(arg1);
+}
+
 export function invoke1R(arg1) {
     const JavaScriptTestHelper = dllExports.System.Runtime.InteropServices.JavaScript.Tests.JavaScriptTestHelper;
     const fn = JavaScriptTestHelper['Optimized1R'];
@@ -214,12 +220,79 @@ export function invoke1(arg1, name) {
     return res;
 }
 
+export async function invoke1Async(arg1, name) {
+    if (globalThis.gc) {
+        // console.log('globalThis.gc');
+        globalThis.gc();
+    }
+    // console.log(`invoke1: ${name}(arg1:${arg1 !== null ? typeof arg1 : '<null>'})`)
+    const JavaScriptTestHelper = dllExports.System.Runtime.InteropServices.JavaScript.Tests.JavaScriptTestHelper;
+    const fn = JavaScriptTestHelper[name];
+
+    await delay(10);
+
+    // console.log("invoke1:" + typeof fn);
+    // console.log("invoke1:" + fn.toString());
+    const res = fn(arg1);
+    // console.log(`invoke1: res ${res !== null ? typeof res : '<null>'}`)
+    return res;
+}
+
 export function invoke2(arg1, name) {
     const fn = dllExports.JavaScriptTestHelperNoNamespace[name];
     //console.log("invoke1:" + fn.toString());
     const res = fn(arg1);
     // console.log(`invoke1: res ${res !== null ? typeof res : '<null>'}`)
     return res;
+}
+
+export function invokeExportWithPromiseWithDateMaxValue(exportName) {
+    const fn1 = dllExports.System.Runtime.InteropServices.JavaScript.Tests.JavaScriptTestHelper[exportName];
+    const res = fn1(returnResolvedPromiseWithDateMaxValue());
+    return res;
+}
+
+export function invokeExportWithDateMaxValue(exportName) {
+    const fn1 = dllExports.System.Runtime.InteropServices.JavaScript.Tests.JavaScriptTestHelper[exportName];
+    const res = fn1(returnDateMaxValue());
+    return res;
+}
+
+export function invokeDelegate_DateTimeWithOffset(delegate, date, offset) {
+    return delegate(returnDateWithOffset(date, offset));
+}
+
+export function getInt32ArrayWithOutOfRangeValues() {
+    return [0, 1, 2147483648, 3147483648, 9007199254740991, 9007199254740992];
+}
+
+export function returnResolvedPromise() {
+    return Promise.resolve();
+}
+
+export function returnResolvedPromiseWithIntMaxValue() {
+    return Promise.resolve(2147483647);
+}
+
+export function returnResolvedPromiseWithDateMaxValue() {
+    return Promise.resolve(new Date(8640000000000000));
+}
+
+export function returnDateMaxValue() {
+    return new Date(8640000000000000);
+}
+
+export function returnDateWithOffset(date, offset) {
+    return new Date(date.getTime() + offset);
+}
+
+export async function invokeReturnCompletedTask() {
+    await dllExports.System.Runtime.InteropServices.JavaScript.Tests.JavaScriptTestHelper.ReturnCompletedTask();
+    return "resolved";
+}
+
+export function invokeFuncWithOffset(fn, arg, offset) {
+    return fn(arg + offset);
 }
 
 export function invokeStructClassRecords(arg1) {
@@ -359,6 +432,21 @@ export function back3(arg1, arg2, arg3) {
     }
 }
 
+export function back4(arg1, arg2, arg3, arg4) {
+    if (globalThis.gc) {
+        // console.log('globalThis.gc');
+        globalThis.gc();
+    }
+    try {
+        if (!(arg1 instanceof Function)) throw new Error('expecting Function!')
+
+        return arg1(arg2, arg3, arg4);
+    }
+    catch (ex) {
+        throw ex;
+    }
+}
+
 export function backback(arg1, arg2, arg3) {
     if (globalThis.gc) {
         // console.log('globalThis.gc');
@@ -379,6 +467,20 @@ export function backback(arg1, arg2, arg3) {
     }
 }
 
+export async function backbackAsync(arg1, arg2, arg3) {
+    if (globalThis.gc) {
+        // console.log('globalThis.gc');
+        globalThis.gc();
+    }
+    await delay(10);
+    return arg1(arg2, arg3);
+}
+
+export async function callJavaScriptLibrary(a, b) {
+    const exports = await App.runtime.getAssemblyExports("JavaScriptLibrary.dll");
+    return exports.JavaScriptLibrary.JavaScriptInterop.ExportedMethod(a, b);
+}
+
 export const instance = {}
 
 globalThis.javaScriptTestHelper = instance;
@@ -396,3 +498,36 @@ export async function setup() {
 }
 
 // console.log('JavaScriptTestHelper:' Object.keys(globalThis.JavaScriptTestHelper));
+
+export function delay(ms) {
+    return new Promise(resolve => globalThis.setTimeout(resolve, ms));
+}
+
+export function reject(what) {
+    return new Promise((_, reject) => globalThis.setTimeout(() => reject(what), 0));
+}
+
+let setTimeoutHit = false;
+let promiseThenHit = false;
+export function beforeYield() {
+    setTimeoutHit = false;
+    promiseThenHit = false;
+    setTimeout(() => {
+        setTimeoutHit = true;
+    }, 0);
+    let res;
+    new Promise((resolve) => {
+        res = resolve;
+    }).then(() => {
+        promiseThenHit = true;
+    });
+    res();
+}
+
+export function isSetTimeoutHit() {
+    return setTimeoutHit;
+}
+
+export function isPromiseThenHit() {
+    return promiseThenHit;
+}

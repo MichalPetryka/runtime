@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 #nullable enable
@@ -285,12 +285,7 @@ namespace System.Net.Http.HPack
         }
 
         /// <summary>Encodes a "Literal Header Field without Indexing - New Name".</summary>
-        public static bool EncodeLiteralHeaderFieldWithoutIndexingNewName(string name, ReadOnlySpan<string> values, string separator, Span<byte> destination, out int bytesWritten)
-        {
-            return EncodeLiteralHeaderFieldWithoutIndexingNewName(name, values, separator, valueEncoding: null, destination, out bytesWritten);
-        }
-
-        public static bool EncodeLiteralHeaderFieldWithoutIndexingNewName(string name, ReadOnlySpan<string> values, string separator, Encoding? valueEncoding, Span<byte> destination, out int bytesWritten)
+        public static bool EncodeLiteralHeaderFieldWithoutIndexingNewName(string name, ReadOnlySpan<string> values, byte[] separator, Encoding? valueEncoding, Span<byte> destination, out int bytesWritten)
         {
             // From https://tools.ietf.org/html/rfc7541#section-6.2.2
             // ------------------------------------------------------
@@ -515,12 +510,7 @@ namespace System.Net.Http.HPack
             return false;
         }
 
-        public static bool EncodeStringLiterals(ReadOnlySpan<string> values, string? separator, Span<byte> destination, out int bytesWritten)
-        {
-            return EncodeStringLiterals(values, separator, valueEncoding: null, destination, out bytesWritten);
-        }
-
-        public static bool EncodeStringLiterals(ReadOnlySpan<string> values, string? separator, Encoding? valueEncoding, Span<byte> destination, out int bytesWritten)
+        public static bool EncodeStringLiterals(ReadOnlySpan<string> values, byte[]? separator, Encoding? valueEncoding, Span<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
 
@@ -536,23 +526,22 @@ namespace System.Net.Http.HPack
             if (destination.Length != 0)
             {
                 Debug.Assert(separator != null);
-                int valueLength;
+                Debug.Assert(Ascii.IsValid(separator));
+                int valueLength = checked((values.Length - 1) * separator.Length);
 
-                // Calculate length of all parts and separators.
+                // Calculate length of all values.
                 if (valueEncoding is null || ReferenceEquals(valueEncoding, Encoding.Latin1))
                 {
-                    valueLength = checked((int)(values.Length - 1) * separator.Length);
                     foreach (string part in values)
                     {
-                        valueLength = checked((int)(valueLength + part.Length));
+                        valueLength = checked(valueLength + part.Length);
                     }
                 }
                 else
                 {
-                    valueLength = checked((int)(values.Length - 1) * valueEncoding.GetByteCount(separator));
                     foreach (string part in values)
                     {
-                        valueLength = checked((int)(valueLength + valueEncoding.GetByteCount(part)));
+                        valueLength = checked(valueLength + valueEncoding.GetByteCount(part));
                     }
                 }
 
@@ -571,7 +560,7 @@ namespace System.Net.Http.HPack
 
                             for (int i = 1; i < values.Length; i++)
                             {
-                                EncodeValueStringPart(separator, destination);
+                                separator.CopyTo(destination);
                                 destination = destination.Slice(separator.Length);
 
                                 value = values[i];
@@ -586,8 +575,8 @@ namespace System.Net.Http.HPack
 
                             for (int i = 1; i < values.Length; i++)
                             {
-                                written = valueEncoding.GetBytes(separator, destination);
-                                destination = destination.Slice(written);
+                                separator.CopyTo(destination);
+                                destination = destination.Slice(separator.Length);
 
                                 written = valueEncoding.GetBytes(values[i], destination);
                                 destination = destination.Slice(written);
@@ -607,7 +596,7 @@ namespace System.Net.Http.HPack
         /// Encodes a "Literal Header Field without Indexing" to a new array, but only the index portion;
         /// a subsequent call to <c>EncodeStringLiteral</c> must be used to encode the associated value.
         /// </summary>
-        public static byte[] EncodeLiteralHeaderFieldWithoutIndexingToAllocatedArray(int index)
+        public static unsafe byte[] EncodeLiteralHeaderFieldWithoutIndexingToAllocatedArray(int index)
         {
             Span<byte> span = stackalloc byte[256];
             bool success = EncodeLiteralHeaderFieldWithoutIndexing(index, span, out int length);
@@ -619,7 +608,7 @@ namespace System.Net.Http.HPack
         /// Encodes a "Literal Header Field without Indexing - New Name" to a new array, but only the name portion;
         /// a subsequent call to <c>EncodeStringLiteral</c> must be used to encode the associated value.
         /// </summary>
-        public static byte[] EncodeLiteralHeaderFieldWithoutIndexingNewNameToAllocatedArray(string name)
+        public static unsafe byte[] EncodeLiteralHeaderFieldWithoutIndexingNewNameToAllocatedArray(string name)
         {
             Span<byte> span = stackalloc byte[256];
             bool success = EncodeLiteralHeaderFieldWithoutIndexingNewName(name, span, out int length);
@@ -628,7 +617,7 @@ namespace System.Net.Http.HPack
         }
 
         /// <summary>Encodes a "Literal Header Field without Indexing" to a new array.</summary>
-        public static byte[] EncodeLiteralHeaderFieldWithoutIndexingToAllocatedArray(int index, string value)
+        public static unsafe byte[] EncodeLiteralHeaderFieldWithoutIndexingToAllocatedArray(int index, string value)
         {
             Span<byte> span =
 #if DEBUG

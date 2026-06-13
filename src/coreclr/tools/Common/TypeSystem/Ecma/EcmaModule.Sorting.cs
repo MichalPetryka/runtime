@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Reflection;
+using System.Reflection.Metadata;
 
 using Debug = System.Diagnostics.Debug;
 
@@ -20,8 +20,8 @@ namespace Internal.TypeSystem.Ecma
             if (thisAssembly != otherAssembly)
             {
                 // Each module comes from a different assembly: compare the assemblies
-                AssemblyName thisAssemblyName = thisAssembly.GetName();
-                AssemblyName otherAssemblyName = otherAssembly.GetName();
+                AssemblyNameInfo thisAssemblyName = thisAssembly.GetName();
+                AssemblyNameInfo otherAssemblyName = otherAssembly.GetName();
 
                 int compare = StringComparer.Ordinal.Compare(thisAssemblyName.Name, otherAssemblyName.Name);
                 if (compare != 0)
@@ -36,7 +36,7 @@ namespace Internal.TypeSystem.Ecma
                 // Multi-module assembly: compare two modules that are part of same assembly
                 string thisName = _metadataReader.GetString(_metadataReader.GetModuleDefinition().Name);
                 string otherName = other._metadataReader.GetString(other._metadataReader.GetModuleDefinition().Name);
-                Debug.Assert(StringComparer.Ordinal.Compare(thisName, otherName) != 0);
+                Debug.Assert(!StringComparer.Ordinal.Equals(thisName, otherName));
                 return StringComparer.Ordinal.Compare(thisName, otherName);
             }
         }

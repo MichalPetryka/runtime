@@ -81,16 +81,29 @@ void StringPrinter::Append(char chr)
 }
 
 //------------------------------------------------------------------------
-// eePrintJitType:
+// eePrintCorInfoType:
 //   Print a JIT type.
 //
 // Arguments:
 //    printer - the printer
-//    jitType - the JIT type
+//    corInfoType - the CorInfoType type
 //
-void Compiler::eePrintJitType(StringPrinter* printer, var_types jitType)
+void Compiler::eePrintCorInfoType(StringPrinter* printer, CorInfoType corInfoType)
 {
-    printer->Append(varTypeName(jitType));
+    static const char* preciseVarTypeMap[CORINFO_TYPE_COUNT] = {// see the definition of enum CorInfoType in file
+                                                                // inc/corinfo.h
+                                                                "<UNDEF>", "void",  "bool",   "char",   "sbyte",
+                                                                "byte",    "short", "ushort", "int",    "uint",
+                                                                "long",    "ulong", "nint",   "nuint",  "float",
+                                                                "double",  "ptr",   "byref",  "struct", "class"};
+
+    const char* corInfoTypeName = "CORINFO_TYPE_INVALID";
+    if (corInfoType >= 0 && corInfoType < CORINFO_TYPE_COUNT)
+    {
+        corInfoTypeName = preciseVarTypeMap[corInfoType];
+    }
+
+    printer->Append(corInfoTypeName);
 }
 
 //------------------------------------------------------------------------
@@ -144,7 +157,7 @@ void Compiler::eePrintType(StringPrinter* printer, CORINFO_CLASS_HANDLE clsHnd, 
         }
         else
         {
-            eePrintJitType(printer, JitType2PreciseVarType(childType));
+            eePrintCorInfoType(printer, childType);
         }
 
         printer->Append('[');
@@ -205,15 +218,27 @@ void Compiler::eePrintTypeOrJitAlias(StringPrinter* printer, CORINFO_CLASS_HANDL
     }
     else
     {
-        eePrintJitType(printer, JitType2PreciseVarType(typ));
+        eePrintCorInfoType(printer, typ);
     }
 }
 
 static const char* s_jitHelperNames[CORINFO_HELP_COUNT] = {
-#define JITHELPER(code, pfnHelper, sig) #code,
-#define DYNAMICJITHELPER(code, pfnHelper, sig) #code,
+#define JITHELPER(code, pfnHelper, binderId)        #code,
+#define DYNAMICJITHELPER(code, pfnHelper, binderId) #code,
 #include "jithelpers.h"
 };
+
+void AppendCorInfoTypeWithModModifiers(StringPrinter* printer, CorInfoTypeWithMod corInfoTypeWithMod)
+{
+    if ((corInfoTypeWithMod & CORINFO_TYPE_MOD_PINNED) == CORINFO_TYPE_MOD_PINNED)
+    {
+        printer->Append("PINNED__");
+    }
+    if ((corInfoTypeWithMod & CORINFO_TYPE_MOD_COPY_WITH_HELPER) == CORINFO_TYPE_MOD_COPY_WITH_HELPER)
+    {
+        printer->Append("COPY_WITH_HELPER__");
+    }
+}
 
 //------------------------------------------------------------------------
 // eePrintMethod:
@@ -222,9 +247,11 @@ static const char* s_jitHelperNames[CORINFO_HELP_COUNT] = {
 //
 // Arguments:
 //    printer                    - the printer
-//    clsHnd                     - Handle for the owning class, or NO_CLASS_HANDLE to not print the class.
+//    clsHnd                     - Handle for the owning class.
 //    sig                        - The signature of the method.
-//    includeClassInstantiation  - Whether to print the class instantiation. Only valid when clsHnd is passed.
+//    includeAssembly            - Whether to print the assembly name.
+//    includeClass               - Whether to print the class name.
+//    includeClassInstantiation  - Whether to print the class instantiation. Only valid when includeClass is passed.
 //    includeMethodInstantiation - Whether to print the method instantiation. Requires the signature to be passed.
 //    includeSignature           - Whether to print the signature.
 //    includeReturnType          - Whether to include the return type at the end.
@@ -235,6 +262,8 @@ void Compiler::eePrintMethod(StringPrinter*        printer,
                              CORINFO_CLASS_HANDLE  clsHnd,
                              CORINFO_METHOD_HANDLE methHnd,
                              CORINFO_SIG_INFO*     sig,
+                             bool                  includeAssembly,
+                             bool                  includeClass,
                              bool                  includeClassInstantiation,
                              bool                  includeMethodInstantiation,
                              bool                  includeSignature,
@@ -249,7 +278,14 @@ void Compiler::eePrintMethod(StringPrinter*        printer,
         return;
     }
 
-    if (clsHnd != NO_CLASS_HANDLE)
+    if (includeAssembly)
+    {
+        const char* pAssemblyName = info.compCompHnd->getClassAssemblyName(clsHnd);
+        printer->Append(pAssemblyName);
+        printer->Append('!');
+    }
+
+    if (includeClass)
     {
         eePrintType(printer, clsHnd, includeClassInstantiation);
         printer->Append(':');
@@ -285,7 +321,10 @@ void Compiler::eePrintMethod(StringPrinter*        printer,
                 printer->Append(',');
 
             CORINFO_CLASS_HANDLE vcClsHnd;
-            var_types type = JitType2PreciseVarType(strip(info.compCompHnd->getArgType(sig, argLst, &vcClsHnd)));
+            CorInfoTypeWithMod   argTypeWithMod = info.compCompHnd->getArgType(sig, argLst, &vcClsHnd);
+            AppendCorInfoTypeWithModModifiers(printer, argTypeWithMod);
+
+            var_types type = JitType2PreciseVarType(strip(argTypeWithMod));
             switch (type)
             {
                 case TYP_REF:
@@ -302,7 +341,7 @@ void Compiler::eePrintMethod(StringPrinter*        printer,
 
                     FALLTHROUGH;
                 default:
-                    eePrintJitType(printer, type);
+                    eePrintCorInfoType(printer, strip(argTypeWithMod));
                     break;
             }
 
@@ -331,7 +370,7 @@ void Compiler::eePrintMethod(StringPrinter*        printer,
                     }
                         FALLTHROUGH;
                     default:
-                        eePrintJitType(printer, retType);
+                        eePrintCorInfoType(printer, sig->retType);
                         break;
                 }
             }
@@ -403,10 +442,11 @@ const char* Compiler::eeGetMethodFullName(
         CORINFO_SIG_INFO sig;
         eeGetMethodSig(hnd, &sig);
         eePrintMethod(&p, clsHnd, hnd, &sig,
-                      /* includeClassInstantiation */ true,
-                      /* includeMethodInstantiation */ true,
-                      /* includeSignature */ true, includeReturnType, includeThisSpecifier);
-
+                                      /* includeAssembly */ false,
+                                      /* includeClass */ true,
+                                      /* includeClassInstantiation */ true,
+                                      /* includeMethodInstantiation */ true,
+                                      /* includeSignature */ true, includeReturnType, includeThisSpecifier);
     });
 
     if (success)
@@ -420,6 +460,8 @@ const char* Compiler::eeGetMethodFullName(
     success = eeRunFunctorWithSPMIErrorTrap([&]() {
         eePrintMethod(&p, clsHnd, hnd,
                       /* sig */ nullptr,
+                      /* includeAssembly */ false,
+                      /* includeClass */ true,
                       /* includeClassInstantiation */ false,
                       /* includeMethodInstantiation */ false,
                       /* includeSignature */ false,
@@ -436,8 +478,10 @@ const char* Compiler::eeGetMethodFullName(
     p.Truncate(0);
 
     success = eeRunFunctorWithSPMIErrorTrap([&]() {
-        eePrintMethod(&p, nullptr, hnd,
+        eePrintMethod(&p, NO_CLASS_HANDLE, hnd,
                       /* sig */ nullptr,
+                      /* includeAssembly */ false,
+                      /* includeClass */ false,
                       /* includeClassInstantiation */ false,
                       /* includeMethodInstantiation */ false,
                       /* includeSignature */ false,
@@ -475,13 +519,14 @@ const char* Compiler::eeGetMethodName(CORINFO_METHOD_HANDLE methHnd, char* buffe
     StringPrinter p(getAllocator(CMK_DebugOnly), buffer, bufferSize);
     bool          success = eeRunFunctorWithSPMIErrorTrap([&]() {
         eePrintMethod(&p, NO_CLASS_HANDLE, methHnd,
-                      /* sig */ nullptr,
-                      /* includeClassInstantiation */ false,
-                      /* includeMethodInstantiation */ false,
-                      /* includeSignature */ false,
-                      /* includeReturnType */ false,
-                      /* includeThisSpecifier */ false);
-
+                               /* sig */ nullptr,
+                               /* includeAssembly */ false,
+                               /* includeClass */ false,
+                               /* includeClassInstantiation */ false,
+                               /* includeMethodInstantiation */ false,
+                               /* includeSignature */ false,
+                               /* includeReturnType */ false,
+                               /* includeThisSpecifier */ false);
     });
 
     if (!success)
@@ -512,7 +557,9 @@ const char* Compiler::eeGetMethodName(CORINFO_METHOD_HANDLE methHnd, char* buffe
 const char* Compiler::eeGetFieldName(CORINFO_FIELD_HANDLE fldHnd, bool includeType, char* buffer, size_t bufferSize)
 {
     StringPrinter p(getAllocator(CMK_DebugOnly), buffer, bufferSize);
-    bool          success = eeRunFunctorWithSPMIErrorTrap([&]() { eePrintField(&p, fldHnd, includeType); });
+    bool          success = eeRunFunctorWithSPMIErrorTrap([&]() {
+        eePrintField(&p, fldHnd, includeType);
+    });
 
     if (success)
     {
@@ -525,7 +572,9 @@ const char* Compiler::eeGetFieldName(CORINFO_FIELD_HANDLE fldHnd, bool includeTy
     {
         p.Append("<unknown class>:");
 
-        success = eeRunFunctorWithSPMIErrorTrap([&]() { eePrintField(&p, fldHnd, false); });
+        success = eeRunFunctorWithSPMIErrorTrap([&]() {
+            eePrintField(&p, fldHnd, false);
+        });
 
         if (success)
         {
@@ -560,7 +609,9 @@ const char* Compiler::eeGetFieldName(CORINFO_FIELD_HANDLE fldHnd, bool includeTy
 const char* Compiler::eeGetClassName(CORINFO_CLASS_HANDLE clsHnd, char* buffer, size_t bufferSize)
 {
     StringPrinter printer(getAllocator(CMK_DebugOnly), buffer, bufferSize);
-    if (!eeRunFunctorWithSPMIErrorTrap([&]() { eePrintType(&printer, clsHnd, true); }))
+    if (!eeRunFunctorWithSPMIErrorTrap([&]() {
+        eePrintType(&printer, clsHnd, true);
+    }))
     {
         printer.Truncate(0);
         printer.Append("<unknown class>");
@@ -581,13 +632,36 @@ const char* Compiler::eeGetClassName(CORINFO_CLASS_HANDLE clsHnd, char* buffer, 
 const char* Compiler::eeGetShortClassName(CORINFO_CLASS_HANDLE clsHnd)
 {
     StringPrinter printer(getAllocator(CMK_DebugOnly));
-    if (!eeRunFunctorWithSPMIErrorTrap([&]() { eePrintType(&printer, clsHnd, false); }))
+    if (!eeRunFunctorWithSPMIErrorTrap([&]() {
+        eePrintType(&printer, clsHnd, false);
+    }))
     {
         printer.Truncate(0);
         printer.Append("<unknown class>");
     }
 
     return printer.GetBuffer();
+}
+
+//------------------------------------------------------------------------
+// eeGetClassAssemblyName:
+//   Get the assembly name of a type.
+//   If missing information (in SPMI), then return a placeholder string.
+//
+// Parameters:
+//   clsHnd - the handle of the class
+//
+// Return value:
+//   The name string.
+//
+const char* Compiler::eeGetClassAssemblyName(CORINFO_CLASS_HANDLE clsHnd)
+{
+    const char* assemblyName = "<unknown assembly>";
+    eeRunFunctorWithSPMIErrorTrap([&]() {
+        assemblyName = info.compCompHnd->getClassAssemblyName(clsHnd);
+    });
+
+    return assemblyName != nullptr ? assemblyName : "<no assembly>";
 }
 
 void Compiler::eePrintObjectDescription(const char* prefix, CORINFO_OBJECT_HANDLE handle)
@@ -597,8 +671,9 @@ void Compiler::eePrintObjectDescription(const char* prefix, CORINFO_OBJECT_HANDL
     size_t       actualLen = 0;
 
     // Ignore potential SPMI failures
-    bool success = eeRunFunctorWithSPMIErrorTrap(
-        [&]() { actualLen = this->info.compCompHnd->printObjectDescription(handle, str, maxStrSize); });
+    bool success = eeRunFunctorWithSPMIErrorTrap([&]() {
+        actualLen = this->info.compCompHnd->printObjectDescription(handle, str, maxStrSize);
+    });
 
     if (!success)
     {
@@ -614,5 +689,39 @@ void Compiler::eePrintObjectDescription(const char* prefix, CORINFO_OBJECT_HANDL
         }
     }
 
-    printf("%s '%s'\n", prefix, str);
+    printf("%s '%s'", prefix, str);
 }
+
+#ifdef DEBUG
+//------------------------------------------------------------------------
+// eePrintStringLiteral:
+//   Print a string literal. If missing information (in SPMI),
+//   then print a placeholder string.
+//
+// Arguments:
+//    module - The literal's scope handle
+//    token  - The literal's token
+//
+void Compiler::eePrintStringLiteral(CORINFO_MODULE_HANDLE module, unsigned token)
+{
+    const int MAX_LITERAL_LENGTH      = 50;
+    char16_t  str[MAX_LITERAL_LENGTH] = {};
+    int       length                  = -1;
+    eeRunFunctorWithSPMIErrorTrap([&]() {
+        length = info.compCompHnd->getStringLiteral(module, token, str, MAX_LITERAL_LENGTH);
+    });
+
+    if (length < 0)
+    {
+        printf("<unknown string literal>");
+    }
+    else
+    {
+        char dst[MAX_LITERAL_LENGTH * 3 + 1];
+        // Truncate length to MAX_LITERAL_LENGTH since that's the maximum we copied into str
+        int truncatedLength = min(length, MAX_LITERAL_LENGTH);
+        convertUtf16ToUtf8ForPrinting(str, truncatedLength, dst, sizeof(dst));
+        printf("\"%s%s\"", dst, length > MAX_LITERAL_LENGTH ? "..." : "");
+    }
+}
+#endif // DEBUG

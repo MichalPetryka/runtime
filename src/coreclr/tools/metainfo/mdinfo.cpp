@@ -6,6 +6,7 @@
 #include <objbase.h>
 #include <crtdbg.h>
 #include <assert.h>
+#include <algorithm>
 
 #include <corpriv.h>
 #include <cor.h>
@@ -70,6 +71,7 @@ const char *g_szMapElementType[] =
     "CMOD_REQD",
     "CMOD_OPT",
     "INTERNAL",
+    "CMOD_INTERNAL",
 };
 
 const char *g_szMapUndecorateType[] =
@@ -108,6 +110,7 @@ const char *g_szMapUndecorateType[] =
     "CMOD_REQD",
     "CMOD_OPT",
     "INTERNAL",
+    "CMOD_INTERNAL",
 };
 
 // Provide enough entries for IMAGE_CEE_CS_CALLCONV_MASK (defined in CorHdr.h)
@@ -194,9 +197,9 @@ const char *g_szNativeType[] =
 
 static const char* ConvertToUtf8(LPCWSTR name, _Out_writes_(bufLen) char* buffer, ULONG bufLen)
 {
-    int res = WszWideCharToMultiByte(CP_UTF8, 0, name, -1, buffer, bufLen, NULL, NULL);
+    int res = WideCharToMultiByte(CP_UTF8, 0, name, -1, buffer, bufLen, NULL, NULL);
     if (res == 0)
-        buffer[bufLen] = '\0';
+        buffer[0] = '\0';
     return buffer;
 }
 
@@ -513,7 +516,10 @@ void MDInfo::DisplayScopeInfo()
     VWriteLine("ScopeName : %s",ConvertToUtf8(scopeName, scopeNameUtf8, ARRAY_SIZE(scopeNameUtf8)));
 
     if (!(m_DumpFilter & MDInfo::dumpNoLogo))
-        VWriteLine("MVID      : %s",GUIDAsString(mvid, guidString, STRING_BUFFER_LEN));
+    {
+        minipal_guid_as_string(mvid, guidString, STRING_BUFFER_LEN);
+        VWriteLine("MVID      : %s", guidString);
+    }
 
     hr = m_pImport->GetModuleFromScope(&mdm);
     if (FAILED(hr)) Error("GetModuleFromScope failed.", hr);
@@ -1948,7 +1954,7 @@ void MDInfo::DisplayCustomAttributeInfo(mdCustomAttribute inValue, const char *p
         LPWSTR pwzName = (LPWSTR)(new WCHAR[iLen]);
         if(pwzName)
         {
-            WszMultiByteToWideChar(CP_UTF8,0, pMethName,-1, pwzName,iLen);
+            MultiByteToWideChar(CP_UTF8,0, pMethName,-1, pwzName,iLen);
             PrettyPrintSigLegacy(pSig, cbSig, pwzName, &qSigName, m_pImport);
             delete [] pwzName;
         }
@@ -1990,7 +1996,7 @@ void MDInfo::DisplayCustomAttributeInfo(mdCustomAttribute inValue, const char *p
         UINT16 u2 = 0;
         UINT32 u4 = 0;
         UINT64 u8 = 0;
-        unsigned __int64 uI64;
+        uint64_t uI64;
         double dblVal;
         ULONG cbVal;
         LPCUTF8 pStr;
@@ -2187,15 +2193,6 @@ void MDInfo::DisplayPermissionInfo(mdPermission inPermission, const char *preFix
     sprintf_s (newPreFix, STRING_BUFFER_LEN, "\t\t%s", preFix);
     DisplayCustomAttributes(inPermission, newPreFix);
 } // void MDInfo::DisplayPermissionInfo()
-
-
-// simply prints out the given GUID in standard form
-
-LPCSTR MDInfo::GUIDAsString(GUID inGuid, _Out_writes_(bufLen) LPSTR guidString, ULONG bufLen)
-{
-    GuidToLPSTR(inGuid, guidString, bufLen);
-    return guidString;
-} // LPCSTR MDInfo::GUIDAsString()
 
 #ifdef FEATURE_COMINTEROP
 LPCSTR MDInfo::VariantAsString(VARIANT *pVariant, _Out_writes_(bufLen) LPSTR buffer, ULONG bufLen)
@@ -2538,7 +2535,7 @@ void MDInfo::DisplayPinvokeInfo(mdToken inToken)
 /////////////////////////////////////////////////////////////////////////
 // void DisplaySignature(PCCOR_SIGNATURE pbSigBlob, ULONG ulSigBlob);
 //
-// Display COM+ signature -- taken from cordump.cpp's DumpSignature
+// Display signature -- taken from cordump.cpp's DumpSignature
 /////////////////////////////////////////////////////////////////////////
 void MDInfo::DisplaySignature(PCCOR_SIGNATURE pbSigBlob, ULONG ulSigBlob, const char *preFix)
 {
@@ -2917,56 +2914,7 @@ ErrExit:
     return hr;
 } // HRESULT MDInfo::GetOneElementType()
 
-// Display the fields of the N/Direct custom value structure.
-
-void MDInfo::DisplayCorNativeLink(COR_NATIVE_LINK *pCorNLnk, const char *preFix)
-{
-    // Print the LinkType.
-    const char *curField = "\tLink Type : ";
-    switch(pCorNLnk->m_linkType)
-    {
-    case nltNone:
-        VWriteLine("%s%s%s(%02x)", preFix, curField, "nltNone", pCorNLnk->m_linkType);
-        break;
-    case nltAnsi:
-        VWriteLine("%s%s%s(%02x)", preFix, curField, "nltAnsi", pCorNLnk->m_linkType);
-        break;
-    case nltUnicode:
-        VWriteLine("%s%s%s(%02x)", preFix, curField, "nltUnicode", pCorNLnk->m_linkType);
-        break;
-    case nltAuto:
-        VWriteLine("%s%s%s(%02x)", preFix, curField, "nltAuto", pCorNLnk->m_linkType);
-        break;
-    default:
-        _ASSERTE(!"Invalid Native Link Type!");
-    }
-
-    // Print the link flags
-    curField = "\tLink Flags : ";
-    switch(pCorNLnk->m_flags)
-    {
-    case nlfNone:
-        VWriteLine("%s%s%s(%02x)", preFix, curField, "nlfNone", pCorNLnk->m_flags);
-        break;
-    case nlfLastError:
-        VWriteLine("%s%s%s(%02x)", preFix, curField, "nlfLastError", pCorNLnk->m_flags);
-            break;
-    default:
-        _ASSERTE(!"Invalid Native Link Flags!");
-    }
-
-    // Print the entry point.
-    WCHAR memRefName[STRING_BUFFER_LEN];
-    char memRefNameUtf8[ARRAY_SIZE(memRefName) * MAX_UTF8_CVT];
-    HRESULT hr;
-    hr = m_pImport->GetMemberRefProps( pCorNLnk->m_entryPoint, NULL, memRefName,
-                                    STRING_BUFFER_LEN, NULL, NULL, NULL);
-    if (FAILED(hr)) Error("GetMemberRefProps failed.", hr);
-    VWriteLine("%s\tEntry Point : %s (0x%08x)",
-        preFix, ConvertToUtf8(memRefName, memRefNameUtf8, ARRAY_SIZE(memRefNameUtf8)), pCorNLnk->m_entryPoint);
-} // void MDInfo::DisplayCorNativeLink()
-
-// Fills given varaint with value given in pValue and of type in bCPlusTypeFlag
+// Fills given variant with value given in pValue and of type in bCPlusTypeFlag
 //
 // Taken from MetaInternal.cpp
 #ifdef FEATURE_COMINTEROP
@@ -3011,14 +2959,14 @@ HRESULT _FillVariant(
     case ELEMENT_TYPE_R4:
         {
             V_VT(pvar) = VT_R4;
-            __int32 Value = GET_UNALIGNED_VAL32(pValue);
+            int32_t Value = GET_UNALIGNED_VAL32(pValue);
             V_R4(pvar) = (float &)Value;
         }
         break;
     case ELEMENT_TYPE_R8:
         {
             V_VT(pvar) = VT_R8;
-            __int64 Value = GET_UNALIGNED_VAL64(pValue);
+            int64_t Value = GET_UNALIGNED_VAL64(pValue);
             V_R8(pvar) = (double &) Value;
         }
 
@@ -3772,7 +3720,7 @@ int MDInfo::DumpHex(
         ++nLines;
 
         // Calculate spacing.
-        nPrint = min(cbData, nLine);
+        nPrint = std::min(cbData, nLine);
         nSpace = nLine - nPrint;
 
             // dump in hex.
@@ -3946,17 +3894,17 @@ void MDInfo::DumpRaw(int iDump, bool bunused)
                 BYTE        m_minor;
                 BYTE        m_heaps;                // Bits for heap sizes.
                 BYTE        m_rid;                  // log-base-2 of largest rid.
-                unsigned __int64    m_maskvalid;            // Bit mask of present table counts.
-                unsigned __int64    m_sorted;               // Bit mask of sorted tables.            };
+                uint64_t    m_maskvalid;            // Bit mask of present table counts.
+                uint64_t    m_sorted;               // Bit mask of sorted tables.            };
             };
 
             const MD *pMd;
             pMd = (const MD *)pbMd;
 
-            VWriteLine("Metadata header: %d.%d, heaps: 0x%02x, rid: 0x%02x, valid: 0x%016I64x, sorted: 0x%016I64x",
+            VWriteLine("Metadata header: %d.%d, heaps: 0x%02x, rid: 0x%02x, valid: 0x%016" PRIx64 ", sorted: 0x%016" PRIx64,
                        pMd->m_major, pMd->m_minor, pMd->m_heaps, pMd->m_rid,
-                       (ULONGLONG)GET_UNALIGNED_VAL64(&(pMd->m_maskvalid)),
-                       (ULONGLONG)GET_UNALIGNED_VAL64(&(pMd->m_sorted)));
+                       (uint64_t)GET_UNALIGNED_VAL64(&(pMd->m_maskvalid)),
+                       (uint64_t)GET_UNALIGNED_VAL64(&(pMd->m_sorted)));
 
             if (m_DumpFilter & dumpMoreHex)
             {

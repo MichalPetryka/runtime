@@ -53,7 +53,6 @@ namespace System.Collections.Frozen
             typeof(T) == typeof(uint) ||
             typeof(T) == typeof(long) ||
             typeof(T) == typeof(ulong) ||
-            typeof(T) == typeof(decimal) ||
             typeof(T) == typeof(float) ||
             typeof(T) == typeof(double) ||
             typeof(T) == typeof(decimal) ||
@@ -61,19 +60,13 @@ namespace System.Collections.Frozen
             typeof(T) == typeof(DateTime) ||
             typeof(T) == typeof(DateTimeOffset) ||
             typeof(T) == typeof(Guid) ||
-#if NETCOREAPP3_0_OR_GREATER
+#if NET
             typeof(T) == typeof(Rune) ||
-#endif
-#if NET5_0_OR_GREATER
             typeof(T) == typeof(Half) ||
             typeof(T) == typeof(nint) ||
             typeof(T) == typeof(nuint) ||
-#endif
-#if NET6_0_OR_GREATER
             typeof(T) == typeof(DateOnly) ||
             typeof(T) == typeof(TimeOnly) ||
-#endif
-#if NET7_0_OR_GREATER
             typeof(T) == typeof(Int128) ||
             typeof(T) == typeof(UInt128) ||
 #endif

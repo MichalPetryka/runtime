@@ -17,6 +17,12 @@ namespace System.Diagnostics
     /// </summary>
     public partial class StackTrace
     {
+        [FeatureSwitchDefinition("System.Diagnostics.StackTrace.IsSupported")]
+        internal static bool IsSupported { get; } = AppContext.TryGetSwitch("System.Diagnostics.StackTrace.IsSupported", out bool isSupported) ? isSupported : true;
+
+        [FeatureSwitchDefinition("System.Diagnostics.StackTrace.IsLineNumberSupported")]
+        internal static bool IsLineNumberSupported { get; } = AppContext.TryGetSwitch("System.Diagnostics.StackTrace.IsLineNumberSupported", out bool isSupported) ? isSupported : true;
+
         public const int METHODS_TO_SKIP = 0;
 
         private int _numOfFrames;
@@ -121,7 +127,7 @@ namespace System.Diagnostics
         /// </summary>
         public StackTrace(StackFrame frame)
         {
-            _stackFrames = new StackFrame[] { frame };
+            _stackFrames = [frame];
             _numOfFrames = 1;
         }
 
@@ -165,7 +171,7 @@ namespace System.Diagnostics
         public virtual StackFrame[] GetFrames()
         {
             if (_stackFrames == null || _numOfFrames <= 0)
-                return Array.Empty<StackFrame>();
+                return [];
 
             // We have to return a subset of the array. Unfortunately this
             // means we have to allocate a new array and copy over.
@@ -231,11 +237,11 @@ namespace System.Diagnostics
 
                     sb.Append("   ").Append(word_At).Append(' ');
 
-                    bool isAsync = false;
+                    bool isAsync = (mb.MethodImplementationFlags & MethodImplAttributes.Async) != 0;
                     Type? declaringType = mb.DeclaringType;
                     string methodName = mb.Name;
                     bool methodChanged = false;
-                    if (declaringType != null && declaringType.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+                    if (!isAsync && declaringType != null && IsDefinedSafe(declaringType, typeof(CompilerGeneratedAttribute), inherit: false))
                     {
                         isAsync = declaringType.IsAssignableTo(typeof(IAsyncStateMachine));
                         if (isAsync || declaringType.IsAssignableTo(typeof(IEnumerator)))
@@ -379,31 +385,51 @@ namespace System.Diagnostics
                 return false;
             }
 
-            try
+            if (IsDefinedSafe(mb, typeof(StackTraceHiddenAttribute), inherit: false))
             {
-                if (mb.IsDefined(typeof(StackTraceHiddenAttribute), inherit: false))
-                {
-                    // Don't show where StackTraceHidden is applied to the method.
-                    return false;
-                }
-
-                Type? declaringType = mb.DeclaringType;
-                // Methods don't always have containing types, for example dynamic RefEmit generated methods.
-                if (declaringType != null &&
-                    declaringType.IsDefined(typeof(StackTraceHiddenAttribute), inherit: false))
-                {
-                    // Don't show where StackTraceHidden is applied to the containing Type of the method.
-                    return false;
-                }
+                // Don't show where StackTraceHidden is applied to the method.
+                return false;
             }
-            catch
+
+            Type? declaringType = mb.DeclaringType;
+            // Methods don't always have containing types, for example dynamic RefEmit generated methods.
+            if (declaringType != null &&
+                IsDefinedSafe(declaringType, typeof(StackTraceHiddenAttribute), inherit: false))
             {
-                // Getting the StackTraceHiddenAttribute has failed, behave as if it was not present.
-                // One of the reasons can be that the method mb or its declaring type use attributes
-                // defined in an assembly that is missing.
+                // Don't show where StackTraceHidden is applied to the containing Type of the method.
+                return false;
             }
 
             return true;
+        }
+
+        private static bool IsDefinedSafe(MemberInfo memberInfo, Type attributeType, bool inherit)
+        {
+            try
+            {
+                return memberInfo.IsDefined(attributeType, inherit);
+            }
+            catch
+            {
+                // Checking for the attribute has failed, behave as if it was not present. One of
+                // the reasons can be that the member has attributes defined in an assembly that
+                // is missing.
+                return false;
+            }
+        }
+
+        private static Attribute[]? GetCustomAttributesSafe(MemberInfo memberInfo, Type attributeType, bool inherit)
+        {
+            try
+            {
+                return Attribute.GetCustomAttributes(memberInfo, attributeType, inherit);
+            }
+            catch
+            {
+                // Getting the attributes has failed, return null. One of the reasons
+                // can be that the member has attributes defined in an assembly that is missing.
+                return null;
+            }
         }
 
         private static bool TryResolveStateMachineMethod(ref MethodBase method, out Type declaringType)
@@ -433,7 +459,7 @@ namespace System.Diagnostics
 
             foreach (MethodInfo candidateMethod in methods)
             {
-                StateMachineAttribute[]? attributes = (StateMachineAttribute[])Attribute.GetCustomAttributes(candidateMethod, typeof(StateMachineAttribute), inherit: false);
+                StateMachineAttribute[]? attributes = (StateMachineAttribute[]?)GetCustomAttributesSafe(candidateMethod, typeof(StateMachineAttribute), inherit: false);
                 if (attributes == null)
                 {
                     continue;

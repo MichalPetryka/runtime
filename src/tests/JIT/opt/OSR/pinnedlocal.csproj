@@ -2,7 +2,6 @@
   <PropertyGroup>
     <!-- Needed for CLRTestEnvironmentVariable -->
     <RequiresProcessIsolation>true</RequiresProcessIsolation>
-    <DebugType />
     <Optimize>True</Optimize>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -10,5 +9,8 @@
     <Compile Include="$(MSBuildProjectName).cs" />
 
     <CLRTestEnvironmentVariable Include="DOTNET_GCStress" Value="3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(TestLibraryProjectPath)" />
   </ItemGroup>
 </Project>

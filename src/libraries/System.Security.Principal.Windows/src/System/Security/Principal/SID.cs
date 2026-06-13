@@ -392,7 +392,7 @@ namespace System.Security.Principal
 
         [MemberNotNull(nameof(_binaryForm))]
         [MemberNotNull(nameof(_subAuthorities))]
-        private void CreateFromBinaryForm(byte[] binaryForm, int offset)
+        private unsafe void CreateFromBinaryForm(byte[] binaryForm, int offset)
         {
             ArgumentNullException.ThrowIfNull(binaryForm);
 
@@ -699,7 +699,7 @@ namespace System.Security.Principal
             return hashCode;
         }
 
-        public override string ToString()
+        public override unsafe string ToString()
         {
             if (_sddlForm == null)
             {
@@ -861,7 +861,10 @@ namespace System.Security.Principal
 
         public int CompareTo(SecurityIdentifier? sid)
         {
-            ArgumentNullException.ThrowIfNull(sid);
+            if (sid is null)
+            {
+                return 1;
+            }
 
             if (this.IdentifierAuthority < sid.IdentifierAuthority)
             {

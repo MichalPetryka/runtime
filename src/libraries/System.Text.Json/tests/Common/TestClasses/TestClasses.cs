@@ -129,7 +129,7 @@ namespace System.Text.Json.Serialization.Tests
 
     public class TestClassWithNull
     {
-        public string MyString { get; set; }
+        public string? MyString { get; set; }
         public static readonly string s_json =
                 @"{" +
                 @"""MyString"" : null" +
@@ -145,31 +145,31 @@ namespace System.Text.Json.Serialization.Tests
 
     public class TestClassWithInitializedProperties
     {
-        public string MyString { get; set; } = "Hello";
+        public string? MyString { get; set; } = "Hello";
         public int? MyInt { get; set; } = 1;
         public DateTime? MyDateTime { get; set; } = new DateTime(1995, 4, 16);
-        public int[] MyIntArray { get; set; } = new int[] { 1 };
-        public List<int> MyIntList { get; set; } = new List<int> { 1 };
-        public List<int?> MyNullableIntList { get; set; } = new List<int?> { 1 };
-        public List<object> MyObjectList { get; set; } = new List<object> { 1 };
-        public List<List<object>> MyListList { get; set; } = new List<List<object>> { new List<object> { 1 } };
-        public List<Dictionary<string, string>> MyDictionaryList { get; set; } = new List<Dictionary<string, string>> {
+        public int[]? MyIntArray { get; set; } = new int[] { 1 };
+        public List<int>? MyIntList { get; set; } = new List<int> { 1 };
+        public List<int?>? MyNullableIntList { get; set; } = new List<int?> { 1 };
+        public List<object>? MyObjectList { get; set; } = new List<object> { 1 };
+        public List<List<object>>? MyListList { get; set; } = new List<List<object>> { new List<object> { 1 } };
+        public List<Dictionary<string, string>>? MyDictionaryList { get; set; } = new List<Dictionary<string, string>> {
             new Dictionary<string, string> { ["key"] = "value" }
         };
-        public Dictionary<string, string> MyStringDictionary { get; set; } = new Dictionary<string, string> { ["key"] = "value" };
-        public Dictionary<string, DateTime?> MyNullableDateTimeDictionary { get; set; } = new Dictionary<string, DateTime?> { ["key"] = new DateTime(1995, 04, 16) };
-        public Dictionary<string, object> MyObjectDictionary { get; set; } = new Dictionary<string, object> { ["key"] = "value" };
-        public Dictionary<string, Dictionary<string, string>> MyStringDictionaryDictionary { get; set; } = new Dictionary<string, Dictionary<string, string>>
+        public Dictionary<string, string>? MyStringDictionary { get; set; } = new Dictionary<string, string> { ["key"] = "value" };
+        public Dictionary<string, DateTime?>? MyNullableDateTimeDictionary { get; set; } = new Dictionary<string, DateTime?> { ["key"] = new DateTime(1995, 04, 16) };
+        public Dictionary<string, object>? MyObjectDictionary { get; set; } = new Dictionary<string, object> { ["key"] = "value" };
+        public Dictionary<string, Dictionary<string, string>>? MyStringDictionaryDictionary { get; set; } = new Dictionary<string, Dictionary<string, string>>
         {
             ["key"] = new Dictionary<string, string>
             {
                 ["key"] = "value"
             }
         };
-        public Dictionary<string, List<object>> MyListDictionary { get; set; } = new Dictionary<string, List<object>> {
+        public Dictionary<string, List<object>>? MyListDictionary { get; set; } = new Dictionary<string, List<object>> {
             ["key"] = new List<object> { "value" }
         };
-        public Dictionary<string, Dictionary<string, object>> MyObjectDictionaryDictionary { get; set; } = new Dictionary<string, Dictionary<string, object>>
+        public Dictionary<string, Dictionary<string, object>>? MyObjectDictionaryDictionary { get; set; } = new Dictionary<string, Dictionary<string, object>>
         {
             ["key"] = new Dictionary<string, object>
             {
@@ -685,6 +685,42 @@ namespace System.Text.Json.Serialization.Tests
         }
     }
 
+#if NET
+    public class TestClassWithObjectIReadOnlySetT : ITestClass
+    {
+        public IReadOnlySet<SimpleTestClass> MyData { get; set; }
+
+        public static readonly byte[] s_data = Encoding.UTF8.GetBytes(
+            @"{" +
+                @"""MyData"":[" +
+                    SimpleTestClass.s_json + "," +
+                    SimpleTestClass.s_json +
+                @"]" +
+            @"}");
+
+        public void Initialize()
+        {
+            SimpleTestClass obj1 = new SimpleTestClass();
+            obj1.Initialize();
+
+            SimpleTestClass obj2 = new SimpleTestClass();
+            obj2.Initialize();
+
+            MyData = new HashSet<SimpleTestClass> { obj1, obj2 };
+        }
+
+        public void Verify()
+        {
+            Assert.Equal(2, MyData.Count);
+
+            foreach (SimpleTestClass obj in MyData)
+            {
+                obj.Verify();
+            }
+        }
+    }
+#endif
+
     public class TestClassWithInitializedArray
     {
         public int[] Values { get; set; }
@@ -698,7 +734,7 @@ namespace System.Text.Json.Serialization.Tests
     public class SimpleClassWithDictionary
     {
         public int MyInt { get; set; }
-        public Dictionary<string, string> MyDictionary { get; set; }
+        public Dictionary<string, string>? MyDictionary { get; set; }
     }
     public class OuterClassHavingPropertiesDefinedAfterClassWithDictionary
     {
@@ -1116,6 +1152,53 @@ namespace System.Text.Json.Serialization.Tests
             Assert.True(helloSeen && worldSeen);
         }
     }
+
+#if NET
+    public class TestClassWithGenericIReadOnlySetT : ITestClass
+    {
+        public IReadOnlySet<string> MyData { get; set; }
+
+        public static readonly byte[] s_data = Encoding.UTF8.GetBytes(
+            @"{" +
+                @"""MyData"":[" +
+                    @"""Hello""," +
+                    @"""World""" +
+                @"]" +
+            @"}");
+
+        public void Initialize()
+        {
+            MyData = new HashSet<string>
+            {
+                "Hello",
+                "World"
+            };
+            Assert.Equal(2, MyData.Count);
+        }
+
+        public void Verify()
+        {
+            Assert.Equal(2, MyData.Count);
+
+            bool helloSeen = false;
+            bool worldSeen = false;
+
+            foreach (string data in MyData)
+            {
+                if (data == "Hello")
+                {
+                    helloSeen = true;
+                }
+                else if (data == "World")
+                {
+                    worldSeen = true;
+                }
+            }
+
+            Assert.True(helloSeen && worldSeen);
+        }
+    }
+#endif
 
     public class TestClassWithStringToPrimitiveDictionary : ITestClass
     {
@@ -1732,9 +1815,9 @@ namespace System.Text.Json.Serialization.Tests
 
     public class BasicCompany : ITestClass
     {
-        public List<BasicJsonAddress> sites { get; set; }
-        public BasicJsonAddress mainSite { get; set; }
-        public string name { get; set; }
+        public List<BasicJsonAddress>? sites { get; set; }
+        public BasicJsonAddress? mainSite { get; set; }
+        public string? name { get; set; }
 
         public static readonly byte[] s_data = Encoding.UTF8.GetBytes(
             "{\n" +
@@ -1812,7 +1895,7 @@ namespace System.Text.Json.Serialization.Tests
 
     public class ClassWithExtensionProperty
     {
-        public SimpleTestClass MyNestedClass { get; set; }
+        public SimpleTestClass? MyNestedClass { get; set; }
         public int MyInt { get; set; }
 
         [JsonExtensionData]
@@ -1821,7 +1904,7 @@ namespace System.Text.Json.Serialization.Tests
 
     public class ClassWithExtensionField
     {
-        public SimpleTestClass MyNestedClass { get; set; }
+        public SimpleTestClass? MyNestedClass { get; set; }
         public int MyInt { get; set; }
 
         [JsonInclude]
@@ -1907,7 +1990,7 @@ namespace System.Text.Json.Serialization.Tests
 
     public static class ReflectionExtensions
     {
-#if NET6_0_OR_GREATER
+#if NET
         [return: System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)]
         public static Type WithConstructors(
             [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)]
@@ -2041,13 +2124,15 @@ namespace System.Text.Json.Serialization.Tests
 
         public void Initialize()
         {
-            Number = JsonDocument.Parse(@"1").RootElement.Clone();
-            True = JsonDocument.Parse(@"true").RootElement.Clone();
-            False = JsonDocument.Parse(@"false").RootElement.Clone();
-            String = JsonDocument.Parse(@"""Hello""").RootElement.Clone();
-            Array = JsonDocument.Parse(@"[2, false, true, ""Goodbye""]").RootElement.Clone();
-            Object = JsonDocument.Parse(@"{}").RootElement.Clone();
-            Null = JsonDocument.Parse(@"null").RootElement.Clone();
+            Number = JsonElement.Parse(@"1");
+            True = JsonElement.Parse(@"true");
+            False = JsonElement.Parse(@"false");
+            String = JsonElement.Parse("""
+                "Hello"
+                """);
+            Array = JsonElement.Parse("""[2, false, true, "Goodbye"]""");
+            Object = JsonElement.Parse("{}");
+            Null = JsonElement.Parse(@"null");
         }
 
         public void Verify()
@@ -2099,10 +2184,12 @@ namespace System.Text.Json.Serialization.Tests
         {
             Array = new JsonElement[]
             {
-                JsonDocument.Parse(@"1").RootElement.Clone(),
-                JsonDocument.Parse(@"true").RootElement.Clone(),
-                JsonDocument.Parse(@"false").RootElement.Clone(),
-                JsonDocument.Parse(@"""Hello""").RootElement.Clone()
+                JsonElement.Parse(@"1"),
+                JsonElement.Parse(@"true"),
+                JsonElement.Parse(@"false"),
+                JsonElement.Parse("""
+                    "Hello"
+                    """)
             };
         }
 
@@ -2152,8 +2239,8 @@ namespace System.Text.Json.Serialization.Tests
 
         public void Initialize()
         {
-            Array = JsonDocument.Parse(s_array).RootElement.Clone();
-            Object = JsonDocument.Parse(s_object).RootElement.Clone();
+            Array = JsonElement.Parse(s_array);
+            Object = JsonElement.Parse(s_object);
         }
 
         public void Verify()
@@ -2294,7 +2381,7 @@ namespace System.Text.Json.Serialization.Tests
     public class ClassWithRecursiveCollectionTypes
     {
         public ClassWithRecursiveCollectionTypes? Nested { get; set; }
-        public List<ClassWithRecursiveCollectionTypes> List { get; set; }
+        public List<ClassWithRecursiveCollectionTypes>? List { get; set; }
         public IReadOnlyDictionary<string, ClassWithRecursiveCollectionTypes>? Dictionary { get; set; }
     }
 

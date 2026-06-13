@@ -32,6 +32,45 @@ bool g_arm64_atomics_present = false;
 
 #endif //!DACCESS_COMPILE
 
+//  Validate that the name used to load the JIT/GC is just a simple file name
+//  and does not contain something that could be used in a non-qualified path.
+//  For example, using the string "..\..\..\myjit.dll" we might attempt to
+//  load a JIT from the root of the drive.
+//
+//  The minimal set of characters that we must check for and exclude are:
+//  On all platforms:
+//     '/'  - (forward slash)
+//  On Windows:
+//     '\\' - (backslash)
+//     ':'  - (colon)
+//
+//  Returns false if we find any of these characters in 'pwzModuleName'
+//  Returns true if we reach the null terminator without encountering
+//  any of these characters.
+//
+bool ValidateModuleName(LPCWSTR pwzModuleName)
+{
+    LPCWSTR pCurChar = pwzModuleName;
+    wchar_t curChar;
+    do {
+        curChar = *pCurChar;
+        if (curChar == '/'
+#ifdef TARGET_WINDOWS
+            || (curChar == '\\') || (curChar == ':')
+#endif
+        )
+        {
+            //  Return false if we find any of these character in 'pwzJitName'
+            return false;
+        }
+        pCurChar++;
+    } while (curChar != 0);
+
+    //  Return true; we have reached the null terminator
+    //
+    return true;
+}
+
 //*****************************************************************************
 // Convert a string of hex digits into a hex value of the specified # of bytes.
 //*****************************************************************************
@@ -216,7 +255,7 @@ namespace
         _ASSERTE(wszDllPath != nullptr);
 
         // We've got the name of the DLL to load, so load it.
-        HModuleHolder hDll = WszLoadLibrary(wszDllPath, nullptr, GetLoadWithAlteredSearchPathFlag());
+        HModuleHolder hDll{ WszLoadLibrary(wszDllPath, nullptr, GetLoadWithAlteredSearchPathFlag()) };
         if (hDll == nullptr)
             return HRESULT_FROM_GetLastError();
 
@@ -228,10 +267,10 @@ namespace
         // Call the function to get a class object for the rclsid and riid passed in.
         IfFailRet(dllGetClassObject(rclsid, riid, ppv));
 
-        hDll.SuppressRelease();
+        HMODULE hLoadedDll = hDll.Detach();
 
         if (phmodDll != nullptr)
-            *phmodDll = hDll.GetValue();
+            *phmodDll = hLoadedDll;
 
         return hr;
     }
@@ -295,41 +334,14 @@ HRESULT FakeCoCreateInstanceEx(REFCLSID       rclsid,
     // necessary object.
     IfFailRet(classFactory->CreateInstance(NULL, riid, ppv));
 
-    hDll.SuppressRelease();
+    HMODULE hLoadedDll = hDll.Detach();
 
     if (phmodDll != NULL)
     {
-        *phmodDll = hDll.GetValue();
+        *phmodDll = hLoadedDll;
     }
 
     return hr;
-}
-
-//
-// Allocate free memory with specific alignment.
-//
-LPVOID ClrVirtualAllocAligned(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect, SIZE_T alignment)
-{
-    // Verify that the alignment is a power of 2
-    _ASSERTE(alignment != 0);
-    _ASSERTE((alignment & (alignment - 1)) == 0);
-
-#ifdef HOST_WINDOWS
-
-    // The VirtualAlloc on Windows ensures 64kB alignment
-    _ASSERTE(alignment <= 0x10000);
-    return ClrVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtect);
-
-#else // HOST_WINDOWS
-
-    if(alignment < GetOsPageSize()) alignment = GetOsPageSize();
-
-    // UNIXTODO: Add a specialized function to PAL so that we don't have to waste memory
-    dwSize += alignment;
-    SIZE_T addr = (SIZE_T)ClrVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtect);
-    return (LPVOID)((addr + (alignment - 1)) & ~(alignment - 1));
-
-#endif // HOST_WINDOWS
 }
 
 #ifdef _DEBUG
@@ -692,8 +704,8 @@ DWORD LCM(DWORD u, DWORD v)
     if (m_nGroups > 1)
     {
         m_enableGCCPUGroups = TRUE;
-        m_threadUseAllCpuGroups = CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_Thread_UseAllCpuGroups, groupCount > 1) != 0;
-        m_threadAssignCpuGroups = CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_Thread_AssignCpuGroups) != 0;
+        m_threadUseAllCpuGroups = Configuration::GetKnobBooleanValue(W("System.Threading.Thread.UseAllCpuGroups"), CLRConfig::EXTERNAL_Thread_UseAllCpuGroups, groupCount > 1) != 0;
+        m_threadAssignCpuGroups = Configuration::GetKnobBooleanValue(W("System.Threading.Thread.AssignCpuGroups"), CLRConfig::EXTERNAL_Thread_AssignCpuGroups) != 0;
 
         // Save the processor group affinity of the initial thread
         GROUP_AFFINITY groupAffinity;
@@ -816,7 +828,7 @@ DWORD LCM(DWORD u, DWORD v)
         DWORD currentProcsInGroup = 0;
         for (WORD i = 0; i < m_nGroups; i++)
         {
-            currentProcsInGroup = max(currentProcsInGroup, m_CPUGroupInfoArray[i].nr_active);
+            currentProcsInGroup = max(currentProcsInGroup, (DWORD)m_CPUGroupInfoArray[i].nr_active);
         }
         *max_procs_per_group = currentProcsInGroup;
         return true;
@@ -1072,108 +1084,6 @@ DWORD_PTR GetCurrentProcessCpuMask()
 #endif
 }
 #endif // HOST_WINDOWS
-
-uint32_t GetOsPageSizeUncached()
-{
-    SYSTEM_INFO sysInfo;
-    ::GetSystemInfo(&sysInfo);
-    return sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x1000;
-}
-
-namespace
-{
-    Volatile<uint32_t> g_pageSize = 0;
-}
-
-uint32_t GetOsPageSize()
-{
-#ifdef HOST_UNIX
-    size_t result = g_pageSize.LoadWithoutBarrier();
-
-    if(!result)
-    {
-        result = GetOsPageSizeUncached();
-
-        g_pageSize.StoreWithoutBarrier(result);
-    }
-
-    return result;
-#else
-    return 0x1000;
-#endif
-}
-
-/**************************************************************************/
-
-/**************************************************************************/
-void ConfigMethodSet::init(const CLRConfig::ConfigStringInfo & info)
-{
-    CONTRACTL
-    {
-        THROWS;
-    }
-    CONTRACTL_END;
-
-    // make sure that the memory was zero initialized
-    _ASSERTE(m_inited == 0 || m_inited == 1);
-
-    LPWSTR str = CLRConfig::GetConfigValue(info);
-    if (str)
-    {
-        m_list.Insert(str);
-        delete[] str;
-    }
-    m_inited = 1;
-}
-
-/**************************************************************************/
-bool ConfigMethodSet::contains(LPCUTF8 methodName, LPCUTF8 className, PCCOR_SIGNATURE sig)
-{
-    CONTRACTL
-    {
-        NOTHROW;
-    }
-    CONTRACTL_END;
-
-    _ASSERTE(m_inited == 1);
-
-    if (m_list.IsEmpty())
-        return false;
-    return(m_list.IsInList(methodName, className, sig));
-}
-
-/**************************************************************************/
-bool ConfigMethodSet::contains(LPCUTF8 methodName, LPCUTF8 className, CORINFO_SIG_INFO* pSigInfo)
-{
-    CONTRACTL
-    {
-        NOTHROW;
-    }
-    CONTRACTL_END;
-
-    _ASSERTE(m_inited == 1);
-
-    if (m_list.IsEmpty())
-        return false;
-    return(m_list.IsInList(methodName, className, pSigInfo));
-}
-
-/**************************************************************************/
-void ConfigString::init(const CLRConfig::ConfigStringInfo & info)
-{
-    CONTRACTL
-    {
-        NOTHROW;
-    }
-    CONTRACTL_END;
-
-    // make sure that the memory was zero initialized
-    _ASSERTE(m_inited == 0 || m_inited == 1);
-
-    // Note: m_value will be leaking
-    m_value = CLRConfig::GetConfigValue(info);
-    m_inited = 1;
-}
 
 //=============================================================================
 // AssemblyNamesList
@@ -1470,25 +1380,6 @@ void MethodNamesListBase::Destroy()
         pName = pName->next;
         delete curName;
     }
-}
-
-/**************************************************************/
-bool MethodNamesListBase::IsInList(LPCUTF8 methName, LPCUTF8 clsName, PCCOR_SIGNATURE sig)
-{
-    CONTRACTL
-    {
-        NOTHROW;
-    }
-    CONTRACTL_END;
-
-    int numArgs = -1;
-    if (sig != NULL)
-    {
-        sig++;      // Skip calling convention
-        numArgs = CorSigUncompressData(sig);
-    }
-
-    return IsInList(methName, clsName, numArgs);
 }
 
 /**************************************************************/
@@ -1903,35 +1794,6 @@ HRESULT validateTokenSig(
     return S_OK;
 }   // validateTokenSig()
 
-HRESULT GetImageRuntimeVersionString(PVOID pMetaData, LPCSTR* pString)
-{
-    CONTRACTL
-    {
-        NOTHROW;
-    }
-    CONTRACTL_END;
-
-    _ASSERTE(pString);
-    STORAGESIGNATURE* pSig = (STORAGESIGNATURE*) pMetaData;
-
-    // Verify the signature.
-
-    // If signature didn't match, you shouldn't be here.
-    if (pSig->GetSignature() != STORAGE_MAGIC_SIG)
-        return CLDB_E_FILE_CORRUPT;
-
-    // The version started in version 1.1
-    if (pSig->GetMajorVer() < 1)
-        return CLDB_E_FILE_OLDVER;
-
-    if (pSig->GetMajorVer() == 1 && pSig->GetMinorVer() < 1)
-        return CLDB_E_FILE_OLDVER;
-
-    // Header data starts after signature.
-    *pString = (LPCSTR) pSig->pVersion;
-    return S_OK;
-}
-
 //*****************************************************************************
 // Convert a UTF8 string to Unicode, into a CQuickArray<WCHAR>.
 //*****************************************************************************
@@ -1972,11 +1834,11 @@ HRESULT Utf2Quick(
         _ASSERTE_MSG(false, "Integer overflow/underflow");
         return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
     }
-    iReqLen = WszMultiByteToWideChar(CP_UTF8, 0, pStr, -1, rNewStr, (int)(cchAvail.Value()));
+    iReqLen = MultiByteToWideChar(CP_UTF8, 0, pStr, -1, rNewStr, (int)(cchAvail.Value()));
 
     // If the buffer was too small, determine what is required.
     if (iReqLen == 0)
-        bAlloc = iReqLen = WszMultiByteToWideChar(CP_UTF8, 0, pStr, -1, 0, 0);
+        bAlloc = iReqLen = MultiByteToWideChar(CP_UTF8, 0, pStr, -1, 0, 0);
     // Resize the buffer.  If the buffer was large enough, this just sets the internal
     //  counter, but if it was too small, this will attempt a reallocation.  Note that
     //  the length includes the terminating W('/0').
@@ -1999,7 +1861,7 @@ HRESULT Utf2Quick(
         _ASSERTE_MSG(false, "Integer overflow/underflow");
         return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
         }
-        iActLen = WszMultiByteToWideChar(CP_UTF8, 0, pStr, -1, rNewStr, (int)(cchAvail.Value()));
+        iActLen = MultiByteToWideChar(CP_UTF8, 0, pStr, -1, rNewStr, (int)(cchAvail.Value()));
         _ASSERTE(iReqLen == iActLen);
     }
 ErrExit:
@@ -2247,6 +2109,178 @@ void PutArm64Rel12(UINT32 * pCode, INT32 imm12)
     _ASSERTE(GetArm64Rel12(pCode) == imm12);
 }
 
+//*****************************************************************************
+//  Extract the PC-Relative page address and page offset from pcalau12i+add/ld
+//*****************************************************************************
+INT64 GetLoongArch64PC12(UINT32 * pCode)
+{
+    UINT32 pcInstr = *pCode;
+
+    // first get the high 20 bits,
+    INT64 imm = (INT64)(((pcInstr >> 5) & 0xFFFFF) << 12);
+
+    // then get the low 12 bits,
+    pcInstr = *(pCode + 1);
+    imm |= (INT64)((pcInstr >> 10) & 0xFFF);
+
+    return imm;
+}
+
+//*****************************************************************************
+//  Extract the jump offset into pcaddu18i+jirl instructions
+//*****************************************************************************
+INT64 GetLoongArch64JIR(UINT32 * pCode)
+{
+    UINT32 pcInstr = *pCode;
+
+    // first get the high 20 bits,
+    INT64 imm = ((INT64)((pcInstr >> 5) & 0xFFFFF) << 18);
+
+    // then get the low 18 bits
+    pcInstr = *(pCode + 1);
+    imm += ((INT64)((INT16)((pcInstr >> 10) & 0xFFFF))) << 2;
+
+    return imm;
+}
+
+//*****************************************************************************
+//  Deposit the PC-Relative page address and page offset into pcalau12i+add/ld
+//*****************************************************************************
+void PutLoongArch64PC12(UINT32 * pCode, INT64 imm)
+{
+    // Verify that we got a valid offset
+    _ASSERTE((INT32)imm == imm);
+
+    UINT32 pcInstr = *pCode;
+
+    _ASSERTE((pcInstr & 0xFE000000) == 0x1a000000); // Must be pcalau12i
+
+    pcInstr &= 0xFE00001F; // keep bits 31-25, 4-0
+    // Assemble the pc-relative high 20 bits of 'imm' into the pcalau12i instruction
+    pcInstr |= (UINT32)((imm >> 7) & 0x1FFFFE0);
+
+    *pCode = pcInstr; // write the assembled instruction
+
+    pcInstr = *(pCode + 1);
+
+    pcInstr &= 0xFFC003FF; // keep bits 31-22, 9-0
+    // Assemble the pc-relative low 12 bits of 'imm' into the addid or ld instruction
+    pcInstr |= (UINT32)((imm & 0xFFF) << 10);
+
+    *(pCode + 1) = pcInstr; // write the assembled instruction
+
+    _ASSERTE(GetLoongArch64PC12(pCode) == imm);
+}
+
+//*****************************************************************************
+//  Deposit the jump offset into pcaddu18i+jirl instructions
+//*****************************************************************************
+void PutLoongArch64JIR(UINT32 * pCode, INT64 imm38)
+{
+    // Verify that we got a valid offset
+    _ASSERTE((imm38 >= -0x2000000000L) && (imm38 < 0x2000000000L));
+
+    _ASSERTE((imm38 & 0x3) == 0); // the low two bits must be zero
+
+    UINT32 pcInstr = *pCode;
+
+    _ASSERTE(pcInstr == 0x1e000010); // Must be pcaddu18i t4, 0
+
+    INT64 relOff = imm38 & 0x20000;
+    INT64 imm = imm38 + relOff;
+    relOff = (((imm & 0x1ffff) - relOff) >> 2) & 0xffff;
+
+    pcInstr &= 0xFE00001F; // keep bits 31-25, 4-0
+    // Assemble the pc-relative high 20 bits of 'imm38' into the pcaddu18i instruction
+    pcInstr |= (UINT32)(((imm >> 18) & 0xFFFFF) << 5);
+
+    *pCode = pcInstr; // write the assembled instruction
+
+    pcInstr = *(pCode + 1);
+
+    pcInstr &= 0xFC0003FF; // keep bits 31-26, 9-0
+    // Assemble the pc-relative low 18 bits of 'imm38' into the jirl instruction
+    pcInstr |= (UINT32)(relOff << 10);
+
+    *(pCode + 1) = pcInstr; // write the assembled instruction
+
+    _ASSERTE(GetLoongArch64JIR(pCode) == imm38);
+}
+
+
+//*****************************************************************************
+//  Extract the PC-Relative offset from auipc + I-type or S-type adder (addi/load/store/jalr)
+//*****************************************************************************
+INT64 GetRiscV64AuipcCombo(UINT32 * pCode, bool isStype)
+{
+    enum
+    {
+        OpcodeAuipc = 0x17,
+        OpcodeAddi = 0x13,
+        OpcodeLoad = 0x03,
+        OpcodeStore = 0x23,
+        OpcodeLoadFp = 0x07,
+        OpcodeStoreFp = 0x27,
+        OpcodeJalr = 0x67,
+        OpcodeMask = 0x7F,
+
+        Funct3AddiJalr = 0x0000,
+        Funct3Mask = 0x7000,
+    };
+
+    UINT32 auipc = pCode[0];
+    _ASSERTE((auipc & OpcodeMask) == OpcodeAuipc);
+    int auipcRegDest = (auipc >> 7) & 0x1F;
+    _ASSERTE(auipcRegDest != 0);
+
+    INT64 hi20 = (INT32(auipc) >> 12) << 12;
+
+    UINT32 instr = pCode[1];
+    UINT32 opcode = instr & OpcodeMask;
+    UINT32 funct3 = instr & Funct3Mask;
+    _ASSERTE(opcode == OpcodeLoad || opcode == OpcodeStore || opcode == OpcodeLoadFp || opcode == OpcodeStoreFp ||
+        ((opcode == OpcodeAddi || opcode == OpcodeJalr) && funct3 == Funct3AddiJalr));
+    _ASSERTE(isStype == (opcode == OpcodeStore || opcode == OpcodeStoreFp));
+    int addrReg = (instr >> 15) & 0x1F;
+    _ASSERTE(auipcRegDest == addrReg);
+
+    INT64 lo12 = (INT32(instr) >> 25) << 5; // top 7 bits are in the same spot
+    int bottomBitsPos = isStype ? 7 : 20;
+    lo12 |= (instr >> bottomBitsPos) & 0x1F;
+
+    return hi20 + lo12;
+}
+
+
+//*****************************************************************************
+//  Deposit the PC-Relative offset into auipc + I-type or S-type adder (addi/load/store/jalr)
+//*****************************************************************************
+void PutRiscV64AuipcCombo(UINT32 * pCode, INT64 offset, bool isStype)
+{
+    INT32 lo12 = (offset << (64 - 12)) >> (64 - 12);
+    INT32 hi20 = INT32(offset - lo12);
+    _ASSERTE(INT64(lo12) + INT64(hi20) == offset);
+
+    // Replace existing immediate bits because RISC-V relocation placeholders may already carry addends.
+    pCode[0] &= 0x00000FFF;
+    pCode[0] |= hi20 & 0xFFFFF000;
+
+    UINT32 lo12Bits = UINT32(lo12) & 0xFFF;
+    if (isStype)
+    {
+        pCode[1] &= 0x01FFF07F;
+        pCode[1] |= (lo12Bits & 0xFE0) << 20;
+        pCode[1] |= (lo12Bits & 0x01F) << 7;
+    }
+    else
+    {
+        pCode[1] &= 0x000FFFFF;
+        pCode[1] |= lo12Bits << 20;
+    }
+
+    _ASSERTE(GetRiscV64AuipcCombo(pCode, isStype) == offset);
+}
+
 //======================================================================
 // This function returns true, if it can determine that the instruction pointer
 // refers to a code address that belongs in the range of the given image.
@@ -2346,7 +2380,7 @@ namespace Util
 {
 #ifdef HOST_WINDOWS
     // Struct used to scope suspension of client impersonation for the current thread.
-    // https://docs.microsoft.com/en-us/windows/desktop/secauthz/client-impersonation
+    // https://learn.microsoft.com/windows/desktop/secauthz/client-impersonation
     class SuspendImpersonation
     {
     public:
@@ -2442,40 +2476,31 @@ namespace Util
 
 namespace Reg
 {
-    HRESULT ReadStringValue(HKEY hKey, LPCWSTR wszSubKeyName, LPCWSTR wszValueName, SString & ssValue)
+    HRESULT ReadStringValue(HKEY hKey, LPCWSTR wszSubKeyName, SString& ssValue)
     {
         STANDARD_VM_CONTRACT;
+        _ASSERTE (hKey != NULL && wszSubKeyName != NULL && *wszSubKeyName != W('\0'));
 
-        if (hKey == NULL)
-        {
-            return E_INVALIDARG;
-        }
-
-        RegKeyHolder hTargetKey;
-        if (wszSubKeyName == NULL || *wszSubKeyName == W('\0'))
-        {   // No subkey was requested, use hKey as the resolved key.
-            hTargetKey = hKey;
-            hTargetKey.SuppressRelease();
-        }
-        else
-        {   // Try to open the specified subkey.
-            if (WszRegOpenKeyEx(hKey, wszSubKeyName, 0, KEY_READ, &hTargetKey) != ERROR_SUCCESS)
-                return REGDB_E_CLASSNOTREG;
-        }
+        HKEYHolder hTargetSubKey;
+        // Open requested subkey.
+        if (RegOpenKeyEx(hKey, wszSubKeyName, 0, KEY_READ, &hTargetSubKey) != ERROR_SUCCESS)
+            return REGDB_E_CLASSNOTREG;
 
         DWORD type;
-        DWORD size;
-        if ((WszRegQueryValueEx(hTargetKey, wszValueName, 0, &type, 0, &size) == ERROR_SUCCESS) &&
-            type == REG_SZ && size > 0)
+        DWORD sizeInBytes;
+        LPCWSTR targetValueName = NULL; // Default value is represented as NULL.
+        if ((RegQueryValueEx(hTargetSubKey, targetValueName, 0, &type, 0, &sizeInBytes) == ERROR_SUCCESS) &&
+            type == REG_SZ && sizeInBytes > 0)
         {
-            LPWSTR wszValueBuf = ssValue.OpenUnicodeBuffer(static_cast<COUNT_T>((size / sizeof(WCHAR)) - 1));
-            LONG lResult = WszRegQueryValueEx(
-                hTargetKey,
-                wszValueName,
+            COUNT_T valueStrLength = static_cast<COUNT_T>((sizeInBytes / sizeof(WCHAR)) - 1);
+            LPWSTR wszValueBuf = ssValue.OpenUnicodeBuffer(valueStrLength);
+            LONG lResult = RegQueryValueEx(
+                hTargetSubKey,
+                targetValueName,
                 0,
                 0,
                 reinterpret_cast<LPBYTE>(wszValueBuf),
-                &size);
+                &sizeInBytes);
 
             _ASSERTE(lResult == ERROR_SUCCESS);
             if (lResult == ERROR_SUCCESS)
@@ -2486,8 +2511,8 @@ namespace Reg
                 // terminating NULL is not a legitimate scenario for REG_SZ - this must
                 // be done using REG_MULTI_SZ - however this was tolerated in the
                 // past and so it would be a breaking change to stop doing so.
-                _ASSERTE(u16_strlen(wszValueBuf) <= (size / sizeof(WCHAR)) - 1);
-                ssValue.CloseBuffer((COUNT_T)wcsnlen(wszValueBuf, (size_t)size));
+                _ASSERTE(u16_strlen(wszValueBuf) <= valueStrLength);
+                ssValue.CloseBuffer((COUNT_T)wcsnlen(wszValueBuf, valueStrLength));
             }
             else
             {
@@ -2502,87 +2527,54 @@ namespace Reg
             return REGDB_E_KEYMISSING;
         }
     }
-
-    HRESULT ReadStringValue(HKEY hKey, LPCWSTR wszSubKey, LPCWSTR wszName, _Outptr_ _Outptr_result_z_ LPWSTR* pwszValue)
-    {
-        CONTRACTL {
-            NOTHROW;
-            GC_NOTRIGGER;
-        } CONTRACTL_END;
-
-        HRESULT hr = S_OK;
-        EX_TRY
-        {
-            StackSString ssValue;
-            if (SUCCEEDED(hr = ReadStringValue(hKey, wszSubKey, wszName, ssValue)))
-            {
-                *pwszValue = new WCHAR[ssValue.GetCount() + 1];
-                wcscpy_s(*pwszValue, ssValue.GetCount() + 1, ssValue.GetUnicode());
-            }
-        }
-        EX_CATCH_HRESULT(hr);
-        return hr;
-    }
 } // namespace Reg
 
 namespace Com
 {
-    namespace __imp
-    {
-        __success(return == S_OK)
-        static
-        HRESULT FindSubKeyDefaultValueForCLSID(REFCLSID rclsid, LPCWSTR wszSubKeyName, SString & ssValue)
-        {
-            STANDARD_VM_CONTRACT;
-
-            WCHAR wszClsid[GUID_STR_BUFFER_LEN];
-            if (GuidToLPWSTR(rclsid, wszClsid) == 0)
-                return E_UNEXPECTED;
-
-            StackSString ssKeyName;
-            ssKeyName.Append(SL(W("CLSID\\")));
-            ssKeyName.Append(wszClsid);
-            ssKeyName.Append(SL(W("\\")));
-            ssKeyName.Append(wszSubKeyName);
-
-            // Query HKCR first to retain backwards compat with previous implementation where HKCR was only queried.
-            // This is being done due to registry caching. This value will be used if the process integrity is medium or less.
-            HRESULT hkcrResult = Clr::Util::Reg::ReadStringValue(HKEY_CLASSES_ROOT, ssKeyName.GetUnicode(), nullptr, ssValue);
-
-            // HKCR is a virtualized registry hive that weaves together HKCU\Software\Classes and HKLM\Software\Classes
-            // Processes with high integrity or greater should only read from HKLM to avoid being hijacked by medium
-            // integrity processes writing to HKCU.
-            DWORD integrity = SECURITY_MANDATORY_PROTECTED_PROCESS_RID;
-            HRESULT hr = Clr::Util::GetCurrentProcessIntegrity(&integrity);
-            if (hr != S_OK)
-            {
-                // In the event that we are unable to get the current process integrity,
-                // we assume that this process is running in an elevated state.
-                // GetCurrentProcessIntegrity may fail if the process has insufficient rights to get the integrity level
-                integrity = SECURITY_MANDATORY_PROTECTED_PROCESS_RID;
-            }
-
-            if (integrity > SECURITY_MANDATORY_MEDIUM_RID)
-            {
-                Clr::Util::SuspendImpersonation si;
-
-                // Clear the previous HKCR queried value
-                ssValue.Clear();
-
-                // Force to use HKLM
-                StackSString ssHklmKeyName(SL(W("SOFTWARE\\Classes\\")));
-                ssHklmKeyName.Append(ssKeyName);
-                return Clr::Util::Reg::ReadStringValue(HKEY_LOCAL_MACHINE, ssHklmKeyName.GetUnicode(), nullptr, ssValue);
-            }
-
-            return hkcrResult;
-        }
-    }
-
     HRESULT FindInprocServer32UsingCLSID(REFCLSID rclsid, SString & ssInprocServer32Name)
     {
-        WRAPPER_NO_CONTRACT;
-        return __imp::FindSubKeyDefaultValueForCLSID(rclsid, W("InprocServer32"), ssInprocServer32Name);
+        STANDARD_VM_CONTRACT;
+
+        WCHAR wszClsid[MINIPAL_GUID_BUFFER_LEN];
+        if (GuidToLPWSTR(rclsid, wszClsid) == 0)
+            return E_UNEXPECTED;
+
+        StackSString ssKeyName;
+        ssKeyName.Append(SL(W("CLSID\\")));
+        ssKeyName.Append(wszClsid);
+        ssKeyName.Append(SL(W("\\InprocServer32")));
+
+        // Query HKCR first to retain backwards compat with previous implementation where HKCR was only queried.
+        // This is being done due to registry caching. This value will be used if the process integrity is medium or less.
+        HRESULT hkcrResult = Clr::Util::Reg::ReadStringValue(HKEY_CLASSES_ROOT, ssKeyName.GetUnicode(), ssInprocServer32Name);
+
+        // HKCR is a virtualized registry hive that weaves together HKCU\Software\Classes and HKLM\Software\Classes
+        // Processes with high integrity or greater should only read from HKLM to avoid being hijacked by medium
+        // integrity processes writing to HKCU.
+        DWORD integrity = SECURITY_MANDATORY_PROTECTED_PROCESS_RID;
+        HRESULT hr = Clr::Util::GetCurrentProcessIntegrity(&integrity);
+        if (hr != S_OK)
+        {
+            // In the event that we are unable to get the current process integrity,
+            // we assume that this process is running in an elevated state.
+            // GetCurrentProcessIntegrity may fail if the process has insufficient rights to get the integrity level
+            integrity = SECURITY_MANDATORY_PROTECTED_PROCESS_RID;
+        }
+
+        if (integrity > SECURITY_MANDATORY_MEDIUM_RID)
+        {
+            Clr::Util::SuspendImpersonation si;
+
+            // Clear the previous HKCR queried value
+            ssInprocServer32Name.Clear();
+
+            // Force to use HKLM
+            StackSString ssHklmKeyName(SL(W("SOFTWARE\\Classes\\")));
+            ssHklmKeyName.Append(ssKeyName);
+            return Clr::Util::Reg::ReadStringValue(HKEY_LOCAL_MACHINE, ssHklmKeyName.GetUnicode(), ssInprocServer32Name);
+        }
+
+        return hkcrResult;
     }
 } // namespace Com
 #endif //  HOST_WINDOWS

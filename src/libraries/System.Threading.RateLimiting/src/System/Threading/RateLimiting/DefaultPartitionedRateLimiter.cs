@@ -57,7 +57,7 @@ namespace System.Threading.RateLimiting
                 try
                 {
                     await Heartbeat().ConfigureAwait(
-#if NET8_0_OR_GREATER
+#if NET
                         ConfigureAwaitOptions.SuppressThrowing
 #else
                         false
@@ -218,6 +218,7 @@ namespace System.Threading.RateLimiting
                 {
                     _cachedLimiters.Clear();
                     _cachedLimiters.AddRange(_limiters);
+                    _cacheInvalid = false;
                 }
             }
 
@@ -258,7 +259,7 @@ namespace System.Threading.RateLimiting
                     }
                     catch (Exception ex)
                     {
-                        aggregateExceptions ??= new List<Exception>();
+                        aggregateExceptions ??= [];
                         aggregateExceptions.Add(ex);
                     }
                 }

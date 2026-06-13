@@ -2,6 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 
 using Internal.NativeFormat;
 using Internal.Text;
@@ -11,7 +14,7 @@ namespace ILCompiler.DependencyAnalysis
     /// <summary>
     /// Represents a hash table of resources within the resource blob in the image.
     /// </summary>
-    internal sealed class ResourceIndexNode : ObjectNode, ISymbolDefinitionNode, INodeWithSize
+    internal sealed class ResourceIndexNode : ObjectNode, ISymbolDefinitionNode
     {
         private ResourceDataNode _resourceDataNode;
 
@@ -19,10 +22,6 @@ namespace ILCompiler.DependencyAnalysis
         {
             _resourceDataNode = resourceDataNode;
         }
-
-        private int? _size;
-
-        int INodeWithSize.Size => _size.Value;
 
         public override bool IsShareable => false;
 
@@ -34,7 +33,7 @@ namespace ILCompiler.DependencyAnalysis
 
         public void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append(nameMangler.CompilationUnitPrefix).Append("__embedded_resourceindex");
+            sb.Append(nameMangler.CompilationUnitPrefix).Append("__embedded_resourceindex"u8);
         }
 
         protected override string GetName(NodeFactory factory) => this.GetMangledName(factory.NameMangler);
@@ -74,7 +73,19 @@ namespace ILCompiler.DependencyAnalysis
 
             foreach (ResourceIndexData indexData in _resourceDataNode.GetOrCreateIndexData(factory))
             {
-                string assemblyName = indexData.Assembly.GetName().FullName;
+                AssemblyNameInfo name = indexData.Assembly.GetName();
+
+                // References use a public key token instead of full public key.
+                if ((name.Flags & AssemblyNameFlags.PublicKey) != 0)
+                {
+                    // Use AssemblyName to convert PublicKey to PublicKeyToken to avoid calling crypto APIs directly
+                    AssemblyName an = new();
+                    an.SetPublicKey(ImmutableCollectionsMarshal.AsArray<byte>(name.PublicKeyOrToken));
+                    name = new AssemblyNameInfo(name.Name, name.Version, name.CultureName, name.Flags & ~AssemblyNameFlags.PublicKey, ImmutableCollectionsMarshal.AsImmutableArray<byte>(an.GetPublicKeyToken()));
+                }
+
+                string assemblyName = name.FullName;
+
                 Vertex asmName = nativeWriter.GetStringConstant(assemblyName);
                 Vertex resourceName = nativeWriter.GetStringConstant(indexData.ResourceName);
                 Vertex offsetVertex = nativeWriter.GetUnsignedConstant((uint)indexData.NativeOffset);
@@ -89,7 +100,6 @@ namespace ILCompiler.DependencyAnalysis
             }
 
             byte[] blob = nativeWriter.Save();
-            _size = blob.Length;
             return blob;
         }
 

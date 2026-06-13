@@ -142,7 +142,7 @@ namespace System.Buffers
                 else
                 {
                     // No delimiter, need to check the end of the span for odd number of escapes then advance
-                    if (remaining.Length > 0 && remaining[remaining.Length - 1].Equals(delimiterEscape))
+                    if (remaining.EndsWith(delimiterEscape))
                     {
                         int escapeCount = 1;
                         int i = remaining.Length - 2;
@@ -610,7 +610,7 @@ namespace System.Buffers
             {
                 // Advance past all matches in the current span
                 int i;
-                for (i = CurrentSpanIndex; i < CurrentSpan.Length && values.IndexOf(CurrentSpan[i]) != -1; i++)
+                for (i = CurrentSpanIndex; i < CurrentSpan.Length && values.Contains(CurrentSpan[i]); i++)
                 {
                 }
 

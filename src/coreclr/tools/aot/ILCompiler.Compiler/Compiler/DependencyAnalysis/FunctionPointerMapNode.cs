@@ -12,9 +12,8 @@ namespace ILCompiler.DependencyAnalysis
     /// <summary>
     /// Represents a hash table of function pointer types generated into the image.
     /// </summary>
-    internal sealed class FunctionPointerMapNode : ObjectNode, ISymbolDefinitionNode, INodeWithSize
+    internal sealed class FunctionPointerMapNode : ObjectNode, ISymbolDefinitionNode
     {
-        private int? _size;
         private readonly ExternalReferencesTableNode _externalReferences;
 
         public FunctionPointerMapNode(ExternalReferencesTableNode externalReferences)
@@ -22,11 +21,9 @@ namespace ILCompiler.DependencyAnalysis
             _externalReferences = externalReferences;
         }
 
-        int INodeWithSize.Size => _size.Value;
-
         public void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append(nameMangler.CompilationUnitPrefix).Append("__fnptr_type_map");
+            sb.Append(nameMangler.CompilationUnitPrefix).Append("__fnptr_type_map"u8);
         }
         public int Offset => 0;
         public override bool IsShareable => false;
@@ -69,8 +66,6 @@ namespace ILCompiler.DependencyAnalysis
             }
 
             byte[] hashTableBytes = writer.Save();
-
-            _size = hashTableBytes.Length;
 
             return new ObjectData(hashTableBytes, Array.Empty<Relocation>(), 1, new ISymbolDefinitionNode[] { this });
         }

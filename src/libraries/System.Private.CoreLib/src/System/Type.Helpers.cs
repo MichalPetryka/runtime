@@ -49,6 +49,20 @@ namespace System
                 if (IsGenericParameter)
                     return true;
 
+                if (IsFunctionPointer)
+                {
+                    if (GetFunctionPointerReturnType().ContainsGenericParameters)
+                        return true;
+
+                    foreach (Type parameterType in GetFunctionPointerParameterTypes())
+                    {
+                        if (parameterType.ContainsGenericParameters)
+                            return true;
+                    }
+
+                    return false;
+                }
+
                 if (!IsGenericType)
                     return false;
 
@@ -87,6 +101,20 @@ namespace System
 
                 if (HasElementType)
                     return GetElementType()!.IsVisible;
+
+                if (IsFunctionPointer)
+                {
+                    if (!GetFunctionPointerReturnType().IsVisible)
+                        return false;
+
+                    foreach (Type parameterType in GetFunctionPointerParameterTypes())
+                    {
+                        if (!parameterType.IsVisible)
+                            return false;
+                    }
+
+                    return true;
+                }
 
                 Type type = this;
                 while (type.IsNested)
@@ -137,12 +165,12 @@ namespace System
             for (int i = 0; i < c.Length; i++)
             {
                 if (c[i] is Type t)
-                    ret[cnt++] = t!;
+                    ret[cnt++] = t;
             }
             return ret;
         }
 
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+        [DynamicallyAccessedMembers(GetAllMembers)]
         public virtual MemberInfo[] FindMembers(MemberTypes memberType, BindingFlags bindingAttr, MemberFilter? filter, object? filterCriteria)
         {
             // Define the work arrays
@@ -493,7 +521,7 @@ namespace System
         private static bool FilterNameImpl(MemberInfo m, object filterCriteria, StringComparison comparison)
         {
             // Check that the criteria object is a String object
-            if (!(filterCriteria is string filterCriteriaString))
+            if (filterCriteria is not string filterCriteriaString)
             {
                 throw new InvalidFilterCriteriaException(SR.InvalidFilterCriteriaException_CritString);
             }
@@ -508,7 +536,7 @@ namespace System
             }
 
             // Check to see if this is a prefix or exact match requirement
-            if (str.Length > 0 && str[str.Length - 1] == '*')
+            if (str.EndsWith('*'))
             {
                 str = str.Slice(0, str.Length - 1);
                 return name.StartsWith(str, comparison);

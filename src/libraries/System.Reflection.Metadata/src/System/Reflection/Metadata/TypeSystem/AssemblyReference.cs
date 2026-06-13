@@ -17,12 +17,6 @@ namespace System.Reflection.Metadata
 
         internal AssemblyReference(MetadataReader reader, uint treatmentAndRowId)
         {
-            Debug.Assert(reader != null);
-            Debug.Assert(treatmentAndRowId != 0);
-
-            // only virtual bit can be set in highest byte:
-            Debug.Assert((treatmentAndRowId & ~(TokenTypeIds.VirtualBit | TokenTypeIds.RIDMask)) == 0);
-
             _reader = reader;
             _treatmentAndRowId = treatmentAndRowId;
         }
@@ -172,7 +166,7 @@ namespace System.Reflection.Metadata
                     return StringHandle.VirtualIndex.System_Numerics_Vectors;
             }
 
-            Debug.Assert(false, "Unexpected virtual index value");
+            Debug.Fail("Unexpected virtual index value");
             return 0;
         }
 

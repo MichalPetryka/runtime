@@ -1,7 +1,7 @@
 Interop Guidelines
 ==================
 
-We follow the [best practices for native interop](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/best-practices) with the additional guidelines below that are specific to this repo.
+We follow the [best practices for native interop](https://learn.microsoft.com/dotnet/standard/native-interop/best-practices) with the additional guidelines below that are specific to this repo.
 
 ## Goals
 We have the following goals related to interop code being used in dotnet/runtime:
@@ -14,12 +14,6 @@ We have the following goals related to interop code being used in dotnet/runtime
   - This is both for good hygiene and to help keep platform-specific code separated from platform-neutral code, which is important for maximizing reusable code above PAL layers.
 - Ensure maximal managed code reuse across different OS flavors which have  the same API but not the same ABI.
    - This is the case for UNIX and addressing it is a work-in-progress (see issue #2137 and section on "shims" below.)
-
-## Submitting Changes
-
-Interop code implicitly defines the native platform dependencies that .NET has. These dependencies are tracked and modeled according to the [Tracking Platform Dependencies design](https://github.com/dotnet/designs/blob/main/accepted/2021/platform-dependencies/platform-dependencies.md). Whenever a PR is submitted that changes interop code, it needs to be reviewed to determine whether a change to the platform dependencies model is required.
-
-By default, any change to `src/libraries/Common/src/Interop` folder will add @dotnet/platform-deps-team as a reviewer. If necessary, update the corresponding `https://github.com/dotnet/core/blob/main/release-notes/<product-version>/runtime-deps.json` file to reflect the dependency change. The scope of dependencies is at the file/package level, not individual functions, so interop changes rarely require an update to the model.
 
 ## Approach
 
@@ -40,7 +34,7 @@ internal static partial class Interop
 ...
 internal static partial class Interop
 {
-    internal static partial class mincore { ... }
+    internal static partial class Mincore { ... }
 }
 ```
 - With few exceptions, the only methods that should be defined in these interop types are DllImports.
@@ -55,7 +49,9 @@ internal static partial class Interop
 ```
 \Common\src\Interop
     \Windows
-        \mincore
+        \Kernel32
+            ... interop files
+        \Mincore
             ... interop files
     \Unix
         \libc
@@ -77,8 +73,8 @@ As shown above, platforms may be additive, in that an assembly may use functiona
         \libc
             \Interop.strerror.cs
     \Windows
-        \mincore
-            \Interop.OutputDebugString.cs
+        \Mincore
+            \Interop.WaitOnAddress.cs    <-- Also contains WakeByAddressSingle
 ```
 
 - If structs/constants will be used on their own without an associated DllImport, or if they may be used with multiple DllImports not in the same file, they should be declared in a separate file.
@@ -87,9 +83,9 @@ As shown above, platforms may be additive, in that an assembly may use functiona
 ```
 \Common\src\Interop
     \Windows
-        \mincore
-            \Interop.DuplicateHandle_SafeTokenHandle.cs
-            \Interop.DuplicateHandle_IntPtr.cs
+        \Kernel32
+            \Interop.DuplicateHandle_SafeFileHandle.cs
+            \Interop.DuplicateHandle_SafePipeHandle.cs
 ```
 
 - The library names used per-platform are stored in internal constants in the Interop class in a private Libraries class in a per-platform file named Interop.Libraries.cs. These constants are then used for all DllImports to that library, rather than having the string duplicated each time, e.g.
@@ -100,12 +96,9 @@ internal static partial class Interop // contents of Common\src\Interop\Windows\
     private static class Libraries
     {
         internal const string Kernel32 = "kernel32.dll";
+        internal const string OleAut32 = "oleaut32.dll";
         internal const string Localization = "api-ms-win-core-localization-l1-2-0.dll";
-        internal const string Handle = "api-ms-win-core-handle-l1-1-0.dll";
-        internal const string ProcessThreads = "api-ms-win-core-processthreads-l1-1-0.dll";
-        internal const string File = "api-ms-win-core-file-l1-1-0.dll";
-        internal const string NamedPipe = "api-ms-win-core-namedpipe-l1-1-0.dll";
-        internal const string IO = "api-ms-win-core-io-l1-1-0.dll";
+        internal const string Synch = "api-ms-win-core-synch-l1-2-0.dll";
         ...
     }
 }
@@ -166,7 +159,7 @@ Using enums instead of partial, static classes can lead to needing lots of casts
 
 ## P/Invoke Definitions
 
-When defining the P/Invoke signatures and structs, we follow the guidelines in the [interop best practices documentation](https://docs.microsoft.com/en-us/dotnet/standard/native-interop/best-practices).
+When defining the P/Invoke signatures and structs, we follow the guidelines in the [interop best practices documentation](https://learn.microsoft.com/dotnet/standard/native-interop/best-practices).
 
 The runtime repo makes use of [source-generated p/invokes](../design/features/source-generator-pinvokes.md) whenever possible (see [the compatibility doc](../design/libraries/LibraryImportGenerator/Compatibility.md) for unsupported scenarios). Methods should be marked `LibraryImport` and be `static` and `partial`.
 

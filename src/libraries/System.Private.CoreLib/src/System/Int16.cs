@@ -284,6 +284,16 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.LeadingZeroCount(TSelf)" />
         public static short LeadingZeroCount(short value) => (short)(BitOperations.LeadingZeroCount((ushort)value) - 16);
 
+        /// <inheritdoc cref="IBinaryInteger{TSelf}.Log10(TSelf)" />
+        public static short Log10(short value)
+        {
+            if (value < 0)
+            {
+                ThrowHelper.ThrowValueArgumentOutOfRange_NeedNonNegNumException();
+            }
+            return (short)uint.Log10((uint)value);
+        }
+
         /// <inheritdoc cref="IBinaryInteger{TSelf}.PopCount(TSelf)" />
         public static short PopCount(short value) => (short)BitOperations.PopCount((ushort)value);
 
@@ -341,29 +351,20 @@ namespace System
                     }
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(short))
                 {
-                    sourceRef = ref Unsafe.Add(ref sourceRef, source.Length - sizeof(short));
-
                     // We have at least 2 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<short>(ref sourceRef);
-
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadInt16BigEndian(source.Slice(source.Length - sizeof(short)));
                 }
                 else if (isUnsigned)
                 {
                     // We only have 1-byte so read it directly
-                    result = sourceRef;
+                    result = source[0];
                 }
                 else
                 {
                     // We only have 1-byte so read it directly with sign extension
-                    result = (sbyte)sourceRef;
+                    result = (sbyte)source[0];
                 }
             }
 
@@ -416,27 +417,20 @@ namespace System
                     }
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(short))
                 {
                     // We have at least 2 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<short>(ref sourceRef);
-
-                    if (!BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadInt16LittleEndian(source);
                 }
                 else if (isUnsigned)
                 {
                     // We only have 1-byte so read it directly
-                    result = sourceRef;
+                    result = source[0];
                 }
                 else
                 {
                     // We only have 1-byte so read it directly with sign extension
-                    result = (sbyte)sourceRef;
+                    result = (sbyte)source[0];
                 }
             }
 
@@ -465,37 +459,27 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteBigEndian(Span{byte}, out int)" />
         bool IBinaryInteger<short>.TryWriteBigEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(short))
+            if (BinaryPrimitives.TryWriteInt16BigEndian(destination, m_value))
             {
-                short value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(m_value) : m_value;
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(short);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteLittleEndian(Span{byte}, out int)" />
         bool IBinaryInteger<short>.TryWriteLittleEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(short))
+            if (BinaryPrimitives.TryWriteInt16LittleEndian(destination, m_value))
             {
-                short value = BitConverter.IsLittleEndian ? m_value : BinaryPrimitives.ReverseEndianness(m_value);
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(short);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         //
@@ -875,6 +859,9 @@ namespace System
 
         /// <inheritdoc cref="INumberBase{TSelf}.MinMagnitudeNumber(TSelf, TSelf)" />
         static short INumberBase<short>.MinMagnitudeNumber(short x, short y) => MinMagnitude(x, y);
+
+        /// <inheritdoc cref="INumberBase{TSelf}.MultiplyAddEstimate(TSelf, TSelf, TSelf)" />
+        static short INumberBase<short>.MultiplyAddEstimate(short left, short right, short addend) => (short)((left * right) + addend);
 
         /// <inheritdoc cref="INumberBase{TSelf}.TryConvertFromChecked{TOther}(TOther, out TSelf)" />
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1319,13 +1306,13 @@ namespace System
         //
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_LeftShift(TSelf, TOther)" />
-        static short IShiftOperators<short, int, short>.operator <<(short value, int shiftAmount) => (short)(value << shiftAmount);
+        static short IShiftOperators<short, int, short>.operator <<(short value, int shiftAmount) => (short)(value << (shiftAmount & 15));
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_RightShift(TSelf, TOther)" />
-        static short IShiftOperators<short, int, short>.operator >>(short value, int shiftAmount) => (short)(value >> shiftAmount);
+        static short IShiftOperators<short, int, short>.operator >>(short value, int shiftAmount) => (short)(value >> (shiftAmount & 15));
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_UnsignedRightShift(TSelf, TOther)" />
-        static short IShiftOperators<short, int, short>.operator >>>(short value, int shiftAmount) => (short)((ushort)value >>> shiftAmount);
+        static short IShiftOperators<short, int, short>.operator >>>(short value, int shiftAmount) => (short)((ushort)value >>> (shiftAmount & 15));
 
         //
         // ISignedNumber

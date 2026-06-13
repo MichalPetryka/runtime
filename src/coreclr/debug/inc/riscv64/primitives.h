@@ -119,11 +119,8 @@ inline BOOL CompareControlRegisters(const DT_CONTEXT * pCtx1, const DT_CONTEXT *
 {
     LIMITED_METHOD_DAC_CONTRACT;
 
-    // TODO-RISCV64: Sort out frame registers
-
     if ((pCtx1->Pc == pCtx2->Pc) &&
-        (pCtx1->Sp == pCtx2->Sp) &&
-        (pCtx1->Fp == pCtx2->Fp))
+        (pCtx1->Sp == pCtx2->Sp))
     {
         return TRUE;
     }
@@ -137,7 +134,7 @@ inline void CORDbgSetInstruction(CORDB_ADDRESS_TYPE* address,
     // In a DAC build, this function assumes the input is an host address.
     LIMITED_METHOD_DAC_CONTRACT;
 
-    ULONGLONG ptraddr = dac_cast<ULONGLONG>(address);
+    TADDR ptraddr = dac_cast<TADDR>(address);
     *(PRD_TYPE *)ptraddr = instruction;
     FlushInstructionCache(GetCurrentProcess(),
                           address,
@@ -148,7 +145,7 @@ inline PRD_TYPE CORDbgGetInstruction(UNALIGNED CORDB_ADDRESS_TYPE* address)
 {
     LIMITED_METHOD_CONTRACT;
 
-    ULONGLONG ptraddr = dac_cast<ULONGLONG>(address);
+    TADDR ptraddr = dac_cast<TADDR>(address);
     return *(PRD_TYPE *)ptraddr;
 }
 

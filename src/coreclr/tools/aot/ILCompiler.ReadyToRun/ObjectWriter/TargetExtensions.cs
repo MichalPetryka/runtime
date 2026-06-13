@@ -19,6 +19,7 @@ namespace ILCompiler.PEWriter
         Apple = 0x4644,
         FreeBSD = 0xADC4,
         NetBSD = 0x1993,
+        OpenBSD = 0xADC5,
         SunOS = 0x1992,
     }
 
@@ -91,7 +92,7 @@ namespace ILCompiler.PEWriter
                     return Machine.LoongArch64;
 
                 case Internal.TypeSystem.TargetArchitecture.RiscV64:
-                    return (Machine)0x5064; /* TODO: update with RiscV64 */
+                    return Machine.RiscV64;
 
                 default:
                     throw new NotImplementedException(target.Architecture.ToString());
@@ -112,6 +113,11 @@ namespace ILCompiler.PEWriter
                     return MachineOSOverride.Linux;
 
                 case TargetOS.OSX:
+                case TargetOS.MacCatalyst:
+                case TargetOS.iOS:
+                case TargetOS.iOSSimulator:
+                case TargetOS.tvOS:
+                case TargetOS.tvOSSimulator:
                     return MachineOSOverride.Apple;
 
                 case TargetOS.FreeBSD:
@@ -119,6 +125,9 @@ namespace ILCompiler.PEWriter
 
                 case TargetOS.NetBSD:
                     return MachineOSOverride.NetBSD;
+
+                case TargetOS.OpenBSD:
+                    return MachineOSOverride.OpenBSD;
 
                 default:
                     throw new NotImplementedException(target.OperatingSystem.ToString());

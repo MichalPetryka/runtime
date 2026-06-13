@@ -1,5 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 using Xunit;
+using TestLibrary;
 namespace Test_stress1
 {
 // The .NET Foundation licenses this file to you under the MIT license.
@@ -47,7 +48,9 @@ namespace JitTest
             }
         }
 
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/10478 ", typeof(PlatformDetection), nameof(PlatformDetection.IsNotWindows), nameof(PlatformDetection.IsX64Process))]
         [Fact]
+        [SkipOnCoreClr("This test is not compatible with GCStress.", RuntimeTestModes.AnyGCStress)]
         public static int TestEntryPoint()
         {
             try

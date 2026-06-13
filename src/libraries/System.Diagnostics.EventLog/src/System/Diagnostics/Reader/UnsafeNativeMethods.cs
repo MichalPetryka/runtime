@@ -5,7 +5,7 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Diagnostics.Eventing.Reader;
 using System.Runtime.InteropServices;
-#if NET7_0_OR_GREATER
+#if NET
 using System.Runtime.InteropServices.Marshalling;
 #endif
 using System.Security;
@@ -341,7 +341,7 @@ namespace Microsoft.Win32
             EvtRpcLogin = 1
         }
 
-#if NET7_0_OR_GREATER
+#if NET
         [NativeMarshalling(typeof(Marshaller))]
 #endif
         [StructLayout(LayoutKind.Sequential)]
@@ -350,12 +350,22 @@ namespace Microsoft.Win32
             [MarshalAs(UnmanagedType.LPWStr)]
             public string Server;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string User;
+            public string? User;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string Domain;
+            public string? Domain;
             public CoTaskMemUnicodeSafeHandle Password;
             public int Flags;
-#if NET7_0_OR_GREATER
+
+            public EvtRpcLogin(string server, string? user, string? domain, CoTaskMemUnicodeSafeHandle password, int flags)
+            {
+                Server = server;
+                User = user;
+                Domain = domain;
+                Password = password;
+                Flags = flags;
+            }
+
+#if NET
             [CustomMarshaller(typeof(EvtRpcLogin), MarshalMode.ManagedToUnmanagedRef, typeof(ValueMarshaller))]
             public static class Marshaller
             {
@@ -404,13 +414,13 @@ namespace Microsoft.Win32
                         }
 
                         return new EvtRpcLogin
-                        {
-                            Server = Marshal.PtrToStringUni(_value.Server),
-                            User = Marshal.PtrToStringUni(_value.User),
-                            Domain = Marshal.PtrToStringUni(_value.Domain),
-                            Password = _passwordHandle,
-                            Flags = _value.Flags
-                        };
+                        (
+                            server: Marshal.PtrToStringUni(_value.Server)!,
+                            user: Marshal.PtrToStringUni(_value.User),
+                            domain: Marshal.PtrToStringUni(_value.Domain),
+                            password: _passwordHandle,
+                            flags: _value.Flags
+                        );
                     }
 
                     public void Free()
@@ -443,8 +453,8 @@ namespace Microsoft.Win32
         [LibraryImport(Interop.Libraries.Wevtapi, SetLastError = true)]
         internal static partial EventLogHandle EvtQuery(
                             EventLogHandle session,
-                            [MarshalAs(UnmanagedType.LPWStr)] string path,
-                            [MarshalAs(UnmanagedType.LPWStr)] string query,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? path,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? query,
                             int flags);
 
         // SEEK
@@ -461,8 +471,8 @@ namespace Microsoft.Win32
         internal static partial EventLogHandle EvtSubscribe(
                             EventLogHandle session,
                             SafeWaitHandle signalEvent,
-                            [MarshalAs(UnmanagedType.LPWStr)] string path,
-                            [MarshalAs(UnmanagedType.LPWStr)] string query,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? path,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? query,
                             EventLogHandle bookmark,
                             IntPtr context,
                             IntPtr callback,
@@ -508,8 +518,8 @@ namespace Microsoft.Win32
         [LibraryImport(Interop.Libraries.Wevtapi, SetLastError = true)]
         internal static partial EventLogHandle EvtOpenPublisherMetadata(
                             EventLogHandle session,
-                            [MarshalAs(UnmanagedType.LPWStr)] string publisherId,
-                            [MarshalAs(UnmanagedType.LPWStr)] string logFilePath,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? publisherId,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? logFilePath,
                             int locale,
                             int flags);
 
@@ -645,7 +655,7 @@ namespace Microsoft.Win32
         internal static partial bool EvtExportLog(
                             EventLogHandle session,
                             [MarshalAs(UnmanagedType.LPWStr)] string channelPath,
-                            [MarshalAs(UnmanagedType.LPWStr)] string query,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? query,
                             [MarshalAs(UnmanagedType.LPWStr)] string targetFilePath,
                             int flags);
 
@@ -662,7 +672,7 @@ namespace Microsoft.Win32
         internal static partial bool EvtClearLog(
                             EventLogHandle session,
                             [MarshalAs(UnmanagedType.LPWStr)] string channelPath,
-                            [MarshalAs(UnmanagedType.LPWStr)] string targetFilePath,
+                            [MarshalAs(UnmanagedType.LPWStr)] string? targetFilePath,
                             int flags);
 
         // RENDERING
@@ -670,7 +680,7 @@ namespace Microsoft.Win32
         internal static partial EventLogHandle EvtCreateRenderContext(
                             int valuePathsCount,
                             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPWStr)]
-                                string[] valuePaths,
+                                string[]? valuePaths,
                             EvtRenderContextFlags flags);
 
         [LibraryImport(Interop.Libraries.Wevtapi, SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
@@ -695,20 +705,20 @@ namespace Microsoft.Win32
                             out int buffUsed,
                             out int propCount);
 
-#if NET7_0_OR_GREATER
+#if NET
         [NativeMarshalling(typeof(Marshaller))]
 #endif
         [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode)]
         internal struct EvtStringVariant
         {
             [MarshalAs(UnmanagedType.LPWStr), FieldOffset(0)]
-            public string StringVal;
+            public string? StringVal;
             [FieldOffset(8)]
             public uint Count;
             [FieldOffset(12)]
             public uint Type;
 
-#if NET7_0_OR_GREATER
+#if NET
             [CustomMarshaller(typeof(EvtStringVariant), MarshalMode.Default, typeof(Marshaller))]
             public static class Marshaller
             {
@@ -759,10 +769,10 @@ namespace Microsoft.Win32
                              EventLogHandle eventHandle,
                              uint messageId,
                              int valueCount,
-                             EvtStringVariant[] values,
+                             EvtStringVariant[]? values,
                              EvtFormatMessageFlags flags,
                              int bufferSize,
-                             [Out] char[]? buffer,
+                             Span<char> buffer,
                              out int bufferUsed);
 
         [LibraryImport(Interop.Libraries.Wevtapi, EntryPoint = "EvtFormatMessage", SetLastError = true)]
@@ -789,7 +799,7 @@ namespace Microsoft.Win32
         // BOOKMARK
         [LibraryImport(Interop.Libraries.Wevtapi, EntryPoint = "EvtCreateBookmark", SetLastError = true)]
         internal static partial EventLogHandle EvtCreateBookmark(
-                            [MarshalAs(UnmanagedType.LPWStr)] string bookmarkXml);
+                            [MarshalAs(UnmanagedType.LPWStr)] string? bookmarkXml);
 
         [LibraryImport(Interop.Libraries.Wevtapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]

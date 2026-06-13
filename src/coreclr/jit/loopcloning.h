@@ -191,18 +191,47 @@ class Compiler;
 struct ArrIndex
 {
     unsigned                      arrLcl;   // The array base local num
+    var_types                     arrType;  // The array base type at extraction time
     JitExpandArrayStack<unsigned> indLcls;  // The indices local nums
     JitExpandArrayStack<GenTree*> bndsChks; // The bounds checks nodes along each dimension.
     unsigned                      rank;     // Rank of the array
     BasicBlock*                   useBlock; // Block where the [] occurs
 
-    ArrIndex(CompAllocator alloc) : arrLcl(BAD_VAR_NUM), indLcls(alloc), bndsChks(alloc), rank(0), useBlock(nullptr)
+    ArrIndex(CompAllocator alloc)
+        : arrLcl(BAD_VAR_NUM)
+        , arrType(TYP_UNDEF)
+        , indLcls(alloc)
+        , bndsChks(alloc)
+        , rank(0)
+        , useBlock(nullptr)
     {
     }
 
 #ifdef DEBUG
     void Print(unsigned dim = -1);
     void PrintBoundsCheckNodes(unsigned dim = -1);
+#endif
+};
+
+// SpanIndex represents a span element access and associated bounds check.
+struct SpanIndex
+{
+    unsigned    lenLcl;   // The Span length local num
+    unsigned    indLcl;   // The index local num
+    GenTree*    bndsChk;  // The bounds check node
+    BasicBlock* useBlock; // Block where the [] occurs
+
+    SpanIndex()
+        : lenLcl(BAD_VAR_NUM)
+        , indLcl(BAD_VAR_NUM)
+        , bndsChk(nullptr)
+        , useBlock(nullptr)
+    {
+    }
+
+#ifdef DEBUG
+    void Print();
+    void PrintBoundsCheckNode();
 #endif
 };
 
@@ -236,7 +265,8 @@ struct LcOptInfo
     };
 
     OptType optType;
-    LcOptInfo(OptType optType) : optType(optType)
+    LcOptInfo(OptType optType)
+        : optType(optType)
     {
     }
 
@@ -267,7 +297,10 @@ struct LcMdArrayOptInfo : public LcOptInfo
     ArrIndex* index;         // "index" cached computation in the form of an ArrIndex representation.
 
     LcMdArrayOptInfo(GenTreeArrElem* arrElem, unsigned dim)
-        : LcOptInfo(LcMdArray), arrElem(arrElem), dim(dim), index(nullptr)
+        : LcOptInfo(LcMdArray)
+        , arrElem(arrElem)
+        , dim(dim)
+        , index(nullptr)
     {
     }
 
@@ -281,7 +314,8 @@ struct LcMdArrayOptInfo : public LcOptInfo
             {
                 index->indLcls.Push(arrElem->gtArrInds[i]->AsLclVarCommon()->GetLclNum());
             }
-            index->arrLcl = arrElem->gtArrObj->AsLclVarCommon()->GetLclNum();
+            index->arrLcl  = arrElem->gtArrObj->AsLclVarCommon()->GetLclNum();
+            index->arrType = arrElem->gtArrObj->TypeGet();
         }
         return index;
     }
@@ -300,7 +334,25 @@ struct LcJaggedArrayOptInfo : public LcOptInfo
     Statement* stmt;     // "stmt" where the optimization opportunity occurs.
 
     LcJaggedArrayOptInfo(ArrIndex& arrIndex, unsigned dim, Statement* stmt)
-        : LcOptInfo(LcJaggedArray), dim(dim), arrIndex(arrIndex), stmt(stmt)
+        : LcOptInfo(LcJaggedArray)
+        , dim(dim)
+        , arrIndex(arrIndex)
+        , stmt(stmt)
+    {
+    }
+};
+
+// Optimization info for a Span
+//
+struct LcSpanOptInfo : public LcOptInfo
+{
+    SpanIndex  spanIndex; // SpanIndex representation of the Span.
+    Statement* stmt;      // "stmt" where the optimization opportunity occurs.
+
+    LcSpanOptInfo(SpanIndex& spanIndex, Statement* stmt)
+        : LcOptInfo(LcSpan)
+        , spanIndex(spanIndex)
+        , stmt(stmt)
     {
     }
 };
@@ -309,6 +361,8 @@ struct LcJaggedArrayOptInfo : public LcOptInfo
 //
 struct LcTypeTestOptInfo : public LcOptInfo
 {
+    // block where statement occurs
+    BasicBlock* block;
     // statement where the opportunity occurs
     Statement* stmt;
     // indir for the method table
@@ -318,14 +372,25 @@ struct LcTypeTestOptInfo : public LcOptInfo
     // handle being tested for
     CORINFO_CLASS_HANDLE clsHnd;
 
-    LcTypeTestOptInfo(Statement* stmt, GenTreeIndir* methodTableIndir, unsigned lclNum, CORINFO_CLASS_HANDLE clsHnd)
-        : LcOptInfo(LcTypeTest), stmt(stmt), methodTableIndir(methodTableIndir), lclNum(lclNum), clsHnd(clsHnd)
+    LcTypeTestOptInfo(BasicBlock*          block,
+                      Statement*           stmt,
+                      GenTreeIndir*        methodTableIndir,
+                      unsigned             lclNum,
+                      CORINFO_CLASS_HANDLE clsHnd)
+        : LcOptInfo(LcTypeTest)
+        , block(block)
+        , stmt(stmt)
+        , methodTableIndir(methodTableIndir)
+        , lclNum(lclNum)
+        , clsHnd(clsHnd)
     {
     }
 };
 
 struct LcMethodAddrTestOptInfo : public LcOptInfo
 {
+    // block where statement occurs
+    BasicBlock* block;
     // statement where the opportunity occurs
     Statement* stmt;
     // indir on the delegate
@@ -339,12 +404,14 @@ struct LcMethodAddrTestOptInfo : public LcOptInfo
     CORINFO_METHOD_HANDLE targetMethHnd;
 #endif
 
-    LcMethodAddrTestOptInfo(Statement*    stmt,
+    LcMethodAddrTestOptInfo(BasicBlock*   block,
+                            Statement*    stmt,
                             GenTreeIndir* delegateAddressIndir,
                             unsigned      delegateLclNum,
                             void*         methAddr,
-                            bool isSlot DEBUG_ARG(CORINFO_METHOD_HANDLE targetMethHnd))
+                            bool isSlot   DEBUG_ARG(CORINFO_METHOD_HANDLE targetMethHnd))
         : LcOptInfo(LcMethodAddrTest)
+        , block(block)
         , stmt(stmt)
         , delegateAddressIndir(delegateAddressIndir)
         , delegateLclNum(delegateLclNum)
@@ -393,15 +460,24 @@ struct LC_Array
     int dim; // "dim" = which index to invoke arrLen on, if -1 invoke on the whole array
              //     Example 1: a[0][1][2] and dim =  2 implies a[0][1].length
              //     Example 2: a[0][1][2] and dim = -1 implies a[0][1][2].length
-    LC_Array() : type(Invalid), dim(-1)
+    LC_Array()
+        : type(Invalid)
+        , dim(-1)
     {
     }
     LC_Array(ArrType type, ArrIndex* arrIndex, int dim, OperType oper)
-        : type(type), arrIndex(arrIndex), oper(oper), dim(dim)
+        : type(type)
+        , arrIndex(arrIndex)
+        , oper(oper)
+        , dim(dim)
     {
     }
 
-    LC_Array(ArrType type, ArrIndex* arrIndex, OperType oper) : type(type), arrIndex(arrIndex), oper(oper), dim(-1)
+    LC_Array(ArrType type, ArrIndex* arrIndex, OperType oper)
+        : type(type)
+        , arrIndex(arrIndex)
+        , oper(oper)
+        , dim(-1)
     {
     }
 
@@ -411,7 +487,8 @@ struct LC_Array
         assert(type != Invalid && that.type != Invalid);
 
         // Types match and the array base matches.
-        if (type != that.type || arrIndex->arrLcl != that.arrIndex->arrLcl || oper != that.oper)
+        if (type != that.type || arrIndex->arrLcl != that.arrIndex->arrLcl ||
+            arrIndex->arrType != that.arrIndex->arrType || oper != that.oper)
         {
             return false;
         }
@@ -445,6 +522,38 @@ struct LC_Array
     GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
 };
 
+// Symbolic representation of Span.Length
+struct LC_Span
+{
+    SpanIndex* spanIndex;
+
+#ifdef DEBUG
+    void Print()
+    {
+        spanIndex->Print();
+    }
+#endif
+
+    LC_Span()
+        : spanIndex(nullptr)
+    {
+    }
+
+    LC_Span(SpanIndex* arrIndex)
+        : spanIndex(arrIndex)
+    {
+    }
+
+    // Equality operator
+    bool operator==(const LC_Span& that) const
+    {
+        return (spanIndex->lenLcl == that.spanIndex->lenLcl) && (spanIndex->indLcl == that.spanIndex->indLcl);
+    }
+
+    // Get a tree representation for this symbolic Span.Length
+    GenTree* ToGenTree(Compiler* comp);
+};
+
 //------------------------------------------------------------------------
 // LC_Ident: symbolic representation of "a value"
 //
@@ -456,6 +565,7 @@ struct LC_Ident
         Const,
         Var,
         ArrAccess,
+        SpanAccess,
         Null,
         ClassHandle,
         IndirOfLocal,
@@ -464,7 +574,8 @@ struct LC_Ident
     };
 
 private:
-    union {
+    union
+    {
         unsigned constant;
         struct
         {
@@ -472,6 +583,7 @@ private:
             unsigned indirOffs;
         };
         LC_Array             arrAccess;
+        LC_Span              spanAccess;
         CORINFO_CLASS_HANDLE clsHnd;
         struct
         {
@@ -482,15 +594,26 @@ private:
         };
     };
 
-    LC_Ident(IdentType type) : type(type)
+    LC_Ident(IdentType type)
+        : type(type)
+        , lclType(TYP_UNDEF)
+        , offset(0)
     {
     }
 
 public:
     // The type of this object
     IdentType type;
+    var_types lclType;
 
-    LC_Ident() : type(Invalid)
+    // Constant added to the materialized value. Used by Var and ArrAccess
+    // to represent `lcl + k` and `arr.Length + k`.
+    int offset;
+
+    LC_Ident()
+        : type(Invalid)
+        , lclType(TYP_UNDEF)
+        , offset(0)
     {
     }
 
@@ -509,11 +632,13 @@ public:
             case ClassHandle:
                 return (clsHnd == that.clsHnd);
             case Var:
-                return (lclNum == that.lclNum);
+                return (lclNum == that.lclNum) && (lclType == that.lclType) && (offset == that.offset);
             case IndirOfLocal:
-                return (lclNum == that.lclNum) && (indirOffs == that.indirOffs);
+                return (lclNum == that.lclNum) && (indirOffs == that.indirOffs) && (lclType == that.lclType);
             case ArrAccess:
-                return (arrAccess == that.arrAccess);
+                return (arrAccess == that.arrAccess) && (offset == that.offset);
+            case SpanAccess:
+                return (spanAccess == that.spanAccess);
             case Null:
                 return true;
             case MethodAddr:
@@ -542,6 +667,10 @@ public:
                 break;
             case Var:
                 printf("V%02u", lclNum);
+                if (offset > 0)
+                    printf("+%d", offset);
+                else if (offset < 0)
+                    printf("%d", offset);
                 break;
             case IndirOfLocal:
                 if (indirOffs != 0)
@@ -558,6 +687,13 @@ public:
                 break;
             case ArrAccess:
                 arrAccess.Print();
+                if (offset > 0)
+                    printf("+%d", offset);
+                else if (offset < 0)
+                    printf("%d", offset);
+                break;
+            case SpanAccess:
+                spanAccess.Print();
                 break;
             case Null:
                 printf("null");
@@ -578,18 +714,21 @@ public:
     // Convert this symbolic representation into a tree node.
     GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
 
-    static LC_Ident CreateVar(unsigned lclNum)
+    static LC_Ident CreateVar(unsigned lclNum, var_types lclType, int offset = 0)
     {
         LC_Ident id(Var);
-        id.lclNum = lclNum;
+        id.lclNum  = lclNum;
+        id.lclType = lclType;
+        id.offset  = offset;
         return id;
     }
 
-    static LC_Ident CreateIndirOfLocal(unsigned lclNum, unsigned offs)
+    static LC_Ident CreateIndirOfLocal(unsigned lclNum, unsigned offs, var_types lclType)
     {
         LC_Ident id(IndirOfLocal);
         id.lclNum    = lclNum;
         id.indirOffs = offs;
+        id.lclType   = lclType;
         return id;
     }
 
@@ -600,16 +739,26 @@ public:
         return id;
     }
 
-    static LC_Ident CreateArrAccess(const LC_Array& arrLen)
+    static LC_Ident CreateArrAccess(const LC_Array& arrLen, int offset = 0)
     {
         LC_Ident id(ArrAccess);
         id.arrAccess = arrLen;
+        id.offset    = offset;
         return id;
     }
 
-    static LC_Ident CreateNull()
+    static LC_Ident CreateSpanAccess(const LC_Span& spanLen)
     {
-        return LC_Ident(Null);
+        LC_Ident id(SpanAccess);
+        id.spanAccess = spanLen;
+        return id;
+    }
+
+    static LC_Ident CreateNull(var_types nullType = TYP_REF)
+    {
+        LC_Ident ident(Null);
+        ident.lclType = nullType;
+        return ident;
     }
 
     static LC_Ident CreateClassHandle(CORINFO_CLASS_HANDLE clsHnd)
@@ -680,10 +829,13 @@ struct LC_Expr
     }
 #endif
 
-    LC_Expr() : type(Invalid)
+    LC_Expr()
+        : type(Invalid)
     {
     }
-    explicit LC_Expr(const LC_Ident& ident) : ident(ident), type(Ident)
+    explicit LC_Expr(const LC_Ident& ident)
+        : ident(ident)
+        , type(Ident)
     {
     }
 
@@ -724,7 +876,10 @@ struct LC_Condition
     {
     }
     LC_Condition(genTreeOps oper, const LC_Expr& op1, const LC_Expr& op2, bool asUnsigned = false)
-        : op1(op1), op2(op2), oper(oper), compareUnsigned(asUnsigned)
+        : op1(op1)
+        , op2(op2)
+        , oper(oper)
+        , compareUnsigned(asUnsigned)
     {
     }
 
@@ -756,7 +911,10 @@ struct LC_ArrayDeref
 
     unsigned level;
 
-    LC_ArrayDeref(const LC_Array& array, unsigned level) : array(array), children(nullptr), level(level)
+    LC_ArrayDeref(const LC_Array& array, unsigned level)
+        : array(array)
+        , children(nullptr)
+        , level(level)
     {
     }
 
@@ -764,8 +922,8 @@ struct LC_ArrayDeref
 
     unsigned Lcl();
 
-    bool HasChildren();
-    void EnsureChildren(CompAllocator alloc);
+    bool                  HasChildren();
+    void                  EnsureChildren(CompAllocator alloc);
     static LC_ArrayDeref* Find(JitExpandArrayStack<LC_ArrayDeref*>* children, unsigned lcl);
 
     void DeriveLevelConditions(JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* len);
@@ -814,6 +972,14 @@ struct NaturalLoopIterInfo;
  */
 struct LoopCloneContext
 {
+    // We assume that the fast path will run 99% of the time, and thus should get 99% of the block weights.
+    // The slow path will, correspondingly, get only 1% of the block weights. It could be argued that we should
+    // mark the slow path as "run rarely", since it really shouldn't execute (given the currently optimized loop
+    // conditions) except under exceptional circumstances.
+    //
+    static constexpr weight_t fastPathWeightScaleFactor = 0.99;
+    static constexpr weight_t slowPathWeightScaleFactor = 1.0 - fastPathWeightScaleFactor;
+
     CompAllocator alloc; // The allocator
 
     // The array of optimization opportunities found in each loop. (loop x optimization-opportunities)
@@ -851,7 +1017,7 @@ struct LoopCloneContext
     }
 
     NaturalLoopIterInfo* GetLoopIterInfo(unsigned loopNum);
-    void SetLoopIterInfo(unsigned loopNum, NaturalLoopIterInfo* info);
+    void                 SetLoopIterInfo(unsigned loopNum, NaturalLoopIterInfo* info);
 
     // Evaluate conditions into a JTRUE stmt and put it in a new block after `insertAfter`.
     BasicBlock* CondToStmtInBlock(Compiler*                          comp,

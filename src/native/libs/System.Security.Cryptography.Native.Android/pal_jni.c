@@ -83,15 +83,6 @@ jmethodID g_SSLParametersGetProtocols;
 jmethodID g_SSLParametersSetApplicationProtocols;
 jmethodID g_SSLParametersSetServerNames;
 
-// com/android/org/conscrypt/OpenSSLEngineImpl
-jclass    g_ConscryptOpenSSLEngineImplClass;
-jfieldID  g_ConscryptOpenSSLEngineImplSslParametersField;
-jfieldID  g_ConscryptOpenSSLEngineImplHandshakeSessionField;
-
-// com/android/org/conscrypt/SSLParametersImpl
-jclass    g_ConscryptSSLParametersImplClass;
-jmethodID g_ConscryptSSLParametersImplSetUseSni;
-
 // javax/net/ssl/SSLContext
 jclass    g_sslCtxClass;
 jmethodID g_sslCtxGetDefaultMethod;
@@ -164,6 +155,10 @@ jclass    g_PrivateKeyEntryClass;
 jmethodID g_PrivateKeyEntryGetCertificate;
 jmethodID g_PrivateKeyEntryGetPrivateKey;
 
+// java/security/Key
+jclass    g_KeyClass;
+jmethodID g_KeyGetEncoded;
+
 // java/security/KeyStore$TrustedCertificateEntry
 jclass    g_TrustedCertificateEntryClass;
 jmethodID g_TrustedCertificateEntryGetTrustedCertificate;
@@ -199,14 +194,14 @@ jmethodID g_CertPathBuilderBuild;
 jclass    g_CertPathValidatorClass;
 jmethodID g_CertPathValidatorGetInstance;
 jmethodID g_CertPathValidatorValidate;
-jmethodID g_CertPathValidatorGetRevocationChecker; // only in API level 24+
+jmethodID g_CertPathValidatorGetRevocationChecker;
 
 // java/security/cert/CertPathValidatorException
 jclass    g_CertPathValidatorExceptionClass;
 jmethodID g_CertPathValidatorExceptionGetIndex;
-jmethodID g_CertPathValidatorExceptionGetReason; // only in API level 24+
+jmethodID g_CertPathValidatorExceptionGetReason;
 
-// java/security/cert/CertPathValidatorException$BasicReason - only in API level 24+
+// java/security/cert/CertPathValidatorException$BasicReason
 jclass    g_CertPathExceptionBasicReasonClass;
 
 // java/security/cert/CertStore
@@ -231,14 +226,14 @@ jclass    g_PKIXCertPathBuilderResultClass;
 jmethodID g_PKIXCertPathBuilderResultGetCertPath;
 jmethodID g_PKIXCertPathBuilderResultGetTrustAnchor;
 
-// java/security/cert/PKIXReason - only in API level 24+
+// java/security/cert/PKIXReason
 jclass    g_PKIXReasonClass;
 
-// java/security/cert/PKIXRevocationChecker - only in API level 24+
+// java/security/cert/PKIXRevocationChecker
 jclass    g_PKIXRevocationCheckerClass;
 jmethodID g_PKIXRevocationCheckerSetOptions;
 
-// java/security/cert/PKIXRevocationChecker$Option - only in API level 24+
+// java/security/cert/PKIXRevocationChecker$Option
 jclass    g_PKIXRevocationCheckerOptionClass;
 jfieldID  g_PKIXRevocationCheckerOptionOnlyEndEntity;
 
@@ -412,6 +407,9 @@ jmethodID g_HostnameVerifierVerify;
 jclass    g_HttpsURLConnection;
 jmethodID g_HttpsURLConnectionGetDefaultHostnameVerifier;
 
+// javax/net/ssl/KeyManager
+jclass    g_KeyManager;
+
 // javax/net/ssl/KeyManagerFactory
 jclass    g_KeyManagerFactory;
 jmethodID g_KeyManagerFactoryGetInstance;
@@ -448,8 +446,6 @@ jmethodID g_ByteBufferGet;
 jmethodID g_ByteBufferLimit;
 jmethodID g_ByteBufferPosition;
 jmethodID g_ByteBufferPutBuffer;
-jmethodID g_ByteBufferPutByteArray;
-jmethodID g_ByteBufferPutByteArrayWithLength;
 jmethodID g_ByteBufferRemaining;
 
 // javax/net/ssl/SSLContext
@@ -473,7 +469,7 @@ jmethodID g_SSLSessionGetProtocol;
 jclass    g_SSLEngineResult;
 jmethodID g_SSLEngineResultGetStatus;
 jmethodID g_SSLEngineResultGetHandshakeStatus;
-bool      g_SSLEngineResultStatusLegacyOrder;
+jmethodID g_SSLEngineResultBytesConsumed;
 
 // javax/crypto/KeyAgreement
 jclass    g_KeyAgreementClass;
@@ -488,6 +484,14 @@ jclass g_TrustManager;
 // net/dot/android/crypto/DotnetProxyTrustManager
 jclass    g_DotnetProxyTrustManager;
 jmethodID g_DotnetProxyTrustManagerCtor;
+
+// net/dot/android/crypto/DotnetX509KeyManager
+jclass    g_DotnetX509KeyManager;
+jmethodID g_DotnetX509KeyManagerCtor;
+
+// net/dot/android/crypto/PalPbkdf2
+jclass    g_PalPbkdf2;
+jmethodID g_PalPbkdf2Pbkdf2OneShot;
 
 jobject ToGRef(JNIEnv *env, jobject lref)
 {
@@ -678,11 +682,10 @@ int GetEnumAsInt(JNIEnv *env, jobject enumObj)
     return value;
 }
 
-JNIEXPORT jint JNICALL
-JNI_OnLoad(JavaVM *vm, void *reserved)
+jint AndroidCryptoNative_InitLibraryOnLoad (JavaVM *vm, void *reserved)
 {
     (void)reserved;
-    LOG_INFO("JNI_OnLoad in pal_jni.c");
+    LOG_DEBUG("%s in %s", __PRETTY_FUNCTION__, __FILE__);
     gJvm = vm;
 
     JNIEnv* env = GetJNIEnv();
@@ -769,16 +772,6 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_SSLParametersGetProtocols =               GetMethod(env, false,  g_SSLParametersClass, "getProtocols", "()[Ljava/lang/String;");
     g_SSLParametersSetApplicationProtocols =    GetOptionalMethod(env, false,  g_SSLParametersClass, "setApplicationProtocols", "([Ljava/lang/String;)V");
 
-    g_ConscryptOpenSSLEngineImplClass = GetOptionalClassGRef(env, "com/android/org/conscrypt/OpenSSLEngineImpl");
-    if (g_ConscryptOpenSSLEngineImplClass != NULL)
-    {
-        g_ConscryptOpenSSLEngineImplSslParametersField =  GetField(env, false,  g_ConscryptOpenSSLEngineImplClass, "sslParameters", "Lcom/android/org/conscrypt/SSLParametersImpl;");
-        g_ConscryptOpenSSLEngineImplHandshakeSessionField = GetOptionalField(env, false,  g_ConscryptOpenSSLEngineImplClass, "handshakeSession", "Lcom/android/org/conscrypt/OpenSSLSessionImpl;");
-
-        g_ConscryptSSLParametersImplClass = GetClassGRef(env, "com/android/org/conscrypt/SSLParametersImpl");
-        g_ConscryptSSLParametersImplSetUseSni = GetMethod(env, false,  g_ConscryptSSLParametersImplClass, "setUseSni", "(Z)V");
-    }
-
     g_sslCtxClass =                     GetClassGRef(env, "javax/net/ssl/SSLContext");
     g_sslCtxGetDefaultMethod =          GetMethod(env, true,  g_sslCtxClass, "getDefault", "()Ljavax/net/ssl/SSLContext;");
     g_sslCtxGetDefaultSslParamsMethod = GetMethod(env, false, g_sslCtxClass, "getDefaultSSLParameters", "()Ljavax/net/ssl/SSLParameters;");
@@ -801,13 +794,13 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_CertPathValidatorClass =                  GetClassGRef(env, "java/security/cert/CertPathValidator");
     g_CertPathValidatorGetInstance =            GetMethod(env, true, g_CertPathValidatorClass, "getInstance", "(Ljava/lang/String;)Ljava/security/cert/CertPathValidator;");
     g_CertPathValidatorValidate =               GetMethod(env, false, g_CertPathValidatorClass, "validate", "(Ljava/security/cert/CertPath;Ljava/security/cert/CertPathParameters;)Ljava/security/cert/CertPathValidatorResult;");
-    g_CertPathValidatorGetRevocationChecker =   GetOptionalMethod(env, false, g_CertPathValidatorClass, "getRevocationChecker", "()Ljava/security/cert/CertPathChecker;");
+    g_CertPathValidatorGetRevocationChecker =   GetMethod(env, false, g_CertPathValidatorClass, "getRevocationChecker", "()Ljava/security/cert/CertPathChecker;");
 
     g_CertPathValidatorExceptionClass =     GetClassGRef(env, "java/security/cert/CertPathValidatorException");
     g_CertPathValidatorExceptionGetIndex =  GetMethod(env, false, g_CertPathValidatorExceptionClass, "getIndex", "()I");
-    g_CertPathValidatorExceptionGetReason = GetOptionalMethod(env, false, g_CertPathValidatorExceptionClass, "getReason", "()Ljava/security/cert/CertPathValidatorException$Reason;");
+    g_CertPathValidatorExceptionGetReason = GetMethod(env, false, g_CertPathValidatorExceptionClass, "getReason", "()Ljava/security/cert/CertPathValidatorException$Reason;");
 
-    g_CertPathExceptionBasicReasonClass =   GetOptionalClassGRef(env, "java/security/cert/CertPathValidatorException$BasicReason");
+    g_CertPathExceptionBasicReasonClass =   GetClassGRef(env, "java/security/cert/CertPathValidatorException$BasicReason");
 
     g_CertStoreClass =          GetClassGRef(env, "java/security/cert/CertStore");
     g_CertStoreGetInstance =    GetMethod(env, true, g_CertStoreClass, "getInstance", "(Ljava/lang/String;Ljava/security/cert/CertStoreParameters;)Ljava/security/cert/CertStore;");
@@ -827,16 +820,12 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_PKIXCertPathBuilderResultGetCertPath =    GetMethod(env, false, g_PKIXCertPathBuilderResultClass, "getCertPath", "()Ljava/security/cert/CertPath;");
     g_PKIXCertPathBuilderResultGetTrustAnchor = GetMethod(env, false, g_PKIXCertPathBuilderResultClass, "getTrustAnchor", "()Ljava/security/cert/TrustAnchor;");
 
-    g_PKIXReasonClass =   GetOptionalClassGRef(env, "java/security/cert/PKIXReason");
+    g_PKIXReasonClass =   GetClassGRef(env, "java/security/cert/PKIXReason");
+    g_PKIXRevocationCheckerClass =                  GetClassGRef(env, "java/security/cert/PKIXRevocationChecker");
+    g_PKIXRevocationCheckerSetOptions =             GetMethod(env, false, g_PKIXRevocationCheckerClass, "setOptions", "(Ljava/util/Set;)V");
 
-    if (g_CertPathValidatorGetRevocationChecker != NULL)
-    {
-        g_PKIXRevocationCheckerClass =                  GetClassGRef(env, "java/security/cert/PKIXRevocationChecker");
-        g_PKIXRevocationCheckerSetOptions =             GetMethod(env, false, g_PKIXRevocationCheckerClass, "setOptions", "(Ljava/util/Set;)V");
-
-        g_PKIXRevocationCheckerOptionClass =            GetClassGRef(env, "java/security/cert/PKIXRevocationChecker$Option");
-        g_PKIXRevocationCheckerOptionOnlyEndEntity =    GetField(env, true, g_PKIXRevocationCheckerOptionClass, "ONLY_END_ENTITY", "Ljava/security/cert/PKIXRevocationChecker$Option;");
-    }
+    g_PKIXRevocationCheckerOptionClass =            GetClassGRef(env, "java/security/cert/PKIXRevocationChecker$Option");
+    g_PKIXRevocationCheckerOptionOnlyEndEntity =    GetField(env, true, g_PKIXRevocationCheckerOptionClass, "ONLY_END_ENTITY", "Ljava/security/cert/PKIXRevocationChecker$Option;");
 
     g_TrustAnchorClass =            GetClassGRef(env, "java/security/cert/TrustAnchor");
     g_TrustAnchorCtor =             GetMethod(env, false, g_TrustAnchorClass, "<init>", "(Ljava/security/cert/X509Certificate;[B)V");
@@ -887,6 +876,9 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_PrivateKeyEntryClass =            GetClassGRef(env, "java/security/KeyStore$PrivateKeyEntry");
     g_PrivateKeyEntryGetCertificate =   GetMethod(env, false, g_PrivateKeyEntryClass, "getCertificate", "()Ljava/security/cert/Certificate;");
     g_PrivateKeyEntryGetPrivateKey =    GetMethod(env, false, g_PrivateKeyEntryClass, "getPrivateKey", "()Ljava/security/PrivateKey;");
+
+    g_KeyClass =      GetClassGRef(env, "java/security/Key");
+    g_KeyGetEncoded = GetMethod(env, false, g_KeyClass, "getEncoded", "()[B");
 
     g_TrustedCertificateEntryClass =                    GetClassGRef(env, "java/security/KeyStore$TrustedCertificateEntry");
     g_TrustedCertificateEntryGetTrustedCertificate =    GetMethod(env, false, g_TrustedCertificateEntryClass, "getTrustedCertificate", "()Ljava/security/cert/Certificate;");
@@ -1024,24 +1016,22 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_HttpsURLConnection =                              GetClassGRef(env, "javax/net/ssl/HttpsURLConnection");
     g_HttpsURLConnectionGetDefaultHostnameVerifier =    GetMethod(env, true, g_HttpsURLConnection, "getDefaultHostnameVerifier", "()Ljavax/net/ssl/HostnameVerifier;");
 
+    g_KeyManager = GetClassGRef(env, "javax/net/ssl/KeyManager");
+
     g_KeyManagerFactory =               GetClassGRef(env, "javax/net/ssl/KeyManagerFactory");
     g_KeyManagerFactoryGetInstance =    GetMethod(env, true, g_KeyManagerFactory, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/KeyManagerFactory;");
     g_KeyManagerFactoryInit =           GetMethod(env, false, g_KeyManagerFactory, "init", "(Ljava/security/KeyStore;[C)V");
     g_KeyManagerFactoryGetKeyManagers = GetMethod(env, false, g_KeyManagerFactory, "getKeyManagers", "()[Ljavax/net/ssl/KeyManager;");
 
-    // Supported on API Level 24 and above
-    g_SNIHostName = GetOptionalClassGRef(env, "javax/net/ssl/SNIHostName");
-    if (g_SNIHostName != NULL)
-    {
-        g_SNIHostNameCtor =                 GetMethod(env, false, g_SNIHostName, "<init>", "(Ljava/lang/String;)V");
-        g_SSLParametersSetServerNames =     GetOptionalMethod(env, false,  g_SSLParametersClass, "setServerNames", "(Ljava/util/List;)V");
-    }
+    g_SNIHostName =                        GetClassGRef(env, "javax/net/ssl/SNIHostName");
+    g_SNIHostNameCtor =                    GetMethod(env, false, g_SNIHostName, "<init>", "(Ljava/lang/String;)V");
+    g_SSLParametersSetServerNames =        GetMethod(env, false,  g_SSLParametersClass, "setServerNames", "(Ljava/util/List;)V");
 
     g_SSLEngine =                       GetClassGRef(env, "javax/net/ssl/SSLEngine");
     g_SSLEngineBeginHandshake =         GetMethod(env, false, g_SSLEngine, "beginHandshake", "()V");
     g_SSLEngineCloseOutbound =          GetMethod(env, false, g_SSLEngine, "closeOutbound", "()V");
     g_SSLEngineGetApplicationProtocol = GetOptionalMethod(env, false, g_SSLEngine, "getApplicationProtocol", "()Ljava/lang/String;");
-    g_SSLEngineGetHandshakeSession =    GetOptionalMethod(env, false, g_SSLEngine, "getHandshakeSession", "()Ljavax/net/ssl/SSLSession;");
+    g_SSLEngineGetHandshakeSession =    GetMethod(env, false, g_SSLEngine, "getHandshakeSession", "()Ljavax/net/ssl/SSLSession;");
     g_SSLEngineGetHandshakeStatus =     GetMethod(env, false, g_SSLEngine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
     g_SSLEngineGetSession =             GetMethod(env, false, g_SSLEngine, "getSession", "()Ljavax/net/ssl/SSLSession;");
     g_SSLEngineGetSSLParameters =       GetMethod(env, false, g_SSLEngine, "getSSLParameters", "()Ljavax/net/ssl/SSLParameters;");
@@ -1061,8 +1051,6 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_ByteBufferLimit =                     GetMethod(env, false, g_ByteBuffer, "limit", "()I");
     g_ByteBufferPosition =                  GetMethod(env, false, g_ByteBuffer, "position", "()I");
     g_ByteBufferPutBuffer =                 GetMethod(env, false, g_ByteBuffer, "put", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;");
-    g_ByteBufferPutByteArray =              GetMethod(env, false, g_ByteBuffer, "put", "([B)Ljava/nio/ByteBuffer;");
-    g_ByteBufferPutByteArrayWithLength =    GetMethod(env, false, g_ByteBuffer, "put", "([BII)Ljava/nio/ByteBuffer;");
     g_ByteBufferRemaining =                 GetMethod(env, false, g_ByteBuffer, "remaining", "()I");
 
     g_SSLContext =                        GetClassGRef(env, "javax/net/ssl/SSLContext");
@@ -1083,7 +1071,7 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_SSLEngineResult =                     GetClassGRef(env, "javax/net/ssl/SSLEngineResult");
     g_SSLEngineResultGetStatus =            GetMethod(env, false, g_SSLEngineResult, "getStatus", "()Ljavax/net/ssl/SSLEngineResult$Status;");
     g_SSLEngineResultGetHandshakeStatus =   GetMethod(env, false, g_SSLEngineResult, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-    g_SSLEngineResultStatusLegacyOrder = android_get_device_api_level() < 24;
+    g_SSLEngineResultBytesConsumed =        GetMethod(env, false, g_SSLEngineResult, "bytesConsumed", "()I");
 
     g_KeyAgreementClass          = GetClassGRef(env, "javax/crypto/KeyAgreement");
     g_KeyAgreementGetInstance    = GetMethod(env, true, g_KeyAgreementClass, "getInstance", "(Ljava/lang/String;)Ljavax/crypto/KeyAgreement;");
@@ -1095,6 +1083,12 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
 
     g_DotnetProxyTrustManager =     GetClassGRef(env, "net/dot/android/crypto/DotnetProxyTrustManager");
     g_DotnetProxyTrustManagerCtor = GetMethod(env, false, g_DotnetProxyTrustManager, "<init>", "(J)V");
+
+    g_DotnetX509KeyManager =     GetClassGRef(env, "net/dot/android/crypto/DotnetX509KeyManager");
+    g_DotnetX509KeyManagerCtor = GetMethod(env, false, g_DotnetX509KeyManager, "<init>", "(Ljava/security/KeyStore$PrivateKeyEntry;)V");
+
+    g_PalPbkdf2              = GetClassGRef(env, "net/dot/android/crypto/PalPbkdf2");
+    g_PalPbkdf2Pbkdf2OneShot = GetMethod(env, true, g_PalPbkdf2, "pbkdf2OneShot", "(Ljava/lang/String;[BLjava/nio/ByteBuffer;ILjava/nio/ByteBuffer;)I");
 
     return JNI_VERSION_1_6;
 }

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -27,27 +28,13 @@ namespace System.Runtime.CompilerServices
             throw new PlatformNotSupportedException();
         }
 
-#pragma warning disable IDE0060
-        private static unsafe void* GetSpanDataFrom(
-            RuntimeFieldHandle fldHandle,
-            RuntimeTypeHandle targetTypeHandle,
-            out int count)
-        {
-            // We only support this intrinsic when it occurs within a well-defined IL sequence.
-            // If a call to this method occurs within the recognized sequence, codegen must expand the IL sequence completely.
-            // For any other purpose, the API is currently unsupported.
-            // https://github.com/dotnet/corert/issues/364
-            throw new PlatformNotSupportedException();
-        }
-#pragma warning disable IDE0060
-
         [RequiresUnreferencedCode("Trimmer can't guarantee existence of class constructor")]
         public static void RunClassConstructor(RuntimeTypeHandle type)
         {
             if (type.IsNull)
                 throw new ArgumentException(SR.InvalidOperation_HandleIsNotInitialized);
 
-            ReflectionAugments.ReflectionCoreCallbacks.RunClassConstructor(type);
+            ReflectionAugments.RunClassConstructor(type);
         }
 
         public static void RunModuleConstructor(ModuleHandle module)
@@ -182,19 +169,6 @@ namespace System.Runtime.CompilerServices
         }
 
         [Intrinsic]
-        public static unsafe bool IsReferenceOrContainsReferences<T>()
-        {
-            MethodTable* pEEType = MethodTable.Of<T>();
-            return !pEEType->IsValueType || pEEType->ContainsGCPointers;
-        }
-
-        [Intrinsic]
-        internal static unsafe bool IsReference<T>()
-        {
-            return !MethodTable.Of<T>()->IsValueType;
-        }
-
-        [Intrinsic]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsBitwiseEquatable<T>()
         {
@@ -225,8 +199,8 @@ namespace System.Runtime.CompilerServices
             return array.GetMethodTable()->ComponentSize;
         }
 
-        internal static unsafe MethodTable* GetMethodTable(this object obj)
-            => obj.m_pEEType;
+        [Intrinsic]
+        internal static unsafe MethodTable* GetMethodTable(this object obj) => obj.GetMethodTable();
 
         internal static unsafe ref MethodTable* GetMethodTableRef(this object obj)
             => ref obj.m_pEEType;
@@ -251,17 +225,18 @@ namespace System.Runtime.CompilerServices
                 throw new ArgumentException(SR.InvalidOperation_HandleIsNotInitialized, nameof(method));
         }
 
-        /// <summary>
-        /// Allocate memory that is associated with the <paramref name="type"/> and
-        /// will be freed if and when the <see cref="System.Type"/> is unloaded.
-        /// </summary>
-        /// <param name="type">Type associated with the allocated memory.</param>
-        /// <param name="size">Amount of memory in bytes to allocate.</param>
-        /// <returns>The allocated memory</returns>
+        /// <summary>Allocates memory that's associated with the <paramref name="type" /> and is freed if and when the <see cref="Type" /> is unloaded.</summary>
+        /// <param name="type">The type associated with the allocated memory.</param>
+        /// <param name="size">The amount of memory to allocate, in bytes.</param>
+        /// <returns>The allocated memory.</returns>
+        /// <exception cref="ArgumentException"><paramref name="type" /> must be a type provided by the runtime.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="size" /> is negative.</exception>
         public static unsafe IntPtr AllocateTypeAssociatedMemory(Type type, int size)
         {
             if (type is not RuntimeType)
+            {
                 throw new ArgumentException(SR.Arg_MustBeType, nameof(type));
+            }
 
             ArgumentOutOfRangeException.ThrowIfNegative(size);
 
@@ -269,12 +244,39 @@ namespace System.Runtime.CompilerServices
             return (IntPtr)NativeMemory.AllocZeroed((uint)size);
         }
 
+        /// <summary>Allocates aligned memory that's associated with the <paramref name="type" /> and is freed if and when the <see cref="Type" /> is unloaded.</summary>
+        /// <param name="type">The type associated with the allocated memory.</param>
+        /// <param name="size">The amount of memory to allocate, in bytes.</param>
+        /// <param name="alignment">The alignment, in bytes, of the memory to allocate. This must be a power of <c>2</c>.</param>
+        /// <returns>The allocated aligned memory.</returns>
+        /// <exception cref="ArgumentException"><paramref name="type" /> must be a type provided by the runtime.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="size" /> is negative.</exception>
+        /// <exception cref="ArgumentException"><paramref name="alignment" /> is not a power of <c>2</c>.</exception>
+        public static unsafe IntPtr AllocateTypeAssociatedMemory(Type type, int size, int alignment)
+        {
+            if (type is not RuntimeType)
+            {
+                throw new ArgumentException(SR.Arg_MustBeType, nameof(type));
+            }
+
+            ArgumentOutOfRangeException.ThrowIfNegative(size);
+
+            if (!BitOperations.IsPow2(alignment))
+            {
+                // The C standard doesn't define what a valid alignment is, however Windows and POSIX implementation requires a power of 2
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_AlignmentMustBePow2);
+            }
+
+            // We don't support unloading; the memory will never be freed.
+            void* result = NativeMemory.AlignedAlloc((uint)size, (uint)alignment);
+            NativeMemory.Clear(result, (uint)size);
+            return (IntPtr)result;
+        }
+
         public static void PrepareDelegate(Delegate d)
         {
         }
 
-        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2059:UnrecognizedReflectionPattern",
-            Justification = "We keep class constructors of all types with an MethodTable")]
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072:UnrecognizedReflectionPattern",
             Justification = "Constructed MethodTable of a Nullable forces a constructed MethodTable of the element type")]
         public static unsafe object GetUninitializedObject(
@@ -339,14 +341,7 @@ namespace System.Runtime.CompilerServices
                 throw new NotSupportedException(SR.NotSupported_ByRefLike);
             }
 
-            Debug.Assert(MethodTable.Of<object>()->NumVtableSlots > 0);
-            if (mt->NumVtableSlots == 0)
-            {
-                // This is a type without a vtable or GCDesc. We must not allow creating an instance of it
-                throw ReflectionCoreExecution.ExecutionEnvironment.CreateMissingMetadataException(type);
-            }
-            // Paranoid check: not-meant-for-GC-heap types should be reliably identifiable by empty vtable.
-            Debug.Assert(!mt->ContainsGCPointers || RuntimeImports.RhGetGCDescSize(mt) != 0);
+            RuntimeAugments.EnsureMethodTableSafeToAllocate(mt);
 
             if (mt->IsNullable)
             {
@@ -360,6 +355,68 @@ namespace System.Runtime.CompilerServices
             RunClassConstructor(type.TypeHandle);
 
             return RuntimeImports.RhNewObject(mt);
+        }
+
+        /// <summary>
+        /// Create a boxed object of the specified type from the data located at the target reference.
+        /// </summary>
+        /// <param name="target">The target data</param>
+        /// <param name="type">The type of box to create.</param>
+        /// <returns>A boxed object containing the specified data.</returns>
+        /// <exception cref="ArgumentNullException">The specified type handle is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException">The specified type cannot have a boxed instance of itself created.</exception>
+        /// <exception cref="NotSupportedException">The passed in type is a by-ref-like type.</exception>
+        public static unsafe object? Box(ref byte target, RuntimeTypeHandle type)
+        {
+            if (type.IsNull)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.type);
+
+            MethodTable* mt = type.ToMethodTable();
+
+            if (mt->ElementType == EETypeElementType.Void || mt->IsGenericTypeDefinition || mt->IsByRef || mt->IsPointer || mt->IsFunctionPointer)
+                throw new ArgumentException(SR.Arg_TypeNotSupported);
+
+            RuntimeAugments.EnsureMethodTableSafeToAllocate(mt);
+
+            if (!mt->IsValueType)
+            {
+                return Unsafe.As<byte, object>(ref target);
+            }
+
+            if (mt->IsByRefLike)
+                throw new NotSupportedException(SR.NotSupported_ByRefLike);
+
+            return RuntimeExports.RhBox(mt, ref target);
+        }
+
+        /// <summary>
+        /// Get the size of an object of the given type.
+        /// </summary>
+        /// <param name="type">The type to get the size of.</param>
+        /// <returns>The size of instances of the type.</returns>
+        /// <exception cref="ArgumentException">The passed-in type is not a valid type to get the size of.</exception>
+        /// <remarks>
+        /// This API returns the same value as <see cref="Unsafe.SizeOf{T}"/> for the type that <paramref name="type"/> represents.
+        /// </remarks>
+        public static unsafe int SizeOf(RuntimeTypeHandle type)
+        {
+            if (type.IsNull)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.type);
+
+            MethodTable* mt = type.ToMethodTable();
+
+            if (mt->ElementType == EETypeElementType.Void
+                || mt->IsGenericTypeDefinition)
+            {
+                throw new ArgumentException(SR.Arg_TypeNotSupported);
+            }
+
+            if (mt->IsValueType)
+            {
+                return (int)mt->ValueTypeSize;
+            }
+
+            return nint.Size;
         }
     }
 

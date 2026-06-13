@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Buffers;
@@ -33,6 +33,21 @@ namespace System
             /// </summary>
             public static readonly SearchValues<char> NewLineChars =
                 SearchValues.Create(NewLineCharsExceptLineFeed + "\n");
+
+            /// <summary>A <see cref="SearchValues{Char}"/> for all of the Unicode whitespace characters</summary>
+            public static readonly SearchValues<char> WhiteSpaceChars =
+                SearchValues.Create("\t\n\v\f\r\u0020\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000");
+
+#if DEBUG
+            static SearchValuesStorage()
+            {
+                SearchValues<char> sv = WhiteSpaceChars;
+                for (int i = 0; i <= char.MaxValue; i++)
+                {
+                    Debug.Assert(char.IsWhiteSpace((char)i) == sv.Contains((char)i));
+                }
+            }
+#endif
         }
 
         internal const int StackallocIntBufferSizeLimit = 128;
@@ -62,10 +77,19 @@ namespace System
         public static string Concat(params object?[] args)
         {
             ArgumentNullException.ThrowIfNull(args);
+            return Concat((ReadOnlySpan<object?>)args);
+        }
 
+        /// <summary>
+        /// Concatenates the string representations of the elements in a specified span of objects.
+        /// </summary>
+        /// <param name="args">A span of objects that contains the elements to concatenate.</param>
+        /// <returns>The concatenated string representations of the values of the elements in <paramref name="args"/>.</returns>
+        public static string Concat(params ReadOnlySpan<object?> args)
+        {
             if (args.Length <= 1)
             {
-                return args.Length == 0 ?
+                return args.IsEmpty ?
                     Empty :
                     args[0]?.ToString() ?? Empty;
             }
@@ -124,7 +148,7 @@ namespace System
         public static string Concat<T>(IEnumerable<T> values) =>
             JoinCore(ReadOnlySpan<char>.Empty, values);
 
-        public static string Concat(IEnumerable<string?> values)
+        public static unsafe string Concat(IEnumerable<string?> values)
         {
             ArgumentNullException.ThrowIfNull(values);
 
@@ -355,10 +379,19 @@ namespace System
         public static string Concat(params string?[] values)
         {
             ArgumentNullException.ThrowIfNull(values);
+            return Concat((ReadOnlySpan<string?>)values);
+        }
 
+        /// <summary>
+        /// Concatenates the elements of a specified span of <see cref="string"/>.
+        /// </summary>
+        /// <param name="values">A span of <see cref="string"/> instances.</param>
+        /// <returns>The concatenated elements of <paramref name="values"/>.</returns>
+        public static string Concat(params ReadOnlySpan<string?> values)
+        {
             if (values.Length <= 1)
             {
-                return values.Length == 0 ?
+                return values.IsEmpty ?
                     Empty :
                     values[0] ?? Empty;
             }
@@ -416,7 +449,7 @@ namespace System
             // something changed concurrently to mutate the input array: fall back to
             // doing the concatenation again, but this time with a defensive copy. This
             // fall back should be extremely rare.
-            return copiedLength == totalLength ? result : Concat((string?[])values.Clone());
+            return copiedLength == totalLength ? result : Concat((ReadOnlySpan<string?>)values.ToArray());
         }
 
         public static string Format([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, object? arg0)
@@ -426,14 +459,12 @@ namespace System
 
         public static string Format([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, object? arg0, object? arg1)
         {
-            TwoObjects two = new TwoObjects(arg0, arg1);
-            return FormatHelper(null, format, MemoryMarshal.CreateReadOnlySpan(ref two.Arg0, 2));
+            return FormatHelper(null, format, [arg0, arg1]);
         }
 
         public static string Format([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, object? arg0, object? arg1, object? arg2)
         {
-            ThreeObjects three = new ThreeObjects(arg0, arg1, arg2);
-            return FormatHelper(null, format, MemoryMarshal.CreateReadOnlySpan(ref three.Arg0, 3));
+            return FormatHelper(null, format, [arg0, arg1, arg2]);
         }
 
         public static string Format([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, params object?[] args)
@@ -445,6 +476,17 @@ namespace System
                 ArgumentNullException.Throw(format is null ? nameof(format) : nameof(args));
             }
 
+            return FormatHelper(null, format, (ReadOnlySpan<object?>)args);
+        }
+
+        /// <summary>
+        /// Replaces the format item in a specified string with the string representation of a corresponding object in a specified span.
+        /// </summary>
+        /// <param name="format">A <see href="https://learn.microsoft.com/dotnet/standard/base-types/composite-formatting">composite format string</see>.</param>
+        /// <param name="args">An object span that contains zero or more objects to format.</param>
+        /// <returns>A copy of <paramref name="format"/> in which the format items have been replaced by the string representation of the corresponding objects in <paramref name="args"/>.</returns>
+        public static string Format([StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, params ReadOnlySpan<object?> args)
+        {
             return FormatHelper(null, format, args);
         }
 
@@ -455,14 +497,12 @@ namespace System
 
         public static string Format(IFormatProvider? provider, [StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, object? arg0, object? arg1)
         {
-            TwoObjects two = new TwoObjects(arg0, arg1);
-            return FormatHelper(provider, format, MemoryMarshal.CreateReadOnlySpan(ref two.Arg0, 2));
+            return FormatHelper(provider, format, [arg0, arg1]);
         }
 
         public static string Format(IFormatProvider? provider, [StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, object? arg0, object? arg1, object? arg2)
         {
-            ThreeObjects three = new ThreeObjects(arg0, arg1, arg2);
-            return FormatHelper(provider, format, MemoryMarshal.CreateReadOnlySpan(ref three.Arg0, 3));
+            return FormatHelper(provider, format, [arg0, arg1, arg2]);
         }
 
         public static string Format(IFormatProvider? provider, [StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, params object?[] args)
@@ -474,10 +514,23 @@ namespace System
                 ArgumentNullException.Throw(format is null ? nameof(format) : nameof(args));
             }
 
+            return FormatHelper(provider, format, (ReadOnlySpan<object?>)args);
+        }
+
+        /// <summary>
+        /// Replaces the format items in a string with the string representations of corresponding objects in a specified span.
+        /// A parameter supplies culture-specific formatting information.
+        /// </summary>
+        /// <param name="provider">An object that supplies culture-specific formatting information.</param>
+        /// <param name="format">A <see href="https://learn.microsoft.com/dotnet/standard/base-types/composite-formatting">composite format string</see>.</param>
+        /// <param name="args">An object span that contains zero or more objects to format.</param>
+        /// <returns>A copy of <paramref name="format"/> in which the format items have been replaced by the string representation of the corresponding objects in <paramref name="args"/>.</returns>
+        public static string Format(IFormatProvider? provider, [StringSyntax(StringSyntaxAttribute.CompositeFormat)] string format, params ReadOnlySpan<object?> args)
+        {
             return FormatHelper(provider, format, args);
         }
 
-        private static string FormatHelper(IFormatProvider? provider, string format, ReadOnlySpan<object?> args)
+        private static unsafe string FormatHelper(IFormatProvider? provider, string format, ReadOnlySpan<object?> args)
         {
             ArgumentNullException.ThrowIfNull(format);
 
@@ -575,23 +628,25 @@ namespace System
         /// <returns>The formatted string.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="format"/> is null.</exception>
         /// <exception cref="FormatException">The index of a format item is greater than or equal to the number of supplied arguments.</exception>
-        public static string Format(IFormatProvider? provider, CompositeFormat format, ReadOnlySpan<object?> args)
+        public static string Format(IFormatProvider? provider, CompositeFormat format, params ReadOnlySpan<object?> args)
         {
             ArgumentNullException.ThrowIfNull(format);
             format.ValidateNumberOfArgs(args.Length);
             return args.Length switch
             {
-                0 => format.Format,
+                0 => format._literalLength == format.Format.Length ? format.Format : Format(provider, format, (object?)null, 0, 0, args),
                 1 => Format(provider, format, args[0], 0, 0, args),
                 2 => Format(provider, format, args[0], args[1], 0, args),
                 _ => Format(provider, format, args[0], args[1], args[2], args),
             };
         }
 
-        private static string Format<TArg0, TArg1, TArg2>(IFormatProvider? provider, CompositeFormat format, TArg0 arg0, TArg1 arg1, TArg2 arg2, ReadOnlySpan<object?> args)
+        private static unsafe string Format<TArg0, TArg1, TArg2>(IFormatProvider? provider, CompositeFormat format, TArg0 arg0, TArg1 arg1, TArg2 arg2, ReadOnlySpan<object?> args)
         {
-            // If there's no formatting to be done, we can just return the original format string as the result.
-            if (format._formattedCount == 0)
+            // If there's no formatting to be done and no brace escaping in the format string, we can just return
+            // the original format string as the result. If there is brace escaping, we need to process the segments
+            // so that the escaped braces are properly unescaped in the result.
+            if (format._formattedCount == 0 && format._literalLength == format.Format.Length)
             {
                 return format.Format;
             }
@@ -669,6 +724,21 @@ namespace System
             return JoinCore(new ReadOnlySpan<char>(in separator), new ReadOnlySpan<string?>(value));
         }
 
+        /// <summary>
+        /// Concatenates a span of strings, using the specified separator between each member.
+        /// </summary>
+        /// <param name="separator">The character to use as a separator. <paramref name="separator"/> is included in the returned string only if <paramref name="value"/> has more than one element.</param>
+        /// <param name="value">A span that contains the elements to concatenate.</param>
+        /// <returns>
+        /// A string that consists of the elements of <paramref name="value"/> delimited by the <paramref name="separator"/> string.
+        /// -or-
+        /// <see cref="Empty"/> if <paramref name="value"/> has zero elements.
+        /// </returns>
+        public static string Join(char separator, params ReadOnlySpan<string?> value)
+        {
+            return JoinCore(new ReadOnlySpan<char>(in separator), value);
+        }
+
         public static string Join(string? separator, params string?[] value)
         {
             if (value == null)
@@ -677,6 +747,21 @@ namespace System
             }
 
             return JoinCore(separator.AsSpan(), new ReadOnlySpan<string?>(value));
+        }
+
+        /// <summary>
+        /// Concatenates a span of strings, using the specified separator between each member.
+        /// </summary>
+        /// <param name="separator">The string to use as a separator. <paramref name="separator"/> is included in the returned string only if <paramref name="value"/> has more than one element.</param>
+        /// <param name="value">A span that contains the elements to concatenate.</param>
+        /// <returns>
+        /// A string that consists of the elements of <paramref name="value"/> delimited by the <paramref name="separator"/> string.
+        /// -or-
+        /// <see cref="Empty"/> if <paramref name="value"/> has zero elements.
+        /// </returns>
+        public static string Join(string? separator, params ReadOnlySpan<string?> value)
+        {
+            return JoinCore(separator.AsSpan(), value);
         }
 
         public static string Join(char separator, string?[] value, int startIndex, int count) =>
@@ -695,7 +780,7 @@ namespace System
             return JoinCore(separator, new ReadOnlySpan<string?>(value, startIndex, count));
         }
 
-        public static string Join(string? separator, IEnumerable<string?> values)
+        public static unsafe string Join(string? separator, IEnumerable<string?> values)
         {
             if (values is List<string?> valuesList)
             {
@@ -743,20 +828,55 @@ namespace System
             }
         }
 
-        public static string Join(char separator, params object?[] values) =>
-            JoinCore(new ReadOnlySpan<char>(in separator), values);
-
-        public static string Join(string? separator, params object?[] values) =>
-            JoinCore(separator.AsSpan(), values);
-
-        private static string JoinCore(ReadOnlySpan<char> separator, object?[] values)
+        public static string Join(char separator, params object?[] values)
         {
             if (values == null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.values);
             }
 
-            if (values.Length == 0)
+            return JoinCore(new ReadOnlySpan<char>(in separator), (ReadOnlySpan<object?>)values);
+        }
+
+        /// <summary>
+        /// Concatenates the string representations of a span of objects, using the specified separator between each member.
+        /// </summary>
+        /// <param name="separator">The character to use as a separator. <paramref name="separator"/> is included in the returned string only if value has more than one element.</param>
+        /// <param name="values">A span of objects whose string representations will be concatenated.</param>
+        /// <returns>
+        /// A string that consists of the elements of <paramref name="values"/> delimited by the <paramref name="separator"/> character.
+        /// -or-
+        /// <see cref="Empty"/> if <paramref name="values"/> has zero elements.
+        /// </returns>
+        public static string Join(char separator, params ReadOnlySpan<object?> values) =>
+            JoinCore(new ReadOnlySpan<char>(in separator), values);
+
+        public static string Join(string? separator, params object?[] values)
+        {
+            if (values == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.values);
+            }
+
+            return JoinCore(separator.AsSpan(), (ReadOnlySpan<object?>)values);
+        }
+
+        /// <summary>
+        /// Concatenates the string representations of a span of objects, using the specified separator between each member.
+        /// </summary>
+        /// <param name="separator">The string to use as a separator. <paramref name="separator"/> is included in the returned string only if <paramref name="values"/> has more than one element.</param>
+        /// <param name="values">A span of objects whose string representations will be concatenated.</param>
+        /// <returns>
+        /// A string that consists of the elements of <paramref name="values"/> delimited by the <paramref name="separator"/> string.
+        /// -or-
+        /// <see cref="Empty"/> if <paramref name="values"/> has zero elements.
+        /// </returns>
+        public static string Join(string? separator, params ReadOnlySpan<object?> values) =>
+            JoinCore(separator.AsSpan(), values);
+
+        private static unsafe string JoinCore(ReadOnlySpan<char> separator, ReadOnlySpan<object?> values)
+        {
+            if (values.IsEmpty)
             {
                 return Empty;
             }
@@ -791,24 +911,24 @@ namespace System
         public static string Join<T>(string? separator, IEnumerable<T> values) =>
             JoinCore(separator.AsSpan(), values);
 
-        private static string JoinCore<T>(ReadOnlySpan<char> separator, IEnumerable<T> values)
+        private static unsafe string JoinCore<T>(ReadOnlySpan<char> separator, IEnumerable<T> values)
         {
+            if (values is null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.values);
+            }
+
             if (typeof(T) == typeof(string))
             {
-                if (values is List<string?> valuesList)
+                if (values.GetType() == typeof(List<string?>)) // avoid accidentally bypassing a derived type's reimplementation of IEnumerable<T>
                 {
-                    return JoinCore(separator, CollectionsMarshal.AsSpan(valuesList));
+                    return JoinCore(separator, CollectionsMarshal.AsSpan((List<string?>)values));
                 }
 
                 if (values is string?[] valuesArray)
                 {
                     return JoinCore(separator, new ReadOnlySpan<string?>(valuesArray));
                 }
-            }
-
-            if (values == null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.values);
             }
 
             using (IEnumerator<T> e = values.GetEnumerator())
@@ -1071,28 +1191,15 @@ namespace System
             return ReplaceCore(oldValue, newValue, culture?.CompareInfo, ignoreCase ? CompareOptions.IgnoreCase : CompareOptions.None);
         }
 
-        public string Replace(string oldValue, string? newValue, StringComparison comparisonType)
-        {
-            switch (comparisonType)
+        public string Replace(string oldValue, string? newValue, StringComparison comparisonType) =>
+            comparisonType switch
             {
-                case StringComparison.CurrentCulture:
-                case StringComparison.CurrentCultureIgnoreCase:
-                    return ReplaceCore(oldValue, newValue, CultureInfo.CurrentCulture.CompareInfo, GetCaseCompareOfComparisonCulture(comparisonType));
-
-                case StringComparison.InvariantCulture:
-                case StringComparison.InvariantCultureIgnoreCase:
-                    return ReplaceCore(oldValue, newValue, CompareInfo.Invariant, GetCaseCompareOfComparisonCulture(comparisonType));
-
-                case StringComparison.Ordinal:
-                    return Replace(oldValue, newValue);
-
-                case StringComparison.OrdinalIgnoreCase:
-                    return ReplaceCore(oldValue, newValue, CompareInfo.Invariant, CompareOptions.OrdinalIgnoreCase);
-
-                default:
-                    throw new ArgumentException(SR.NotSupported_StringComparison, nameof(comparisonType));
-            }
-        }
+                StringComparison.CurrentCulture or StringComparison.CurrentCultureIgnoreCase => ReplaceCore(oldValue, newValue, CultureInfo.CurrentCulture.CompareInfo, GetCaseCompareOfComparisonCulture(comparisonType)),
+                StringComparison.InvariantCulture or StringComparison.InvariantCultureIgnoreCase => ReplaceCore(oldValue, newValue, CompareInfo.Invariant, GetCaseCompareOfComparisonCulture(comparisonType)),
+                StringComparison.Ordinal => Replace(oldValue, newValue),
+                StringComparison.OrdinalIgnoreCase => ReplaceCore(oldValue, newValue, CompareInfo.Invariant, CompareOptions.OrdinalIgnoreCase),
+                _ => throw new ArgumentException(SR.NotSupported_StringComparison, nameof(comparisonType)),
+            };
 
         private string ReplaceCore(string oldValue, string? newValue, CompareInfo? ci, CompareOptions options)
         {
@@ -1108,7 +1215,7 @@ namespace System
                 ?? this;
         }
 
-        private static string? ReplaceCore(ReadOnlySpan<char> searchSpace, ReadOnlySpan<char> oldValue, ReadOnlySpan<char> newValue, CompareInfo compareInfo, CompareOptions options)
+        private static unsafe string? ReplaceCore(ReadOnlySpan<char> searchSpace, ReadOnlySpan<char> oldValue, ReadOnlySpan<char> newValue, CompareInfo compareInfo, CompareOptions options)
         {
             Debug.Assert(!oldValue.IsEmpty);
             Debug.Assert(compareInfo != null);
@@ -1215,7 +1322,7 @@ namespace System
             return result;
         }
 
-        public string Replace(string oldValue, string? newValue)
+        public unsafe string Replace(string oldValue, string? newValue)
         {
             ArgumentException.ThrowIfNullOrEmpty(oldValue);
 
@@ -1339,6 +1446,29 @@ namespace System
         }
 
         /// <summary>
+        /// Returns a new string in which all occurrences of a specified Unicode rune in this instance are replaced with another specified Unicode rune using an ordinal comparison.
+        /// </summary>
+        /// <param name="oldRune">The Unicode character to be replaced.</param>
+        /// <param name="newRune">The Unicode character to replace all occurrences of <paramref name="oldRune"/>.</param>
+        /// <returns>
+        /// A string that is equivalent to this instance except that all instances of <paramref name="oldRune"/> are replaced with <paramref name="newRune"/>.
+        /// If <paramref name="oldRune"/> is not found in the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string Replace(Rune oldRune, Rune newRune)
+        {
+            if (oldRune.IsBmp && newRune.IsBmp)
+            {
+                return Replace((char)oldRune.Value, (char)newRune.Value);
+            }
+
+            ReadOnlySpan<char> oldChars = oldRune.AsSpan(stackalloc char[Rune.MaxUtf16CharsPerRune]);
+            ReadOnlySpan<char> newChars = newRune.AsSpan(stackalloc char[Rune.MaxUtf16CharsPerRune]);
+
+            return ReplaceCore(this, oldChars, newChars, CompareInfo.Invariant, CompareOptions.Ordinal)
+                ?? this;
+        }
+
+        /// <summary>
         /// Replaces all newline sequences in the current string with <see cref="Environment.NewLine"/>.
         /// </summary>
         /// <returns>
@@ -1398,7 +1528,7 @@ namespace System
                 : ReplaceLineEndingsCore(replacementText);
         }
 
-        private string ReplaceLineEndingsCore(string replacementText)
+        private unsafe string ReplaceLineEndingsCore(string replacementText)
         {
             ArgumentNullException.ThrowIfNull(replacementText);
 
@@ -1491,7 +1621,7 @@ namespace System
             }
         }
 
-        private string ReplaceLineEndingsWithLineFeed()
+        private unsafe string ReplaceLineEndingsWithLineFeed()
         {
             // If we are going to replace the new line with a line feed ('\n'),
             // we can skip looking for it to avoid breaking out of the vectorized path unnecessarily.
@@ -1534,6 +1664,45 @@ namespace System
             return SplitInternal(new ReadOnlySpan<char>(in separator), count, options);
         }
 
+        /// <summary>
+        /// Splits a string into substrings based on a specified delimiting rune and, optionally, options.
+        /// </summary>
+        /// <param name="separator">A character that delimits the substrings in this string.</param>
+        /// <param name="options">A bitwise combination of the enumeration values that specifies whether to trim substrings and include empty substrings.</param>
+        /// <returns>An array whose elements contain the substrings from this instance that are delimited by <paramref name="separator"/>.</returns>
+        public string[] Split(Rune separator, StringSplitOptions options = StringSplitOptions.None)
+        {
+            return Split(separator, int.MaxValue, options);
+        }
+
+        /// <summary>
+        /// Splits a string into a maximum number of substrings based on the provided rune separator, optionally omitting empty substrings from the result.
+        /// </summary>
+        /// <param name="separator">A character that delimits the substrings in this string.</param>
+        /// <param name="count">The maximum number of elements expected in the array.</param>
+        /// <param name="options">A bitwise combination of the enumeration values that specifies whether to trim substrings and include empty substrings.</param>
+        /// <returns>An array whose elements contain the substrings from this instance that are delimited by <paramref name="separator"/>.</returns>
+        public unsafe string[] Split(Rune separator, int count, StringSplitOptions options = StringSplitOptions.None)
+        {
+            if (separator.IsBmp)
+            {
+                return Split((char)separator.Value, count, options);
+            }
+
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+            CheckStringSplitOptions(options);
+
+            // Ensure matching the string separator overload.
+            if (count <= 1 || Length == 0)
+            {
+                return CreateSplitArrayOfThisAsSoleValue(options, count);
+            }
+
+            ReadOnlySpan<char> separatorSpan = separator.AsSpan(stackalloc char[Rune.MaxUtf16CharsPerRune]);
+            return Split(separatorSpan, count, options);
+        }
+
         // Creates an array of strings by splitting this string at each
         // occurrence of a separator.  The separator is searched for, and if found,
         // the substring preceding the occurrence is stored as the first element in
@@ -1544,6 +1713,16 @@ namespace System
         // whitespace (i.e., Character.IsWhitespace) is used as the separator.
         //
         public string[] Split(params char[]? separator)
+        {
+            return SplitInternal(separator, int.MaxValue, StringSplitOptions.None);
+        }
+
+        /// <summary>
+        /// Splits a string into substrings based on specified delimiting characters.
+        /// </summary>
+        /// <param name="separator">A span of delimiting characters, or an empty span that contains no delimiters.</param>
+        /// <returns>An array whose elements contain the substrings from this instance that are delimited by one or more characters in <paramref name="separator"/>.</returns>
+        public string[] Split(params ReadOnlySpan<char> separator)
         {
             return SplitInternal(separator, int.MaxValue, StringSplitOptions.None);
         }
@@ -1574,7 +1753,7 @@ namespace System
             return SplitInternal(separator, count, options);
         }
 
-        private string[] SplitInternal(ReadOnlySpan<char> separators, int count, StringSplitOptions options)
+        private unsafe string[] SplitInternal(ReadOnlySpan<char> separators, int count, StringSplitOptions options)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(count);
 
@@ -1636,7 +1815,7 @@ namespace System
             return SplitInternal(null, separator, count, options);
         }
 
-        private string[] SplitInternal(string? separator, string?[]? separators, int count, StringSplitOptions options)
+        private unsafe string[] SplitInternal(string? separator, string?[]? separators, int count, StringSplitOptions options)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(count);
 
@@ -1709,14 +1888,17 @@ namespace System
 
                 if ((options & StringSplitOptions.RemoveEmptyEntries) == 0 || candidate.Length != 0)
                 {
-                    return new string[] { candidate };
+                    return [candidate];
                 }
             }
 
-            return Array.Empty<string>();
+            return [];
         }
 
         private string[] SplitInternal(string separator, int count, StringSplitOptions options)
+            => Split(separator.AsSpan(), count, options);
+
+        private unsafe string[] Split(ReadOnlySpan<char> separator, int count, StringSplitOptions options)
         {
             var sepListBuilder = new ValueListBuilder<int>(stackalloc int[StackallocIntBufferSizeLimit]);
 
@@ -1895,17 +2077,14 @@ namespace System
             // This optimizes for chars being unlikely to match a separator.
             else
             {
-                unsafe
-                {
-                    var map = new ProbabilisticMap(separators);
-                    ref uint charMap = ref Unsafe.As<ProbabilisticMap, uint>(ref map);
+                var map = new ProbabilisticMap(separators);
+                ref uint charMap = ref Unsafe.As<ProbabilisticMap, uint>(ref map);
 
-                    for (int i = 0; i < source.Length; i++)
+                for (int i = 0; i < source.Length; i++)
+                {
+                    if (ProbabilisticMap.Contains(ref charMap, separators, source[i]))
                     {
-                        if (ProbabilisticMap.Contains(ref charMap, separators, source[i]))
-                        {
-                            sepListBuilder.Append(i);
-                        }
+                        sepListBuilder.Append(i);
                     }
                 }
             }
@@ -2188,7 +2367,7 @@ namespace System
         // Creates a copy of this string in lower case based on invariant culture.
         public string ToLowerInvariant()
         {
-            return TextInfo.Invariant.ToLower(this);
+            return TextInfo.ToLowerInvariant(this);
         }
 
         public string ToUpper() => ToUpper(null);
@@ -2203,7 +2382,7 @@ namespace System
         // Creates a copy of this string in upper case based on invariant culture.
         public string ToUpperInvariant()
         {
-            return TextInfo.Invariant.ToUpper(this);
+            return TextInfo.ToUpperInvariant(this);
         }
 
         // Trims the whitespace from both ends of the string.  Whitespace is defined by
@@ -2228,6 +2407,40 @@ namespace System
             return TrimHelper(&trimChar, 1, TrimType.Both);
         }
 
+        /// <summary>
+        /// Removes all leading and trailing instances of a rune from the current string.
+        /// </summary>
+        /// <param name="trimRune">A Unicode rune to remove.</param>
+        /// <returns>
+        /// The string that remains after all instances of the <paramref name="trimRune"/> rune are removed from the start and end of the
+        /// current string. If no runes can be trimmed from the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string Trim(Rune trimRune)
+        {
+            if (trimRune.IsBmp)
+            {
+                return Trim((char)trimRune.Value);
+            }
+
+            UnicodeUtility.GetUtf16SurrogatesFromSupplementaryPlaneScalar((uint)trimRune.Value, out char highSurrogate, out char lowSurrogate);
+
+            // Trim start
+            int index = 0;
+            while ((uint)(index + 1) < (uint)Length && this[index] == highSurrogate && this[index + 1] == lowSurrogate)
+            {
+                index += 2;
+            }
+
+            // Trim end
+            int endIndex = Length - 2;
+            while (endIndex > index && this[endIndex] == highSurrogate && this[endIndex + 1] == lowSurrogate)
+            {
+                endIndex -= 2;
+            }
+
+            return this[index..(endIndex + 2)];
+        }
+
         // Removes a set of characters from the beginning and end of this string.
         public unsafe string Trim(params char[]? trimChars)
         {
@@ -2241,11 +2454,59 @@ namespace System
             }
         }
 
+        /// <summary>
+        /// Removes all leading and trailing occurrences of a set of characters specified in a span from the current string.
+        /// </summary>
+        /// <param name="trimChars">A span of Unicode characters to remove.</param>
+        /// <returns>
+        /// The string that remains after all occurrences of the characters in the <paramref name="trimChars"/> parameter are removed from the start and end of the current string.
+        /// If <paramref name="trimChars"/> is empty, white-space characters are removed instead.
+        /// If no characters can be trimmed from the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string Trim(params ReadOnlySpan<char> trimChars)
+        {
+            if (trimChars.IsEmpty)
+            {
+                return TrimWhiteSpaceHelper(TrimType.Both);
+            }
+
+            fixed (char* pTrimChars = &MemoryMarshal.GetReference(trimChars))
+            {
+                return TrimHelper(pTrimChars, trimChars.Length, TrimType.Both);
+            }
+        }
+
         // Removes a set of characters from the beginning of this string.
         public string TrimStart() => TrimWhiteSpaceHelper(TrimType.Head);
 
         // Removes a set of characters from the beginning of this string.
         public unsafe string TrimStart(char trimChar) => TrimHelper(&trimChar, 1, TrimType.Head);
+
+        /// <summary>
+        /// Removes all leading instances of a rune from the current string.
+        /// </summary>
+        /// <param name="trimRune">A Unicode rune to remove.</param>
+        /// <returns>
+        /// The string that remains after all instances of the <paramref name="trimRune"/> rune are removed from the start of the
+        /// current string. If no runes can be trimmed from the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string TrimStart(Rune trimRune)
+        {
+            if (trimRune.IsBmp)
+            {
+                return TrimStart((char)trimRune.Value);
+            }
+
+            UnicodeUtility.GetUtf16SurrogatesFromSupplementaryPlaneScalar((uint)trimRune.Value, out char highSurrogate, out char lowSurrogate);
+
+            int index = 0;
+            while ((uint)(index + 1) < (uint)Length && this[index] == highSurrogate && this[index + 1] == lowSurrogate)
+            {
+                index += 2;
+            }
+
+            return this[index..];
+        }
 
         // Removes a set of characters from the beginning of this string.
         public unsafe string TrimStart(params char[]? trimChars)
@@ -2260,11 +2521,59 @@ namespace System
             }
         }
 
+        /// <summary>
+        /// Removes all the leading occurrences of a set of characters specified in a span from the current string.
+        /// </summary>
+        /// <param name="trimChars">A span of Unicode characters to remove.</param>
+        /// <returns>
+        /// The string that remains after all occurrences of characters in the <paramref name="trimChars"/> parameter are removed from the start of the current string.
+        /// If <paramref name="trimChars"/> is empty, white-space characters are removed instead.
+        /// If no characters can be trimmed from the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string TrimStart(params ReadOnlySpan<char> trimChars)
+        {
+            if (trimChars.IsEmpty)
+            {
+                return TrimWhiteSpaceHelper(TrimType.Head);
+            }
+
+            fixed (char* pTrimChars = &MemoryMarshal.GetReference(trimChars))
+            {
+                return TrimHelper(pTrimChars, trimChars.Length, TrimType.Head);
+            }
+        }
+
         // Removes a set of characters from the end of this string.
         public string TrimEnd() => TrimWhiteSpaceHelper(TrimType.Tail);
 
         // Removes a set of characters from the end of this string.
         public unsafe string TrimEnd(char trimChar) => TrimHelper(&trimChar, 1, TrimType.Tail);
+
+        /// <summary>
+        /// Removes all trailing instances of a rune from the current string.
+        /// </summary>
+        /// <param name="trimRune">A Unicode rune to remove.</param>
+        /// <returns>
+        /// The string that remains after all instances of the <paramref name="trimRune"/> rune are removed from the end of the
+        /// current string. If no runes can be trimmed from the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string TrimEnd(Rune trimRune)
+        {
+            if (trimRune.IsBmp)
+            {
+                return TrimEnd((char)trimRune.Value);
+            }
+
+            UnicodeUtility.GetUtf16SurrogatesFromSupplementaryPlaneScalar((uint)trimRune.Value, out char highSurrogate, out char lowSurrogate);
+
+            int endIndex = Length - 2;
+            while ((uint)endIndex < (uint)Length && this[endIndex] == highSurrogate && this[endIndex + 1] == lowSurrogate)
+            {
+                endIndex -= 2;
+            }
+
+            return this[..(endIndex + 2)];
+        }
 
         // Removes a set of characters from the end of this string.
         public unsafe string TrimEnd(params char[]? trimChars)
@@ -2273,6 +2582,28 @@ namespace System
             {
                 return TrimWhiteSpaceHelper(TrimType.Tail);
             }
+            fixed (char* pTrimChars = &trimChars[0])
+            {
+                return TrimHelper(pTrimChars, trimChars.Length, TrimType.Tail);
+            }
+        }
+
+        /// <summary>
+        /// Removes all the trailing occurrences of a set of characters specified in a span from the current string.
+        /// </summary>
+        /// <param name="trimChars">A span of Unicode characters to remove.</param>
+        /// <returns>
+        /// The string that remains after all occurrences of characters in the <paramref name="trimChars"/> parameter are removed from the end of the current string.
+        /// If <paramref name="trimChars"/> is empty, white-space characters are removed instead.
+        /// If no characters can be trimmed from the current instance, the method returns the current instance unchanged.
+        /// </returns>
+        public unsafe string TrimEnd(params ReadOnlySpan<char> trimChars)
+        {
+            if (trimChars.IsEmpty)
+            {
+                return TrimWhiteSpaceHelper(TrimType.Tail);
+            }
+
             fixed (char* pTrimChars = &trimChars[0])
             {
                 return TrimHelper(pTrimChars, trimChars.Length, TrimType.Tail);

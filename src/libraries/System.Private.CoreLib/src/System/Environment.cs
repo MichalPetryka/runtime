@@ -3,7 +3,6 @@
 
 using System.Collections;
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -11,14 +10,38 @@ namespace System
 {
     public static partial class Environment
     {
-        public static int ProcessorCount { get; } = GetProcessorCount();
+        /// <summary>
+        /// Represents the CPU usage statistics of a process.
+        /// </summary>
+        /// <remarks>
+        /// The CPU usage statistics include information about the time spent by the process in the application code (user mode) and the operating system code (kernel mode),
+        /// as well as the total time spent by the process in both user mode and kernel mode.
+        /// </remarks>
+        public readonly struct ProcessCpuUsage
+        {
+            /// <summary>
+            /// Gets the amount of time the associated process has spent running code inside the application portion of the process (not the operating system code).
+            /// </summary>
+            public TimeSpan UserTime { get; internal init; }
+
+            /// <summary>
+            /// Gets the amount of time the process has spent running code inside the operating system code.
+            /// </summary>
+            public TimeSpan PrivilegedTime { get; internal init; }
+
+            /// <summary>
+            /// Gets the amount of time the process has spent utilizing the CPU including the process time spent in the application code and the process time spent in the operating system code.
+            /// </summary>
+            public TimeSpan TotalTime => UserTime + PrivilegedTime;
+        }
 
         /// <summary>
         /// Gets whether the current machine has only a single processor.
         /// </summary>
-        internal static bool IsSingleProcessor => ProcessorCount == 1;
+        internal static bool IsSingleProcessor => RuntimeFeature.IsMultithreadingSupported ? ProcessorCount == 1 : true;
+        public static int ProcessorCount { get; } = RuntimeFeature.IsMultithreadingSupported ? GetProcessorCount() : 1;
 
-        private static volatile sbyte s_privilegedProcess;
+        private static NullableBool s_privilegedProcess;
 
         /// <summary>
         /// Gets whether the current process is authorized to perform security-relevant functions.
@@ -27,12 +50,12 @@ namespace System
         {
             get
             {
-                sbyte privilegedProcess = s_privilegedProcess;
-                if (privilegedProcess == 0)
+                NullableBool privilegedProcess = s_privilegedProcess;
+                if (privilegedProcess == NullableBool.Undefined)
                 {
-                    s_privilegedProcess = privilegedProcess = IsPrivilegedProcessCore() ? (sbyte)1 : (sbyte)-1;
+                    s_privilegedProcess = privilegedProcess = IsPrivilegedProcessCore() ? NullableBool.True : NullableBool.False;
                 }
-                return privilegedProcess > 0;
+                return privilegedProcess == NullableBool.True;
             }
         }
 
@@ -68,7 +91,7 @@ namespace System
 
         public static void SetEnvironmentVariable(string variable, string? value)
         {
-            ValidateVariableAndValue(variable, ref value);
+            ValidateVariable(variable);
             SetEnvironmentVariableCore(variable, value);
         }
 
@@ -80,7 +103,7 @@ namespace System
                 return;
             }
 
-            ValidateVariableAndValue(variable, ref value);
+            ValidateVariable(variable);
 
             bool fromMachine = ValidateAndConvertRegistryTarget(target);
             SetEnvironmentVariableFromRegistry(variable, value, fromMachine: fromMachine);
@@ -121,20 +144,25 @@ namespace System
             return ExpandEnvironmentVariablesCore(name);
         }
 
-        public static string GetFolderPath(SpecialFolder folder) => GetFolderPath(folder, SpecialFolderOption.None);
+        public static string GetFolderPath(SpecialFolder folder) => GetFolderPathCore(folder, SpecialFolderOption.None);
 
         public static string GetFolderPath(SpecialFolder folder, SpecialFolderOption option)
         {
-            if (!Enum.IsDefined(folder))
-                throw new ArgumentOutOfRangeException(nameof(folder), folder, SR.Format(SR.Arg_EnumIllegalVal, folder));
+            // No need to validate if 'folder' is defined; GetFolderPathCore handles this check.
 
-            if (option != SpecialFolderOption.None && !Enum.IsDefined(option))
-                throw new ArgumentOutOfRangeException(nameof(option), option, SR.Format(SR.Arg_EnumIllegalVal, option));
+            if (option is not SpecialFolderOption.None and not SpecialFolderOption.Create and not SpecialFolderOption.DoNotVerify)
+            {
+                // Use a throw helper so that if 'option' is a constant,
+                // the JIT can inline this method and remove the validation check entirely.
+                Throw(option);
+                static void Throw(SpecialFolderOption option) =>
+                    throw new ArgumentOutOfRangeException(nameof(option), option, SR.Format(SR.Arg_EnumIllegalVal, option));
+            }
 
             return GetFolderPathCore(folder, option);
         }
 
-        private static volatile int s_processId;
+        private static int s_processId;
 
         /// <summary>Gets the unique identifier for the current process.</summary>
         public static int ProcessId
@@ -152,7 +180,7 @@ namespace System
             }
         }
 
-        private static volatile string? s_processPath;
+        private static string? s_processPath;
 
         /// <summary>
         /// Returns the path of the executable that started the currently executing process. Returns null when the path is not available.
@@ -184,7 +212,7 @@ namespace System
 
         public static string NewLine => NewLineConst;
 
-        private static volatile OperatingSystem? s_osVersion;
+        private static OperatingSystem? s_osVersion;
 
         public static OperatingSystem OSVersion
         {
@@ -201,31 +229,13 @@ namespace System
             }
         }
 
-        public static Version Version
-        {
-            get
-            {
-                string? versionString = typeof(object).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-
-                ReadOnlySpan<char> versionSpan = versionString.AsSpan();
-
-                // Strip optional suffixes
-                int separatorIndex = versionSpan.IndexOfAny('-', '+', ' ');
-                if (separatorIndex >= 0)
-                    versionSpan = versionSpan.Slice(0, separatorIndex);
-
-                // Return zeros rather then failing if the version string fails to parse
-                return Version.TryParse(versionSpan, out Version? version) ? version : new Version();
-            }
-        }
-
         public static string StackTrace
         {
             [MethodImpl(MethodImplOptions.NoInlining)] // Prevent inlining from affecting where the stacktrace starts
             get => new StackTrace(true).ToString(Diagnostics.StackTrace.TraceFormat.Normal);
         }
 
-        private static volatile int s_systemPageSize;
+        private static int s_systemPageSize;
 
         public static int SystemPageSize
         {
@@ -240,6 +250,10 @@ namespace System
             }
         }
 
+        /// <summary>Gets the number of milliseconds elapsed since the system started.</summary>
+        /// <value>A 32-bit signed integer containing the amount of time in milliseconds that has passed since the last time the computer was started.</value>
+        public static int TickCount => (int)TickCount64;
+
         private static bool ValidateAndConvertRegistryTarget(EnvironmentVariableTarget target)
         {
             Debug.Assert(target != EnvironmentVariableTarget.Process);
@@ -253,7 +267,7 @@ namespace System
             throw new ArgumentOutOfRangeException(nameof(target), target, SR.Format(SR.Arg_EnumIllegalVal, target));
         }
 
-        private static void ValidateVariableAndValue(string variable, ref string? value)
+        private static void ValidateVariable(string variable)
         {
             ArgumentException.ThrowIfNullOrEmpty(variable);
 
@@ -262,12 +276,6 @@ namespace System
 
             if (variable.Contains('='))
                 throw new ArgumentException(SR.Argument_IllegalEnvVarName, nameof(variable));
-
-            if (string.IsNullOrEmpty(value) || value[0] == '\0')
-            {
-                // Explicitly null out value if it's empty
-                value = null;
-            }
         }
     }
 }

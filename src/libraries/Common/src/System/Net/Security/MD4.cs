@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 //
@@ -60,15 +60,16 @@ namespace System.Net.Security
         private const int S33 = 11;
         private const int S34 = 15;
 
-        internal static void HashData(ReadOnlySpan<byte> source, Span<byte> destination)
+        internal static unsafe void HashData(ReadOnlySpan<byte> source, Span<byte> destination)
         {
             Debug.Assert(destination.Length == 128 >> 3);
 
             Span<byte> buffer = stackalloc byte[64];
             buffer.Clear();
+
             // Initialize the context
-            Span<uint> state = stackalloc uint[4] { 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476 };
-            Span<uint> count = stackalloc uint[2] { 0, 0 };
+            Span<uint> state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+            Span<uint> count = [0, 0];
 
             HashCore(source, state, count, buffer);
 
@@ -79,6 +80,7 @@ namespace System.Net.Security
             // Pad out to 56 mod 64
             uint index = ((count[0] >> 3) & 0x3f);
             int padLen = (int)((index < 56) ? (56 - index) : (120 - index));
+            Debug.Assert(padLen is >= 0 and <= 120);
             Span<byte> padding = stackalloc byte[padLen];
             padding.Clear();
             padding[0] = 0x80;
@@ -168,7 +170,7 @@ namespace System.Net.Security
             a = BitOperations.RotateLeft(a, s);
         }
 
-        private static void Encode(Span<byte> output, Span<uint> input)
+        private static void Encode(Span<byte> output, ReadOnlySpan<uint> input)
         {
             for (int i = 0, j = 0; j < output.Length; i++, j += 4)
             {
@@ -184,7 +186,7 @@ namespace System.Net.Security
             }
         }
 
-        private static void MD4Transform(Span<uint> state, ReadOnlySpan<byte> block)
+        private static unsafe void MD4Transform(Span<uint> state, ReadOnlySpan<byte> block)
         {
             uint a = state[0];
             uint b = state[1];

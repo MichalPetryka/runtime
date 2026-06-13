@@ -19,6 +19,8 @@ public enum PerfMapArchitectureToken : uint
     ARM64 = 2,
     X64 = 3,
     X86 = 4,
+    RiscV64 = 5,
+    LoongArch64 = 6,
 }
 
 public enum PerfMapOSToken : uint
@@ -30,6 +32,7 @@ public enum PerfMapOSToken : uint
     FreeBSD = 4,
     NetBSD = 5,
     SunOS = 6,
+    OpenBSD = 7,
 }
 
 public enum PerfMapAbiToken : uint

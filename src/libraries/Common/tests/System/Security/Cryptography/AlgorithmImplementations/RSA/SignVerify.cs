@@ -600,7 +600,11 @@ namespace System.Security.Cryptography.Rsa.Tests
                         yield return new object[] { nameof(HashAlgorithmName.SHA1), rsaParameters };
                     }
 
-                    yield return new object[] { nameof(HashAlgorithmName.MD5), rsaParameters };
+                    if (RSAFactory.SupportsMd5Signatures)
+                    {
+                        yield return new object[] { nameof(HashAlgorithmName.MD5), rsaParameters };
+                    }
+
                     yield return new object[] { nameof(HashAlgorithmName.SHA256), rsaParameters };
                 }
 
@@ -1018,7 +1022,7 @@ namespace System.Security.Cryptography.Rsa.Tests
                 modulus2048Signature);
         }
 
-        [Fact]
+        [ConditionalFact(typeof(ImportExport), nameof(ImportExport.Supports16384))]
         public void VerifyExpectedSignature_PssSha256_RSA16384()
         {
             byte[] modulus2048Signature = (
@@ -1094,7 +1098,7 @@ namespace System.Security.Cryptography.Rsa.Tests
                 modulus2048Signature);
         }
 
-        [Fact]
+        [ConditionalFact(typeof(ImportExport), nameof(ImportExport.Supports16384))]
         public void VerifyExpectedSignature_PssSha384()
         {
             byte[] bigModulusSignature = (
@@ -1333,7 +1337,7 @@ namespace System.Security.Cryptography.Rsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(SupportsPss))]
+        [ConditionalFact(typeof(SignVerify), nameof(SupportsPss))]
         public void PssSignature_WrongHashAlgorithm()
         {
             RSASignaturePadding padding = RSASignaturePadding.Pss;
@@ -1346,7 +1350,7 @@ namespace System.Security.Cryptography.Rsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(SupportsPss))]
+        [ConditionalFact(typeof(SignVerify), nameof(SupportsPss))]
         [SkipOnTargetFramework(TargetFrameworkMonikers.NetFramework)]
         public void PssVerifyHash_MismatchedHashSize()
         {
@@ -1369,7 +1373,7 @@ namespace System.Security.Cryptography.Rsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(SupportsPss))]
+        [ConditionalFact(typeof(SignVerify), nameof(SupportsPss))]
         [SkipOnTargetFramework(TargetFrameworkMonikers.NetFramework)]
         public void PssSignHash_MismatchedHashSize()
         {
@@ -1393,7 +1397,7 @@ namespace System.Security.Cryptography.Rsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(SupportsPss))]
+        [ConditionalFact(typeof(SignVerify), nameof(SupportsPss))]
         public void PssSignature_WrongData()
         {
             RSASignaturePadding padding = RSASignaturePadding.Pss;
@@ -1408,7 +1412,7 @@ namespace System.Security.Cryptography.Rsa.Tests
             }
         }
 
-        [ConditionalFact(nameof(SupportsPss))]
+        [ConditionalFact(typeof(SignVerify), nameof(SupportsPss))]
         public void PssSignature_WrongLength()
         {
             RSASignaturePadding padding = RSASignaturePadding.Pss;
@@ -1589,7 +1593,11 @@ namespace System.Security.Cryptography.Rsa.Tests
                 yield return new object[] { HashAlgorithmName.SHA256.Name };
                 yield return new object[] { HashAlgorithmName.SHA384.Name };
                 yield return new object[] { HashAlgorithmName.SHA512.Name };
-                yield return new object[] { HashAlgorithmName.MD5.Name };
+
+                if (RSAFactory.SupportsMd5Signatures)
+                {
+                    yield return new object[] { HashAlgorithmName.MD5.Name };
+                }
 
                 if (RSAFactory.SupportsSha1Signatures)
                 {

@@ -15,6 +15,7 @@ using Microsoft.Diagnostics.Tools.RuntimeClient;
 using Microsoft.Diagnostics.Tracing;
 using Tracing.Tests.Common;
 using Xunit;
+using TestLibrary;
 
 namespace Tracing.Tests.ProcessInfoValidation
 {
@@ -89,6 +90,8 @@ namespace Tracing.Tests.ProcessInfoValidation
             return normalizedCommandLine;
         }
 
+        [ActiveIssue("Could not load legacy Microsoft.Diagnostics.Tools.RuntimeClient and system.diagnostics.process not supported", TestPlatforms.Browser)]
+        [ActiveIssue("Can't find file dotnet-diagnostic-{pid}-*-socket", typeof(PlatformDetection), nameof(PlatformDetection.IsMonoRuntime), nameof(PlatformDetection.IsRiscv64Process))]
         [Fact]
         public static void TestEntryPoint()
         {
@@ -220,14 +223,12 @@ namespace Tracing.Tests.ProcessInfoValidation
             // see eventpipeeventsource.cpp for these values
             string expectedArchValue = RuntimeInformation.ProcessArchitecture switch
             {
-                Architecture.X86 => "x86",
-                Architecture.X64 => "x64",
                 Architecture.Arm => "arm32",
-                Architecture.Arm64 => "arm64",
-                _ => "Unknown"
+                // All other architectures match the enum member name
+                _ => RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()
             };
 
-            Utils.Assert(expectedArchValue.Equals(arch), $"OS must match current Operating System. Expected: \"{expectedArchValue}\", Received: \"{arch}\"");
+            Utils.Assert(expectedArchValue.Equals(arch), $"Arch must match current Architecture. Expected: \"{expectedArchValue}\", Received: \"{arch}\"");
 
             Utils.Assert(end == totalSize, $"Full payload should have been read. Expected: {totalSize}, Received: {end}");
 

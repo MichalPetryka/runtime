@@ -776,7 +776,7 @@ namespace System.Security.Cryptography.Pkcs.EnvelopedCmsTests.Tests
             TestSimpleDecrypt_RoundTrip(Certificates.RSAKeyTransferCapi1, contentInfo, Oids.Aes256, SubjectIdentifierType.IssuerAndSerialNumber);
         }
 
-        [ConditionalFact(nameof(SupportsIndefiniteLengthEncoding))]
+        [ConditionalFact(typeof(DecryptTests), nameof(SupportsIndefiniteLengthEncoding))]
         public void DecryptEnvelopedEmptyOctetStringWithIndefiniteLength()
         {
             byte[] content = "30800000".HexToByteArray();
@@ -788,7 +788,7 @@ namespace System.Security.Cryptography.Pkcs.EnvelopedCmsTests.Tests
             TestSimpleDecrypt_RoundTrip(Certificates.RSAKeyTransferCapi1, contentInfo, Oids.Aes256, SubjectIdentifierType.IssuerAndSerialNumber, expectedContentInfo);
         }
 
-        [ConditionalFact(nameof(SupportsIndefiniteLengthEncoding))]
+        [ConditionalFact(typeof(DecryptTests), nameof(SupportsIndefiniteLengthEncoding))]
         public void DecryptEnvelopedOctetStringWithIndefiniteLength()
         {
             byte[] content = "308004000000".HexToByteArray();
@@ -835,7 +835,7 @@ namespace System.Security.Cryptography.Pkcs.EnvelopedCmsTests.Tests
                 if (cert == null)
                     return; // Sorry - CertLoader is not configured to load certs with private keys - we've tested as much as we can.
 
-#if NETCOREAPP // API not present on netfx
+#if NET // API not present on netfx
                 if (_useExplicitPrivateKey)
                 {
                     using (X509Certificate2 pubCert = certLoader.GetCertificate())

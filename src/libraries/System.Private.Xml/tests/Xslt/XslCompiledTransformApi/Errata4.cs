@@ -13,7 +13,7 @@ using Xunit.Abstractions;
 namespace System.Xml.XslCompiledTransformApiTests
 {
     //[TestCase(Name = "Xml 4th Errata tests for XslCompiledTransform", Params = new object[] { 300 })]
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsReflectionEmitSupported))]
+    [ConditionalClass(typeof(XsltApiTestRequirements), nameof(XsltApiTestRequirements.IsSupported))]
     public class Errata4 : XsltApiTestCaseBase2
     {
         private ITestOutputHelper _output;
@@ -22,7 +22,7 @@ namespace System.Xml.XslCompiledTransformApiTests
             _output = output;
         }
 
-        private Random _rand = new Random(unchecked((int)DateTime.Now.Ticks));
+        private Random _rand = new Random(12345678);
 
         #region private const string xmlDocTemplate = ...
 

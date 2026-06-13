@@ -6,9 +6,16 @@
 #include "../Common/pal_safecrt.h"
 #include <assert.h>
 #include <dirent.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "openssl.h"
+
+#ifndef NAME_MAX
+#error "NAME_MAX is not defined"
+#endif
 
 c_static_assert(PAL_X509_V_OK == X509_V_OK);
 c_static_assert(PAL_X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT);
@@ -145,13 +152,13 @@ ASN1_INTEGER* CryptoNative_X509GetSerialNumber(X509* x509)
     return X509_get_serialNumber(x509);
 }
 
-X509_NAME* CryptoNative_X509GetIssuerName(X509* x509)
+const X509_NAME* CryptoNative_X509GetIssuerName(X509* x509)
 {
     // Just a field accessor, no error queue interactions apply.
     return X509_get_issuer_name(x509);
 }
 
-X509_NAME* CryptoNative_X509GetSubjectName(X509* x509)
+const X509_NAME* CryptoNative_X509GetSubjectName(X509* x509)
 {
     // Just a field accessor, no error queue interactions apply.
     return X509_get_subject_name(x509);
@@ -175,19 +182,19 @@ int32_t CryptoNative_X509GetExtCount(X509* x)
     return X509_get_ext_count(x);
 }
 
-X509_EXTENSION* CryptoNative_X509GetExt(X509* x, int32_t loc)
+const X509_EXTENSION* CryptoNative_X509GetExt(X509* x, int32_t loc)
 {
     // Just a field accessor, no error queue interactions apply.
     return X509_get_ext(x, loc);
 }
 
-ASN1_OBJECT* CryptoNative_X509ExtensionGetOid(X509_EXTENSION* x)
+const ASN1_OBJECT* CryptoNative_X509ExtensionGetOid(X509_EXTENSION* x)
 {
     // Just a field accessor, no error queue interactions apply.
     return X509_EXTENSION_get_object(x);
 }
 
-ASN1_OCTET_STRING* CryptoNative_X509ExtensionGetData(X509_EXTENSION* x)
+const ASN1_OCTET_STRING* CryptoNative_X509ExtensionGetData(X509_EXTENSION* x)
 {
     // Just a field accessor, no error queue interactions apply.
     return X509_EXTENSION_get_data(x);
@@ -199,7 +206,7 @@ int32_t CryptoNative_X509ExtensionGetCritical(X509_EXTENSION* x)
     return X509_EXTENSION_get_critical(x);
 }
 
-ASN1_OCTET_STRING* CryptoNative_X509FindExtensionData(X509* x, int32_t nid)
+const ASN1_OCTET_STRING* CryptoNative_X509FindExtensionData(X509* x, int32_t nid)
 {
     ERR_clear_error();
 
@@ -215,7 +222,7 @@ ASN1_OCTET_STRING* CryptoNative_X509FindExtensionData(X509* x, int32_t nid)
         return NULL;
     }
 
-    X509_EXTENSION* ext = X509_get_ext(x, idx);
+    OSSL4CONST X509_EXTENSION* ext = X509_get_ext(x, idx);
 
     if (ext == NULL)
     {
@@ -445,15 +452,18 @@ static DIR* OpenUserStore(const char* storePath, char** pathTmp, size_t* pathTmp
         return NULL;
     }
 
-    struct dirent* ent = NULL;
     size_t storePathLen = strlen(storePath);
 
     // d_name is a fixed length char[], not a char*.
+    // The traditional declaration (eg. SunOS) is d_name[1]
+    // so we can't assume sizeof(ent->d_name) will work,
+    // so just use NAME_MAX which is the POSIX way.
     // Leave one byte for '\0' and one for '/'
-    size_t allocSize = storePathLen + sizeof(ent->d_name) + 2;
+    size_t allocSize = storePathLen + NAME_MAX + 2;
     char* tmp = (char*)calloc(allocSize, sizeof(char));
     if (!tmp)
     {
+        closedir(trustDir);
         *pathTmp = NULL;
         *nextFileWrite = NULL;
         return NULL;
@@ -479,10 +489,16 @@ static X509* ReadNextPublicCert(DIR* dir, X509Stack* tmpStack, char* pathTmp, si
 
     while ((next = readdir(dir)) != NULL)
     {
-        size_t len = strnlen(next->d_name, sizeof(next->d_name));
+        size_t len = strnlen(next->d_name, NAME_MAX);
 
         if (len > 4 && 0 == strncasecmp(".pfx", next->d_name + len - 4, 4))
         {
+            if (len >= remaining)
+            {
+                // Filename too long for buffer, skip it
+                continue;
+            }
+
             memcpy_s(nextFileWrite, remaining, next->d_name, len);
             // if d_name was full-length it might not have a trailing null.
             nextFileWrite[len] = 0;
@@ -611,7 +627,7 @@ int32_t CryptoNative_X509StackAddDirectoryStore(X509Stack* stack, char* storePat
     if (storeDir != NULL)
     {
         X509* cert;
-        X509Stack* tmpStack = sk_X509_new_null();
+        X509Stack* tmpStack = CryptoNative_NewX509Stack();
 
         if (tmpStack == NULL)
         {
@@ -893,14 +909,12 @@ static OCSP_CERTID* MakeCertId(X509* subject, X509* issuer)
     return OCSP_cert_to_id(EVP_sha1(), subject, issuer);
 }
 
-static time_t GetIssuanceWindowStart(void)
+static time_t GetIssuanceWindowStart(time_t currentTime)
 {
     // time_t granularity is seconds, so subtract 4 days worth of seconds.
     // The 4 day policy is based on the CA/Browser Forum Baseline Requirements
     // (version 1.6.3) section 4.9.10 (On-Line Revocation Checking Requirements)
-    time_t t = time(NULL);
-    t -= 4 * 24 * 60 * 60;
-    return t;
+    return currentTime - 4 * 24 * 60 * 60;
 }
 
 static X509VerifyStatusCode CheckOcspGetExpiry(OCSP_REQUEST* req,
@@ -948,7 +962,8 @@ static X509VerifyStatusCode CheckOcspGetExpiry(OCSP_REQUEST* req,
         int nonceCheck = req == NULL ? 1 : OCSP_check_nonce(req, basicResp);
 
         // Treat "response has no nonce" as success, since not all responders set the nonce.
-        if (nonceCheck == -1)
+        // Treat "neither has a nonce" as success, since we do not send nonces in our requests.
+        if (nonceCheck == -1 || nonceCheck == 2)
         {
             nonceCheck = 1;
         }
@@ -960,28 +975,37 @@ static X509VerifyStatusCode CheckOcspGetExpiry(OCSP_REQUEST* req,
 
             if (OCSP_resp_find_status(basicResp, certId, &status, NULL, NULL, &thisupd, &nextupd))
             {
-                // X509_cmp_current_time uses 0 for error already, so we can use it when there's a null value.
-                // 1 means the nextupd value is in the future, -1 means it is now-or-in-the-past.
-                // Following with OpenSSL conventions, we'll accept "now" as "the past".
-                int nextUpdComparison = nextupd == NULL ? 0 : X509_cmp_current_time(nextupd);
+                time_t currentTime = time(NULL);
+                int nextUpdComparison = 0;
+#if defined(FEATURE_DISTRO_AGNOSTIC_SSL) && defined(TARGET_ARM) && defined(TARGET_LINUX) && !defined(TARGET_ANDROID)
+                // If openssl uses 32-bit time_t and the current time doesn't fit in 32 bits,
+                // skip checking the status/nextupd, and fall through to return PAL_X509_V_ERR_UNABLE_TO_GET_CRL.
+                if (!g_libSslUses32BitTime || (currentTime >= INT_MIN && currentTime <= INT_MAX))
+#endif
+                {
+                    // X509_cmp_current_time uses 0 for error already, so we can use it when there's a null value.
+                    // 1 means the nextupd value is in the future, -1 means it is now-or-in-the-past.
+                    // Following with OpenSSL conventions, we'll accept "now" as "the past".
+                    nextUpdComparison = nextupd == NULL ? 0 : X509_cmp_time(nextupd, &currentTime);
 
-                // Un-revoking is rare, so reporting revoked on an expired response has a low chance
-                // of a false-positive.
-                //
-                // For non-revoked responses, a next-update value in the past counts as expired.
-                if (status == V_OCSP_CERTSTATUS_REVOKED)
-                {
-                    ret = PAL_X509_V_ERR_CERT_REVOKED;
-                }
-                else
-                {
-                    if (nextupd != NULL && nextUpdComparison <= 0)
+                    // Un-revoking is rare, so reporting revoked on an expired response has a low chance
+                    // of a false-positive.
+                    //
+                    // For non-revoked responses, a next-update value in the past counts as expired.
+                    if (status == V_OCSP_CERTSTATUS_REVOKED)
                     {
-                        ret = PAL_X509_V_ERR_CRL_HAS_EXPIRED;
+                        ret = PAL_X509_V_ERR_CERT_REVOKED;
                     }
-                    else if (status == V_OCSP_CERTSTATUS_GOOD)
+                    else
                     {
-                        ret = PAL_X509_V_OK;
+                        if (nextupd != NULL && nextUpdComparison <= 0)
+                        {
+                            ret = PAL_X509_V_ERR_CRL_HAS_EXPIRED;
+                        }
+                        else if (status == V_OCSP_CERTSTATUS_GOOD)
+                        {
+                            ret = PAL_X509_V_OK;
+                        }
                     }
                 }
 
@@ -997,7 +1021,7 @@ static X509VerifyStatusCode CheckOcspGetExpiry(OCSP_REQUEST* req,
                     thisupd != NULL &&
                     nextUpdComparison > 0)
                 {
-                    time_t oldest = GetIssuanceWindowStart();
+                    time_t oldest = GetIssuanceWindowStart(currentTime);
 
                     if (X509_cmp_time(thisupd, &oldest) > 0)
                     {
@@ -1181,8 +1205,9 @@ static OCSP_REQUEST* BuildOcspRequest(X509* subject, X509* issuer)
     // Ownership was successfully transferred to req
     certId = NULL;
 
-    // Add a random nonce.
-    OCSP_request_add1_nonce(req, NULL, -1);
+    // We return the request without setting a nonce on it. Most public CA OCSP responders ignore the nonce, and in some
+    // cases flat out error when presented with a nonce.
+    // This behavior also matches Windows and Apple platforms.
     return req;
 }
 
@@ -1241,6 +1266,7 @@ static int32_t X509ChainVerifyOcsp(X509_STORE_CTX* storeCtx, X509* subject, X509
             {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-qual"
+#pragma clang diagnostic ignored "-Wimplicit-void-ptr-cast"
                 if (i2d_OCSP_RESPONSE_bio(bio, resp))
 #pragma clang diagnostic pop
                 {
@@ -1324,7 +1350,7 @@ int32_t CryptoNative_X509DecodeOcspToExpiration(const uint8_t* buf, int32_t len,
 
     if (store != NULL)
     {
-        bag = sk_X509_new_null();
+        bag = CryptoNative_NewX509Stack();
     }
 
     if (bag != NULL)

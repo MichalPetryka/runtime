@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -25,11 +25,21 @@ internal static partial class Interop
             out int pcbResult,
             SecretAgreementFlags dwFlags);
 
+        [LibraryImport(Interop.Libraries.NCrypt, StringMarshalling = StringMarshalling.Utf16)]
+        private static partial ErrorCode NCryptDeriveKey(
+            SafeNCryptSecretHandle hSharedSecret,
+            string pwszKDF,
+            IntPtr pParameterList,
+            Span<byte> pbDerivedKey,
+            int cbDerivedKey,
+            out int pcbResult,
+            SecretAgreementFlags dwFlags);
+
         /// <summary>
         ///     Derive key material from a hash or HMAC KDF
         /// </summary>
         /// <returns></returns>
-        private static byte[] DeriveKeyMaterial(
+        private static unsafe byte[] DeriveKeyMaterial(
             SafeNCryptSecretHandle secretAgreement,
             string kdf,
             string hashAlgorithm,
@@ -218,31 +228,27 @@ internal static partial class Interop
             byte[] seed,
             SecretAgreementFlags flags)
         {
-            Span<NCryptBuffer> buffers = stackalloc NCryptBuffer[2];
-
             fixed (byte* pLabel = label, pSeed = seed)
             {
                 NCryptBuffer labelBuffer = default;
                 labelBuffer.cbBuffer = label.Length;
                 labelBuffer.BufferType = BufferType.KdfTlsLabel;
                 labelBuffer.pvBuffer = new IntPtr(pLabel);
-                buffers[0] = labelBuffer;
 
                 NCryptBuffer seedBuffer = default;
                 seedBuffer.cbBuffer = seed.Length;
                 seedBuffer.BufferType = BufferType.KdfTlsSeed;
                 seedBuffer.pvBuffer = new IntPtr(pSeed);
-                buffers[1] = seedBuffer;
 
                 return DeriveKeyMaterial(
                     secretAgreement,
                     BCryptNative.KeyDerivationFunction.Tls,
-                    buffers,
+                    [labelBuffer, seedBuffer],
                     flags);
             }
         }
 
-        internal static unsafe byte[] DeriveKeyMaterialTruncate(
+        internal static byte[] DeriveKeyMaterialTruncate(
             SafeNCryptSecretHandle secretAgreement,
             SecretAgreementFlags flags)
         {
@@ -260,6 +266,36 @@ internal static partial class Interop
             // Win32 returns the result as little endian. So we need to flip it to big endian.
             Array.Reverse(result);
             return result;
+        }
+
+        internal static bool TryDeriveKeyMaterialTruncate(
+            SafeNCryptSecretHandle secretAgreement,
+            SecretAgreementFlags flags,
+            Span<byte> destination,
+            out int bytesWritten)
+        {
+            ErrorCode error = NCryptDeriveKey(
+                secretAgreement,
+                BCryptNative.KeyDerivationFunction.Raw,
+                IntPtr.Zero,
+                destination,
+                destination.Length,
+                out int localWritten,
+                flags);
+
+            switch (error)
+            {
+                case ErrorCode.ERROR_SUCCESS:
+                    destination.Slice(0, localWritten).Reverse();
+                    bytesWritten = localWritten;
+                    return true;
+                case ErrorCode c when c.IsBufferTooSmall():
+                    destination.Clear();
+                    bytesWritten = 0;
+                    return false;
+                default:
+                    throw error.ToCryptographicException();
+            }
         }
     }
 }

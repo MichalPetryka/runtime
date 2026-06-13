@@ -164,7 +164,7 @@ namespace System.Text.Json.Serialization.Tests
 
                 static Stream CreateStream(int count)
                 {
-                    byte[] objBytes = @"{""Test"":{},""Test2"":[],""Test3"":{""Value"":{}},""PersonType"":0,""Id"":2}"u8.ToArray();
+                    byte[] objBytes = """{"Test":{},"Test2":[],"Test3":{"Value":{}},"PersonType":0,"Id":2}"""u8.ToArray();
 
                     byte[] utf8Bom = Encoding.UTF8.GetPreamble();
 
@@ -220,11 +220,14 @@ namespace System.Text.Json.Serialization.Tests
             void VerifyElement(int index)
             {
                 Assert.Equal(JsonValueKind.Object, value[index].GetProperty("Test").ValueKind);
+                Assert.Equal(0, value[index].GetProperty("Test").GetPropertyCount());
                 Assert.False(value[index].GetProperty("Test").EnumerateObject().MoveNext());
                 Assert.Equal(JsonValueKind.Array, value[index].GetProperty("Test2").ValueKind);
                 Assert.Equal(0, value[index].GetProperty("Test2").GetArrayLength());
                 Assert.Equal(JsonValueKind.Object, value[index].GetProperty("Test3").ValueKind);
                 Assert.Equal(JsonValueKind.Object, value[index].GetProperty("Test3").GetProperty("Value").ValueKind);
+                Assert.Equal(1, value[index].GetProperty("Test3").GetPropertyCount());
+                Assert.Equal(0, value[index].GetProperty("Test3").GetProperty("Value").GetPropertyCount());
                 Assert.False(value[index].GetProperty("Test3").GetProperty("Value").EnumerateObject().MoveNext());
                 Assert.Equal(0, value[index].GetProperty("PersonType").GetInt32());
                 Assert.Equal(2, value[index].GetProperty("Id").GetInt32());
@@ -285,7 +288,7 @@ namespace System.Text.Json.Serialization.Tests
                 Assert.Equal(16387, stream.Position);
 
                 // We should get an exception like: '!' is invalid after a single JSON value.
-                Assert.Contains("!", ex.ToString());
+                Assert.Contains("!", ex.Message);
             }
         }
 
@@ -306,7 +309,7 @@ namespace System.Text.Json.Serialization.Tests
                 Assert.Equal(16387, stream.Position);
 
                 // We should get an exception like: '!' is invalid after a single JSON value.
-                Assert.Contains("!", ex.ToString());
+                Assert.Contains("!", ex.Message);
             }
         }
 

@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+
 using Internal.Text;
 using Internal.TypeSystem;
 
@@ -11,42 +12,6 @@ using ILCompiler.DependencyAnalysisFramework;
 
 namespace ILCompiler.DependencyAnalysis
 {
-    // Represents a generic lookup within a canonical method body.
-    // TODO: unify with NativeFormat.FixupSignatureKind
-    public enum LookupResultType
-    {
-        Invalid,
-        MethodTable,             // a type
-        UnwrapNullable,     // a type (The type T described by a type spec that is generic over Nullable<T>)
-        NonGcStatic,        // the non-gc statics of a type
-        GcStatic,           // the gc statics of a type
-        Method,             // a method
-        InterfaceDispatchCell,  // the dispatch cell for calling an interface method
-        MethodDictionary,   // a dictionary for calling a generic method
-        UnboxingStub,       // the unboxing stub for a method
-        ArrayType,          // an array of type
-        DefaultCtor,        // default ctor of a type
-        AllocObject,        // the allocator of a type
-        GvmVtableOffset,    // vtable offset of a generic virtual method
-        ProfileCounter,     // profiling counter cell
-        MethodLdToken,      // a ldtoken result for a method
-        FieldLdToken,       // a ldtoken result for a field
-        Field,              // a field descriptor
-        IsInst,             // isinst helper
-        CastClass,          // castclass helper
-        AllocArray,         // the array allocator of a type
-        TypeSize,           // size of the type
-        FieldOffset,        // field offset
-        CallingConvention_NoInstParam,      // CallingConventionConverterThunk NO_INSTANTIATING_PARAM
-        CallingConvention_HasInstParam,     // CallingConventionConverterThunk HAS_INSTANTIATING_PARAM
-        CallingConvention_MaybeInstParam,   // CallingConventionConverterThunk MAYBE_INSTANTIATING_PARAM
-        VtableOffset,       // Offset of a virtual method into the type's vtable
-        Constrained,        // ConstrainedCallDesc
-        ConstrainedDirect,  // Direct ConstrainedCallDesc
-        Integer,            // Integer
-        UnboxingMethod,     // UnboxingMethod
-    }
-
     public struct GenericLookupResultContext
     {
         private readonly TypeSystemEntity _canonicalOwner;
@@ -107,7 +72,7 @@ namespace ILCompiler.DependencyAnalysis
     public abstract class GenericLookupResult
     {
         protected abstract int ClassCode { get; }
-        public abstract ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary);
+        public abstract ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation);
         public abstract void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb);
         public abstract override string ToString();
         protected abstract int CompareToImpl(GenericLookupResult other, TypeSystemComparer comparer);
@@ -117,7 +82,7 @@ namespace ILCompiler.DependencyAnalysis
         public sealed override bool Equals(object obj)
         {
             GenericLookupResult other = obj as GenericLookupResult;
-            if (obj == null)
+            if (other == null)
                 return false;
 
             return ClassCode == other.ClassCode && EqualsImpl(other);
@@ -128,12 +93,33 @@ namespace ILCompiler.DependencyAnalysis
             return ClassCode * 31 + GetHashCodeImpl();
         }
 
+        private static bool InstantiationIsConcrete(Instantiation instantiation)
+        {
+            if (instantiation.IsNull || instantiation.Length == 0)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < instantiation.Length; i++)
+            {
+                TypeDesc argument = instantiation[i];
+                if (argument.IsRuntimeDeterminedSubtype || argument.IsCanonicalSubtype(CanonicalFormKind.Any))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public virtual void EmitDictionaryEntry(ref ObjectDataBuilder builder, NodeFactory factory, GenericLookupResultContext dictionary, GenericDictionaryNode dictionaryNode)
         {
             ISymbolNode target;
             try
             {
-                target = GetTarget(factory, dictionary);
+                Debug.Assert(InstantiationIsConcrete(dictionary.TypeInstantiation));
+                Debug.Assert(InstantiationIsConcrete(dictionary.MethodInstantiation));
+                target = GetTarget(factory, dictionary, isConcreteInstantiation: true);
             }
             catch (TypeSystemException)
             {
@@ -211,11 +197,15 @@ namespace ILCompiler.DependencyAnalysis
             _type = type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             // We are getting a maximally constructable type symbol because this might be something passed to newobj.
             TypeDesc instantiatedType = _type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
-
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
             factory.TypeSystemContext.DetectGenericCycles(dictionary.Context, instantiatedType);
 
             return factory.MaximallyConstructableType(instantiatedType);
@@ -223,7 +213,7 @@ namespace ILCompiler.DependencyAnalysis
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("TypeHandle_");
+            sb.Append("TypeHandle_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -251,6 +241,121 @@ namespace ILCompiler.DependencyAnalysis
         }
     }
 
+    /// <summary>
+    /// Generic lookup result that points to an MethodTable.
+    /// </summary>
+    public sealed class NecessaryTypeHandleGenericLookupResult : GenericLookupResult
+    {
+        private TypeDesc _type;
+
+        protected override int ClassCode => -4882991;
+
+        public NecessaryTypeHandleGenericLookupResult(TypeDesc type)
+        {
+            Debug.Assert(type.IsRuntimeDeterminedSubtype, "Concrete type in a generic dictionary?");
+            _type = type;
+        }
+
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
+        {
+            TypeDesc instantiatedType = _type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
+            factory.TypeSystemContext.DetectGenericCycles(dictionary.Context, instantiatedType);
+
+            return factory.NecessaryTypeSymbol(instantiatedType);
+        }
+
+        public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
+        {
+            sb.Append("NecessaryTypeHandle_"u8);
+            sb.Append(nameMangler.GetMangledTypeName(_type));
+        }
+
+        public TypeDesc Type => _type;
+        public override string ToString() => $"NecessaryTypeHandle: {_type}";
+
+        public override NativeLayoutVertexNode TemplateDictionaryNode(NodeFactory factory)
+        {
+            return factory.NativeLayout.TypeHandleDictionarySlot(_type);
+        }
+
+        protected override int CompareToImpl(GenericLookupResult other, TypeSystemComparer comparer)
+        {
+            return comparer.Compare(_type, ((NecessaryTypeHandleGenericLookupResult)other)._type);
+        }
+
+        protected override int GetHashCodeImpl()
+        {
+            return _type.GetHashCode();
+        }
+
+        protected override bool EqualsImpl(GenericLookupResult obj)
+        {
+            return ((NecessaryTypeHandleGenericLookupResult)obj)._type == _type;
+        }
+    }
+
+    /// <summary>
+    /// Generic lookup result that points to an MethodTable.
+    /// </summary>
+    public sealed class MetadataTypeHandleGenericLookupResult : GenericLookupResult
+    {
+        private TypeDesc _type;
+
+        protected override int ClassCode => -4892308;
+
+        public MetadataTypeHandleGenericLookupResult(TypeDesc type)
+        {
+            Debug.Assert(type.IsRuntimeDeterminedSubtype, "Concrete type in a generic dictionary?");
+            _type = type;
+        }
+
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
+        {
+            TypeDesc instantiatedType = _type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
+            factory.TypeSystemContext.DetectGenericCycles(dictionary.Context, instantiatedType);
+
+            return factory.MetadataTypeSymbol(instantiatedType);
+        }
+
+        public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
+        {
+            sb.Append("MetadataTypeHandle_"u8);
+            sb.Append(nameMangler.GetMangledTypeName(_type));
+        }
+
+        public TypeDesc Type => _type;
+        public override string ToString() => $"MetadataTypeHandle: {_type}";
+
+        public override NativeLayoutVertexNode TemplateDictionaryNode(NodeFactory factory)
+        {
+            return factory.NativeLayout.TypeHandleDictionarySlot(_type);
+        }
+
+        protected override int CompareToImpl(GenericLookupResult other, TypeSystemComparer comparer)
+        {
+            return comparer.Compare(_type, ((MetadataTypeHandleGenericLookupResult)other)._type);
+        }
+
+        protected override int GetHashCodeImpl()
+        {
+            return _type.GetHashCode();
+        }
+
+        protected override bool EqualsImpl(GenericLookupResult obj)
+        {
+            return ((MetadataTypeHandleGenericLookupResult)obj)._type == _type;
+        }
+    }
 
     /// <summary>
     /// Generic lookup result that points to an MethodTable where if the type is Nullable&lt;X&gt; the MethodTable is X
@@ -267,7 +372,7 @@ namespace ILCompiler.DependencyAnalysis
             _type = type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             TypeDesc instantiatedType = _type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
 
@@ -275,13 +380,19 @@ namespace ILCompiler.DependencyAnalysis
             if (instantiatedType.IsNullable)
                 instantiatedType = instantiatedType.Instantiation[0];
 
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
+
             // We are getting a constructed type symbol because this might be something passed to newobj.
             return factory.ConstructedTypeSymbol(instantiatedType);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("UnwrapNullable_");
+            sb.Append("UnwrapNullable_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -324,15 +435,30 @@ namespace ILCompiler.DependencyAnalysis
             _method = method;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             MethodDesc instantiatedMethod = _method.GetNonRuntimeDeterminedMethodFromRuntimeDeterminedMethodViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
-            return factory.RuntimeMethodHandle(instantiatedMethod);
+            if (isConcreteInstantiation || !instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any))
+            {
+                return factory.RuntimeMethodHandle(instantiatedMethod);
+            }
+            else
+            {
+                Debug.Assert(instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any));
+                // The substituted method is still not concrete, but it may have concrete dependencies
+                // so we track it as a shadow node to ensure its dependencies are discovered.
+                if (!instantiatedMethod.IsAbstract)
+                {
+                    factory.TypeSystemContext.DetectGenericCycles(dictionary.Context, instantiatedMethod);
+                    return factory.ShadowNonConcreteMethod(instantiatedMethod);
+                }
+                return null;
+            }
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("MethodHandle_");
+            sb.Append("MethodHandle_"u8);
             sb.Append(nameMangler.GetMangledMethodName(_method));
         }
 
@@ -374,15 +500,21 @@ namespace ILCompiler.DependencyAnalysis
             _field = field;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             FieldDesc instantiatedField = _field.GetNonRuntimeDeterminedFieldFromRuntimeDeterminedFieldViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedField.OwningType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedField.OwningType.IsCanonicalSubtype(CanonicalFormKind.Any));
+
             return factory.RuntimeFieldHandle(instantiatedField);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("FieldHandle_");
+            sb.Append("FieldHandle_"u8);
             sb.Append(nameMangler.GetMangledFieldName(_field));
         }
 
@@ -424,18 +556,28 @@ namespace ILCompiler.DependencyAnalysis
             _method = method;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             MethodDesc instantiatedMethod = _method.GetNonRuntimeDeterminedMethodFromRuntimeDeterminedMethodViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
-
             factory.TypeSystemContext.DetectGenericCycles(dictionary.Context, instantiatedMethod);
-
-            return factory.MethodGenericDictionary(instantiatedMethod);
+            if (isConcreteInstantiation || !instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any))
+            {
+                return factory.MethodGenericDictionary(instantiatedMethod);
+            }
+            else
+            {
+                Debug.Assert(instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any));
+                if (!instantiatedMethod.IsAbstract)
+                {
+                    return factory.ShadowNonConcreteMethod(instantiatedMethod);
+                }
+                return null;
+            }
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("MethodDictionary_");
+            sb.Append("MethodDictionary_"u8);
             sb.Append(nameMangler.GetMangledMethodName(_method));
         }
 
@@ -480,18 +622,32 @@ namespace ILCompiler.DependencyAnalysis
             _isUnboxingThunk = isUnboxingThunk;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             MethodDesc instantiatedMethod = _method.GetNonRuntimeDeterminedMethodFromRuntimeDeterminedMethodViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
-            return factory.FatFunctionPointer(instantiatedMethod, _isUnboxingThunk);
+            if (isConcreteInstantiation || !instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any))
+            {
+                // TODO-SIZE: this is address taken only in the delegate target case
+                return factory.FatAddressTakenFunctionPointer(instantiatedMethod, _isUnboxingThunk);
+            }
+            else
+            {
+                Debug.Assert(instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any));
+                if (!instantiatedMethod.IsAbstract)
+                {
+                    factory.TypeSystemContext.DetectGenericCycles(dictionary.Context, instantiatedMethod);
+                    return factory.ShadowNonConcreteMethod(instantiatedMethod);
+                }
+                return null;
+            }
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
             if (!_isUnboxingThunk)
-                sb.Append("MethodEntry_");
+                sb.Append("MethodEntry_"u8);
             else
-                sb.Append("UnboxMethodEntry_");
+                sb.Append("UnboxMethodEntry_"u8);
 
             sb.Append(nameMangler.GetMangledMethodName(_method));
         }
@@ -502,17 +658,11 @@ namespace ILCompiler.DependencyAnalysis
         {
             MethodDesc canonMethod = _method.GetCanonMethodTarget(CanonicalFormKind.Specific);
 
-            //
-            // For universal canonical methods, we don't need the unboxing stub really, because
-            // the calling convention translation thunk will handle the unboxing (and we can avoid having a double thunk here)
-            // We just need the flag in the native layout info signature indicating that we needed an unboxing stub
-            //
-            bool getUnboxingStubNode = _isUnboxingThunk && !canonMethod.IsCanonicalMethod(CanonicalFormKind.Universal);
-
+            // TODO-SIZE: this is address taken only in the delegate target case
             return factory.NativeLayout.MethodEntrypointDictionarySlot(
                 _method,
                 _isUnboxingThunk,
-                factory.MethodEntrypoint(canonMethod, getUnboxingStubNode));
+                factory.AddressTakenMethodEntrypoint(canonMethod, _isUnboxingThunk));
         }
 
         protected override int CompareToImpl(GenericLookupResult other, TypeSystemComparer comparer)
@@ -555,22 +705,42 @@ namespace ILCompiler.DependencyAnalysis
             _method = method;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext context)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext context, bool isConcreteInstantiation)
         {
             MethodDesc instantiatedMethod = _method.GetNonRuntimeDeterminedMethodFromRuntimeDeterminedMethodViaSubstitution(context.TypeInstantiation, context.MethodInstantiation);
+            if (isConcreteInstantiation || !instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any))
+            {
+                TypeSystemEntity contextOwner = context.Context;
+                GenericDictionaryNode dictionary;
 
-            TypeSystemEntity contextOwner = context.Context;
-            GenericDictionaryNode dictionary =
-                contextOwner is TypeDesc ?
-                (GenericDictionaryNode)factory.TypeGenericDictionary((TypeDesc)contextOwner) :
-                (GenericDictionaryNode)factory.MethodGenericDictionary((MethodDesc)contextOwner);
+                if (isConcreteInstantiation)
+                {
+                    dictionary = contextOwner is TypeDesc ?
+                        (GenericDictionaryNode)factory.TypeGenericDictionary((TypeDesc)contextOwner) :
+                        (GenericDictionaryNode)factory.MethodGenericDictionary((MethodDesc)contextOwner);
+                }
+                else
+                {
+                    dictionary = null;
+                }
 
-            return factory.InterfaceDispatchCell(instantiatedMethod, dictionary);
+                return factory.InterfaceDispatchCell(instantiatedMethod, dictionary);
+            }
+            else
+            {
+                Debug.Assert(instantiatedMethod.IsCanonicalMethod(CanonicalFormKind.Any));
+                if (!instantiatedMethod.IsAbstract)
+                {
+                    factory.TypeSystemContext.DetectGenericCycles(context.Context, instantiatedMethod);
+                    return factory.ShadowNonConcreteMethod(instantiatedMethod);
+                }
+                return null;
+            }
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("DispatchCell_");
+            sb.Append("DispatchCell_"u8);
             sb.Append(nameMangler.GetMangledMethodName(_method));
         }
 
@@ -613,15 +783,21 @@ namespace ILCompiler.DependencyAnalysis
             _type = (MetadataType)type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             var instantiatedType = (MetadataType)_type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
+
             return factory.TypeNonGCStaticsSymbol(instantiatedType);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("NonGCStaticBase_");
+            sb.Append("NonGCStaticBase_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -664,15 +840,20 @@ namespace ILCompiler.DependencyAnalysis
             _type = (MetadataType)type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             var instantiatedType = (MetadataType)_type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
             return factory.TypeThreadStaticIndex(instantiatedType);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("ThreadStaticBase_");
+            sb.Append("ThreadStaticBase_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -715,15 +896,20 @@ namespace ILCompiler.DependencyAnalysis
             _type = (MetadataType)type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             var instantiatedType = (MetadataType)_type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
             return factory.TypeGCStaticsSymbol(instantiatedType);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("GCStaticBase_");
+            sb.Append("GCStaticBase_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -766,15 +952,20 @@ namespace ILCompiler.DependencyAnalysis
             _type = type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             TypeDesc instantiatedType = _type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
-            return factory.ExternSymbol(JitHelper.GetNewObjectHelperForType(instantiatedType));
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
+            return factory.ExternFunctionSymbol(new Utf8String(JitHelper.GetNewObjectHelperForType(instantiatedType)));
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("AllocObject_");
+            sb.Append("AllocObject_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -813,16 +1004,21 @@ namespace ILCompiler.DependencyAnalysis
             _type = type;
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             TypeDesc instantiatedType = _type.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation && instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedType.IsCanonicalSubtype(CanonicalFormKind.Any));
             MethodDesc defaultCtor = Compilation.GetConstructorForCreateInstanceIntrinsic(instantiatedType);
-            return factory.CanonicalEntrypoint(defaultCtor);
+            return instantiatedType.IsValueType ? factory.ExactCallableAddress(defaultCtor) : factory.CanonicalEntrypoint(defaultCtor);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("DefaultCtor_");
+            sb.Append("DefaultCtor_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_type));
         }
 
@@ -873,7 +1069,7 @@ namespace ILCompiler.DependencyAnalysis
 
             // If we're producing a full vtable for the type, we don't need to report virtual method use.
             // We also don't report virtual method use for generic virtual methods - tracking those is orthogonal.
-            if (!factory.VTable(canonMethod.OwningType).HasFixedSlots && !canonMethod.HasInstantiation)
+            if (!canonMethod.HasInstantiation && !factory.VTable(canonMethod.OwningType).HasKnownVirtualMethodUse)
             {
                 // Report the method as virtually used so that types that could be used here at runtime
                 // have the appropriate implementations generated.
@@ -883,36 +1079,53 @@ namespace ILCompiler.DependencyAnalysis
             }
         }
 
-        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary)
+        public override ISymbolNode GetTarget(NodeFactory factory, GenericLookupResultContext dictionary, bool isConcreteInstantiation)
         {
             MethodDesc instantiatedConstrainedMethod = _constrainedMethod.GetNonRuntimeDeterminedMethodFromRuntimeDeterminedMethodViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
             TypeDesc instantiatedConstraintType = _constraintType.GetNonRuntimeDeterminedTypeFromRuntimeDeterminedSubtypeViaSubstitution(dictionary.TypeInstantiation, dictionary.MethodInstantiation);
+            if (!isConcreteInstantiation &&
+                (instantiatedConstrainedMethod.IsCanonicalMethod(CanonicalFormKind.Any) ||
+                 instantiatedConstraintType.IsCanonicalSubtype(CanonicalFormKind.Any)))
+            {
+                return null;
+            }
+            Debug.Assert(!instantiatedConstrainedMethod.IsCanonicalMethod(CanonicalFormKind.Any));
+            Debug.Assert(!instantiatedConstraintType.IsCanonicalSubtype(CanonicalFormKind.Any));
+
             MethodDesc implMethod;
+
+            MethodDesc instantiatedConstrainedMethodDefinition = instantiatedConstrainedMethod.GetMethodDefinition();
 
             if (instantiatedConstrainedMethod.OwningType.IsInterface)
             {
                 if (instantiatedConstrainedMethod.Signature.IsStatic)
                 {
-                    implMethod = instantiatedConstraintType.GetClosestDefType().ResolveVariantInterfaceMethodToStaticVirtualMethodOnType(instantiatedConstrainedMethod);
-                    if (implMethod == null)
-                    {
-                        DefaultInterfaceMethodResolution resolution =
-                            instantiatedConstraintType.GetClosestDefType().ResolveVariantInterfaceMethodToDefaultImplementationOnType(instantiatedConstrainedMethod, out implMethod);
-                        if (resolution != DefaultInterfaceMethodResolution.DefaultImplementation)
-                        {
-                            // TODO: diamond/reabstraction
-                            ThrowHelper.ThrowInvalidProgramException();
-                        }
-                    }
+                    implMethod = instantiatedConstraintType.GetClosestDefType().ResolveVariantInterfaceMethodToStaticVirtualMethodOnType(instantiatedConstrainedMethodDefinition);
                 }
                 else
                 {
-                    throw new NotImplementedException();
+                    implMethod = instantiatedConstraintType.GetClosestDefType().ResolveVariantInterfaceMethodToVirtualMethodOnType(instantiatedConstrainedMethodDefinition);
+                }
+
+                if (implMethod == null)
+                {
+                    DefaultInterfaceMethodResolution resolution =
+                        instantiatedConstraintType.GetClosestDefType().ResolveVariantInterfaceMethodToDefaultImplementationOnType(instantiatedConstrainedMethodDefinition, out implMethod);
+                    if (resolution != DefaultInterfaceMethodResolution.DefaultImplementation)
+                    {
+                        // TODO: diamond/reabstraction: https://github.com/dotnet/runtime/issues/72589
+                        ThrowHelper.ThrowInvalidProgramException();
+                    }
                 }
             }
             else
             {
-                implMethod = instantiatedConstraintType.GetClosestDefType().FindVirtualFunctionTargetMethodOnObjectType(instantiatedConstrainedMethod);
+                implMethod = instantiatedConstraintType.GetClosestDefType().FindVirtualFunctionTargetMethodOnObjectType(instantiatedConstrainedMethodDefinition);
+            }
+
+            if (instantiatedConstrainedMethod != instantiatedConstrainedMethodDefinition)
+            {
+                implMethod = implMethod.MakeInstantiatedMethod(instantiatedConstrainedMethod.Instantiation);
             }
 
             // AOT use of this generic lookup is restricted to finding methods on valuetypes (runtime usage of this slot in universal generics is more flexible)
@@ -920,30 +1133,20 @@ namespace ILCompiler.DependencyAnalysis
 
             factory.MetadataManager.NoteOverridingMethod(_constrainedMethod, implMethod);
 
-            if (implMethod.Signature.IsStatic)
-            {
-                if (implMethod.GetCanonMethodTarget(CanonicalFormKind.Specific).IsSharedByGenericInstantiations)
-                    return factory.ExactCallableAddress(implMethod);
-                else
-                    return factory.MethodEntrypoint(implMethod);
-            }
-            else if (implMethod.HasInstantiation)
-            {
-                return factory.ExactCallableAddress(implMethod);
-            }
+            // TODO-SIZE: this is address taken only in the delegate target case
+            if (implMethod.GetCanonMethodTarget(CanonicalFormKind.Specific).IsSharedByGenericInstantiations)
+                return factory.ExactCallableAddressTakenAddress(implMethod);
             else
-            {
-                return factory.CanonicalEntrypoint(implMethod);
-            }
+                return factory.AddressTakenMethodEntrypoint(implMethod);
         }
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
-            sb.Append("ConstrainedMethodUseLookupResult_");
+            sb.Append("ConstrainedMethodUseLookupResult_"u8);
             sb.Append(nameMangler.GetMangledTypeName(_constraintType));
             sb.Append(nameMangler.GetMangledMethodName(_constrainedMethod));
             if (_directCall)
-                sb.Append("Direct");
+                sb.Append("Direct"u8);
         }
 
         public override string ToString() => $"ConstrainedMethodUseLookupResult: {_constraintType} {_constrainedMethod} {_directCall}";

@@ -55,38 +55,28 @@ namespace System
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern bool IsImmutableAgileException(Exception e);
 
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern IRuntimeMethodInfo GetMethodFromStackTrace(object stackTrace);
+        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ExceptionNative_GetMethodFromStackTrace")]
+        private static partial void GetMethodFromStackTrace(ObjectHandleOnStack stackTrace, ObjectHandleOnStack method);
 
         private MethodBase? GetExceptionMethodFromStackTrace()
         {
-            Debug.Assert(_stackTrace != null, "_stackTrace shouldn't be null when this method is called");
-            IRuntimeMethodInfo method = GetMethodFromStackTrace(_stackTrace!);
-
-            // Under certain race conditions when exceptions are re-used, this can be null
-            if (method == null)
+            object? stackTraceLocal = _stackTrace;
+            if (stackTraceLocal == null)
+            {
                 return null;
+            }
 
-            return RuntimeType.GetMethodBase(method);
+            IRuntimeMethodInfo? methodInfo = null;
+            GetMethodFromStackTrace(ObjectHandleOnStack.Create(ref stackTraceLocal), ObjectHandleOnStack.Create(ref methodInfo));
+            Debug.Assert(methodInfo != null);
+
+            return RuntimeType.GetMethodBase(methodInfo);
         }
 
         public MethodBase? TargetSite
         {
             [RequiresUnreferencedCode("Metadata for the method might be incomplete or removed")]
-            get
-            {
-                if (_exceptionMethod != null)
-                {
-                    return _exceptionMethod;
-                }
-                if (_stackTrace == null)
-                {
-                    return null;
-                }
-
-                _exceptionMethod = GetExceptionMethodFromStackTrace();
-                return _exceptionMethod;
-            }
+            get => _exceptionMethod ??= GetExceptionMethodFromStackTrace();
         }
 
         // This method will clear the _stackTrace of the exception object upon deserialization
@@ -124,14 +114,21 @@ namespace System
             _stackTraceString = null;
         }
 
+        [UnmanagedCallersOnly]
+        private static unsafe void InternalPreserveStackTrace(Exception* pException, Exception* pOutException)
+        {
+            try
+            {
+                pException->InternalPreserveStackTrace();
+            }
+            catch (Exception ex)
+            {
+                *pOutException = ex;
+            }
+        }
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern void PrepareForForeignExceptionRaise();
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void GetStackTracesDeepCopy(Exception exception, out byte[]? currentStackTrace, out object[]? dynamicMethodArray);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern void SaveStackTracesFromDeepCopy(Exception exception, byte[]? currentStackTrace, object[]? dynamicMethodArray);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal static extern uint GetExceptionCount();
@@ -147,18 +144,13 @@ namespace System
                 // in the exception object. This will ensure that when this exception is thrown and these
                 // fields are modified, then EDI's references remain intact.
                 //
-                byte[]? stackTraceCopy = (byte[]?)dispatchState.StackTrace?.Clone();
-                object[]? dynamicMethodsCopy = (object[]?)dispatchState.DynamicMethods?.Clone();
 
                 // Watson buckets and remoteStackTraceString fields are captured and restored without any locks. It is possible for them to
                 // get out of sync without violating overall integrity of the system.
                 _watsonBuckets = dispatchState.WatsonBuckets;
                 _ipForWatsonBuckets = dispatchState.IpForWatsonBuckets;
                 _remoteStackTraceString = dispatchState.RemoteStackTrace;
-
-                // The binary stack trace and references to dynamic methods have to be restored under a lock to guarantee integrity of the system.
-                SaveStackTracesFromDeepCopy(this, stackTraceCopy, dynamicMethodsCopy);
-
+                _stackTrace = dispatchState.StackTrace;
                 _stackTraceString = null;
 
                 // Marks the TES state to indicate we have restored foreign exception
@@ -172,7 +164,7 @@ namespace System
         private IDictionary? _data;
         private readonly Exception? _innerException;
         private string? _helpURL;
-        private byte[]? _stackTrace;
+        private object? _stackTrace;
         private byte[]? _watsonBuckets;
         private string? _stackTraceString; // Needed for serialization.
         private string? _remoteStackTraceString;
@@ -181,18 +173,17 @@ namespace System
         // DynamicMethodDescs alive for the lifetime of the exception. We do this because
         // the _stackTrace field holds MethodDescs, and a DynamicMethodDesc can be destroyed
         // unless a System.Resolver object roots it.
-        private readonly object[]? _dynamicMethods;
         private string? _source;         // Mainly used by VB.
         private UIntPtr _ipForWatsonBuckets; // Used to persist the IP for Watson Bucketing
         private readonly IntPtr _xptrs;             // Internal EE stuff
-        private readonly int _xcode = _COMPlusExceptionCode;             // Internal EE stuff
+        private readonly int _xcode = EXCEPTION_COMPLUS;             // Internal EE stuff
 #pragma warning restore CA1823, 414
 
         // @MANAGED: HResult is used from within the EE!  Rename with care - check VM directory
         private int _HResult;       // HResult
 
         // See src\inc\corexcep.h's EXCEPTION_COMPLUS definition:
-        private const int _COMPlusExceptionCode = unchecked((int)0xe0434352);   // Win32 exception code for COM+ exceptions
+        private const int EXCEPTION_COMPLUS = unchecked((int)0xe0434352);   // Win32 exception code for CLR exceptions
 
         private bool HasBeenThrown => _stackTrace != null;
 
@@ -227,32 +218,34 @@ namespace System
 
         internal readonly struct DispatchState
         {
-            public readonly byte[]? StackTrace;
-            public readonly object[]? DynamicMethods;
+            public readonly object? StackTrace;
             public readonly string? RemoteStackTrace;
             public readonly UIntPtr IpForWatsonBuckets;
             public readonly byte[]? WatsonBuckets;
 
             public DispatchState(
-                byte[]? stackTrace,
-                object[]? dynamicMethods,
+                object? stackTrace,
                 string? remoteStackTrace,
                 UIntPtr ipForWatsonBuckets,
                 byte[]? watsonBuckets)
             {
                 StackTrace = stackTrace;
-                DynamicMethods = dynamicMethods;
                 RemoteStackTrace = remoteStackTrace;
                 IpForWatsonBuckets = ipForWatsonBuckets;
                 WatsonBuckets = watsonBuckets;
             }
         }
 
+        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ExceptionNative_GetFrozenStackTrace")]
+        private static partial void GetFrozenStackTrace(ObjectHandleOnStack exception, ObjectHandleOnStack stackTrace);
+
         internal DispatchState CaptureDispatchState()
         {
-            GetStackTracesDeepCopy(this, out byte[]? stackTrace, out object[]? dynamicMethods);
+            Exception _this = this;
+            object? stackTrace = null;
+            GetFrozenStackTrace(ObjectHandleOnStack.Create(ref _this), ObjectHandleOnStack.Create(ref stackTrace));
 
-            return new DispatchState(stackTrace, dynamicMethods,
+            return new DispatchState(stackTrace,
                 _remoteStackTraceString, _ipForWatsonBuckets, _watsonBuckets);
         }
 
@@ -277,8 +270,73 @@ namespace System
             return true;
         }
 
+        [UnmanagedCallersOnly]
+        internal static unsafe void CreateRuntimeWrappedException(object* pThrownObject, object* pResult, Exception* pException)
+        {
+            try
+            {
+                *pResult = new System.Runtime.CompilerServices.RuntimeWrappedException(*pThrownObject);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        [UnmanagedCallersOnly]
+        internal static unsafe void CreateTypeInitializationException(char* pTypeName, Exception* pInnerException, object* pResult, Exception* pException)
+        {
+            try
+            {
+                string? typeName = pTypeName is not null ? new string(pTypeName) : null;
+                Exception? innerException = pInnerException is not null ? *pInnerException : null;
+                *pResult = new TypeInitializationException(typeName, innerException);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+#if FEATURE_COMINTEROP
         // used by vm
-        internal string? GetHelpContext(out uint helpContext)
+        [UnmanagedCallersOnly]
+        internal static unsafe IntPtr GetDescriptionBstr(Exception* obj, Exception* pException)
+        {
+            try
+            {
+                string message = obj->Message;
+                if (string.IsNullOrEmpty(message))
+                    message = obj->GetClassName();
+
+                // Allocate the description BSTR.
+                return Marshal.StringToBSTR(message);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+                return IntPtr.Zero;
+            }
+        }
+
+        // used by vm
+        [UnmanagedCallersOnly]
+        internal static unsafe IntPtr GetSourceBstr(Exception* obj, Exception* pException)
+        {
+            try
+            {
+                string? source = obj->Source;
+
+                return Marshal.StringToBSTR(source);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+                return IntPtr.Zero;
+            }
+        }
+
+        private string? GetHelpContext(out uint helpContext)
         {
             helpContext = 0;
             string? helpFile = HelpLink;
@@ -302,6 +360,68 @@ namespace System
             }
 
             return helpFile;
+        }
+
+        // used by vm
+        [UnmanagedCallersOnly]
+        internal static unsafe void GetHelpContextBstr(Exception* obj, IntPtr* bstr, uint* helpContext, Exception* pException)
+        {
+            *bstr = IntPtr.Zero;
+            try
+            {
+                string? helpFile = obj->GetHelpContext(out *helpContext);
+
+                *bstr = Marshal.StringToBSTR(helpFile);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+#endif
+
+        [UnmanagedCallersOnly]
+        internal static unsafe void CreateTargetInvocationException(Exception* pInnerException, object* pResult, Exception* pException)
+        {
+            try
+            {
+                Exception? inner = pInnerException is not null ? *pInnerException : null;
+                *pResult = new System.Reflection.TargetInvocationException(inner);
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
+        }
+
+        // See clrex.cpp for native version.
+        internal enum ArgumentExceptionKind
+        {
+            Argument,
+            ArgumentNull,
+            ArgumentOutOfRange
+        }
+
+        [UnmanagedCallersOnly]
+        internal static unsafe void CreateArgumentException(ArgumentExceptionKind kind, char* pResourceName, char* pParamName, object* pThrowable, Exception* pException)
+        {
+            try
+            {
+                string? message = pResourceName is not null ? SR.GetResourceString(new string(pResourceName)) : null;
+                string? paramName = pParamName is not null ? new string(pParamName) : null;
+
+                Debug.Assert(Enum.IsDefined(kind));
+                *pThrowable = kind switch
+                {
+                    ArgumentExceptionKind.ArgumentNull => new ArgumentNullException(paramName, message),
+                    ArgumentExceptionKind.ArgumentOutOfRange => new ArgumentOutOfRangeException(paramName, message),
+                    _ /* ArgumentExceptionKind.Argument */ => new ArgumentException(message, paramName)
+                };
+            }
+            catch (Exception ex)
+            {
+                *pException = ex;
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json.Serialization;
@@ -22,11 +22,17 @@ namespace System.Text.Json.SourceGeneration
 
         public required ImmutableEquatableArray<TypeRef>? Converters { get; init; }
 
+        public required ImmutableEquatableArray<TypeRef>? TypeClassifiers { get; init; }
+
         public required int? DefaultBufferSize { get; init; }
 
         public required JsonIgnoreCondition? DefaultIgnoreCondition { get; init; }
 
         public required JsonKnownNamingPolicy? DictionaryKeyPolicy { get; init; }
+
+        public required bool? RespectNullableAnnotations { get; init; }
+
+        public required bool? RespectRequiredConstructorParameters { get; init; }
 
         public required bool? IgnoreReadOnlyFields { get; init; }
 
@@ -35,6 +41,8 @@ namespace System.Text.Json.SourceGeneration
         public required bool? IncludeFields { get; init; }
 
         public required int? MaxDepth { get; init; }
+
+        public required string? NewLine { get; init; }
 
         public required JsonNumberHandling? NumberHandling { get; init; }
 
@@ -45,6 +53,8 @@ namespace System.Text.Json.SourceGeneration
         public required JsonKnownNamingPolicy? PropertyNamingPolicy { get; init; }
 
         public required JsonCommentHandling? ReadCommentHandling { get; init; }
+
+        public required JsonKnownReferenceHandler? ReferenceHandler { get; init; }
 
         public required JsonUnknownTypeHandling? UnknownTypeHandling { get; init; }
 
@@ -57,6 +67,8 @@ namespace System.Text.Json.SourceGeneration
         public required char? IndentCharacter { get; init; }
 
         public required int? IndentSize { get; init; }
+
+        public required bool? AllowDuplicateProperties { get; init; }
 
         public JsonKnownNamingPolicy? GetEffectivePropertyNamingPolicy()
             => PropertyNamingPolicy ?? (Defaults is JsonSerializerDefaults.Web ? JsonKnownNamingPolicy.CamelCase : null);

@@ -24,7 +24,7 @@
 #include <mach-o/dyld.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
-#elif defined(__sun)
+#elif defined(__sun) || defined(TARGET_OPENBSD)
 #include <sys/utsname.h>
 #elif defined(TARGET_FREEBSD)
 #include <sys/types.h>
@@ -192,7 +192,7 @@ bool pal::get_loaded_library(
 {
     pal::string_t library_name_local;
 #if defined(TARGET_OSX)
-    if (!pal::is_path_rooted(library_name))
+    if (!pal::is_path_fully_qualified(library_name))
         library_name_local.append("@rpath/");
 #endif
     library_name_local.append(library_name);
@@ -200,7 +200,7 @@ bool pal::get_loaded_library(
     dll_t dll_maybe = dlopen(library_name_local.c_str(), RTLD_LAZY | RTLD_NOLOAD);
     if (dll_maybe == nullptr)
     {
-        if (pal::is_path_rooted(library_name))
+        if (pal::is_path_fully_qualified(library_name))
             return false;
 
         // dlopen on some systems only finds loaded libraries when given the full path
@@ -265,11 +265,16 @@ bool pal::is_path_rooted(const pal::string_t& path)
     return path.front() == '/';
 }
 
+bool pal::is_path_fully_qualified(const pal::string_t& path)
+{
+    return is_path_rooted(path);
+}
+
 bool pal::get_default_breadcrumb_store(string_t* recv)
 {
     recv->clear();
     pal::string_t ext;
-    if (pal::getenv(_X("CORE_BREADCRUMBS"), &ext) && pal::realpath(&ext))
+    if (pal::getenv(_X("CORE_BREADCRUMBS"), &ext) && pal::fullpath(&ext))
     {
         // We should have the path in ext.
         trace::info(_X("Realpath CORE_BREADCRUMBS [%s]"), ext.c_str());
@@ -301,7 +306,7 @@ bool pal::get_default_servicing_directory(string_t* recv)
 {
     recv->clear();
     pal::string_t ext;
-    if (pal::getenv(_X("CORE_SERVICING"), &ext) && pal::realpath(&ext))
+    if (pal::getenv(_X("CORE_SERVICING"), &ext) && pal::fullpath(&ext))
     {
         // We should have the path in ext.
         trace::info(_X("Realpath CORE_SERVICING [%s]"), ext.c_str());
@@ -332,7 +337,7 @@ bool pal::get_default_servicing_directory(string_t* recv)
 
 bool is_read_write_able_directory(pal::string_t& dir)
 {
-    return pal::realpath(&dir) &&
+    return pal::fullpath(&dir) &&
         (access(dir.c_str(), R_OK | W_OK | X_OK) == 0);
 }
 
@@ -456,7 +461,7 @@ bool get_install_location_from_file(const pal::string_t& file_path, bool& file_f
 {
     file_found = true;
     bool install_location_found = false;
-    FILE* install_location_file = pal::file_open(file_path, "r");
+    FILE* install_location_file = pal::file_open(file_path, _X("r"));
     if (install_location_file != nullptr)
     {
         if (!get_line_from_file(install_location_file, install_location))
@@ -557,20 +562,20 @@ namespace
 
 bool pal::get_default_installation_dir(pal::string_t* recv)
 {
-    //  ***Used only for testing***
-    pal::string_t environmentOverride;
-    if (test_only_getenv(_X("_DOTNET_TEST_DEFAULT_INSTALL_PATH"), &environmentOverride))
-    {
-        recv->assign(environmentOverride);
-        return true;
-    }
-    //  ***************************
-
     return get_default_installation_dir_for_arch(get_current_arch(), recv);
 }
 
 bool pal::get_default_installation_dir_for_arch(pal::architecture arch, pal::string_t* recv)
 {
+    //  ***Used only for testing***
+    pal::string_t environment_override;
+    if (test_only_getenv(_X("_DOTNET_TEST_DEFAULT_INSTALL_PATH"), &environment_override))
+    {
+        recv->assign(environment_override);
+        return true;
+    }
+    //  ***************************
+
     bool is_current_arch = arch == get_current_arch();
 
     // Bail out early for unsupported requests for different architectures
@@ -591,6 +596,22 @@ bool pal::get_default_installation_dir_for_arch(pal::architecture arch, pal::str
         append_path(recv, get_arch_name(arch));
     }
 #endif
+#elif defined(TARGET_FREEBSD)
+    int mib[2];
+    char buf[PATH_MAX];
+    size_t len = PATH_MAX;
+
+    mib[0] = CTL_USER;
+    mib[1] = USER_LOCALBASE;
+    if (::sysctl(mib, 2, buf, &len, NULL, 0) == 0)
+    {
+        recv->assign(buf);
+        recv->append(_X("/share/dotnet"));
+    }
+    else
+    {
+        recv->assign(_X("/usr/local/share/dotnet"));
+    }
 #else
     recv->assign(_X("/usr/share/dotnet"));
 #endif
@@ -682,6 +703,31 @@ pal::string_t pal::get_current_os_rid_platform()
                 .append(str, pos - str);
         }
     }
+
+    return ridOS;
+}
+#elif defined(TARGET_OPENBSD)
+pal::string_t pal::get_current_os_rid_platform()
+{
+    // Code:
+    //   struct utsname u;
+    //   if (uname(&u) != -1)
+    //       printf("sysname: %s, release: %s, version: %s, machine: %s\n",
+    //              u.sysname, u.release, u.version, u.machine);
+    //
+    // Example output on OpenBSD:
+    //       sysname: OpenBSD, release: 7.4, version: GENERIC#123, machine: amd64
+
+    pal::string_t ridOS;
+    struct utsname utsname_obj;
+
+    if (uname(&utsname_obj) < 0)
+    {
+        return ridOS;
+    }
+
+    ridOS.append(_X("openbsd."))
+        .append(utsname_obj.release); // e.g. openbsd.7.4
 
     return ridOS;
 }
@@ -803,12 +849,10 @@ pal::string_t pal::get_current_os_rid_platform()
     {
         // Read the file to get ID and VERSION_ID data that will be used
         // to construct the RID.
-        std::fstream fsVersionFile;
-
-        fsVersionFile.open(versionFile, std::fstream::in);
+        FILE* fsVersionFile = pal::file_open(versionFile, _X("r"));
 
         // Proceed only if we were able to open the file
-        if (fsVersionFile.good())
+        if (fsVersionFile != nullptr)
         {
             pal::string_t line;
             pal::string_t strID(_X("ID="));
@@ -818,11 +862,8 @@ pal::string_t pal::get_current_os_rid_platform()
 
             bool fFoundID = false, fFoundVersion = false;
 
-            // Read the first line
-            std::getline(fsVersionFile, line);
-
             // Loop until we are at the end of file
-            while (!fsVersionFile.eof())
+            while (get_line_from_file(fsVersionFile, line))
             {
                 // Look for ID if we have not found it already
                 if (!fFoundID)
@@ -856,13 +897,10 @@ pal::string_t pal::get_current_os_rid_platform()
                     // We have everything we need to form the RID - break out of the loop.
                     break;
                 }
-
-                // Read the next line
-                std::getline(fsVersionFile, line);
             }
 
             // Close the file now that we are done with it.
-            fsVersionFile.close();
+            fclose(fsVersionFile);
 
             if (fFoundID)
             {
@@ -889,11 +927,9 @@ pal::string_t pal::get_current_os_rid_platform()
 
 bool pal::get_own_executable_path(pal::string_t* recv)
 {
-    char* path = minipal_getexepath();
-    if (!path)
-    {
+    pal_char_t* path = ::pal_get_own_executable_path();
+    if (path == nullptr)
         return false;
-    }
 
     recv->assign(path);
     free(path);
@@ -934,14 +970,36 @@ bool pal::get_current_module(dll_t* mod)
 bool pal::getenv(const pal::char_t* name, pal::string_t* recv)
 {
     recv->clear();
+    pal_char_t* value = ::pal_getenv(name);
+    if (value == nullptr)
+        return false;
 
-    auto result = ::getenv(name);
-    if (result != nullptr)
+    recv->assign(value);
+    free(value);
+    return true;
+}
+
+extern char **environ;
+void pal::enumerate_environment_variables(const std::function<void(const pal::char_t*, const pal::char_t*)> callback)
+{
+    if (environ == nullptr)
+        return;
+
+    for (char **env = environ; *env != nullptr; ++env)
     {
-        recv->assign(result);
+        const char* current = *env;
+        const char* separator = ::strchr(current, '=');
+        if (separator != nullptr && separator != current)
+        {
+            pal::string_t name(current, separator - current);
+            callback(name.c_str(), separator + 1);
+        }
     }
+}
 
-    return (recv->length() > 0);
+bool pal::fullpath(pal::string_t* path, bool skip_error_logging)
+{
+    return realpath(path, skip_error_logging);
 }
 
 bool pal::realpath(pal::string_t* path, bool skip_error_logging)
@@ -970,6 +1028,11 @@ bool pal::realpath(pal::string_t* path, bool skip_error_logging)
 bool pal::file_exists(const pal::string_t& path)
 {
     return (::access(path.c_str(), F_OK) == 0);
+}
+
+bool pal::is_directory(const pal::string_t& path)
+{
+    return ::pal_directory_exists(path.c_str());
 }
 
 static void readdir(const pal::string_t& path, const pal::string_t& pattern, bool onlydirectories, std::vector<pal::string_t>* list)
@@ -1103,16 +1166,5 @@ bool pal::are_paths_equal_with_normalized_casing(const string_t& path1, const st
 #else
     // On Linux, paths are case-sensitive
     return path1 == path2;
-#endif
-}
-
-#if defined(FEATURE_STATIC_HOST) && (defined(TARGET_OSX) || defined(TARGET_LINUX)) && !defined(TARGET_X86)
-extern void initialize_static_createdump();
-#endif
-
-void pal::initialize_createdump()
-{
-#if defined(FEATURE_STATIC_HOST) && (defined(TARGET_OSX) || defined(TARGET_LINUX)) && !defined(TARGET_X86)
-    initialize_static_createdump();
 #endif
 }

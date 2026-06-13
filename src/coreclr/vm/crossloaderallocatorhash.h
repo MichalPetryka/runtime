@@ -21,8 +21,8 @@ public:
     static const bool s_supports_remove = false;
 
     // CrossLoaderAllocatorHash requires that a particular null value exist, which represents an empty value slot
-    static bool IsNullValue(const TValue &value) { return value == NULL; }
-    static TValue NullValue() { return NULL; }
+    static bool IsNullValue(const TValue &value) { return value == (TValue)NULL; }
+    static TValue NullValue() { return (TValue)NULL; }
 
     static BOOL KeyEquals(const TKey &k1, const TKey &k2) { return k1 == k2; }
     static BOOL ValueEquals(const TValue &v1, const TValue &v2) { return v1 == v2; }
@@ -200,6 +200,11 @@ private:
         static void* operator new(size_t baseSize, CountWrapper capacity);
 
     public:
+        static void operator delete(void* ptr)
+        {
+            ::operator delete(ptr);
+        }
+
         static KeyValueStore *Create(TCount capacity, const TKey &key);
 
         TCount GetCapacity() const { return _capacity; }
@@ -227,7 +232,7 @@ private:
         virtual bool IsLAHashKeyToTrackers() const override { return true; }
     };
 
-    class EMPTY_BASES_DECL KeyToValuesHashTraits : public DefaultSHashTraits<KeyValueStoreOrLAHashKeyToTrackers *>
+    class EMPTY_BASES KeyToValuesHashTraits : public DefaultSHashTraits<KeyValueStoreOrLAHashKeyToTrackers *>
     {
     private:
         typedef DefaultSHashTraits<KeyValueStoreOrLAHashKeyToTrackers *> Base;
@@ -347,7 +352,7 @@ private:
     #endif // !DACCESS_COMPILE
     };
 
-    class EMPTY_BASES_DECL LAHashDependentHashTrackerHashTraits : public DefaultSHashTraits<LAHashDependentHashTracker *>
+    class EMPTY_BASES LAHashDependentHashTrackerHashTraits : public DefaultSHashTraits<LAHashDependentHashTracker *>
     {
     public:
         typedef TCount count_t;

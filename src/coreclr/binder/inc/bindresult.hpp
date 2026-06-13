@@ -39,14 +39,14 @@ namespace BINDER_SPACE
         struct AttemptResult
         {
             HRESULT HResult;
-            ReleaseHolder<Assembly> Assembly;
+            ReleaseHolder<Assembly> AssemblyHolder;
             bool Attempted = false;
 
             void Set(const AttemptResult *result);
 
             void Reset()
             {
-                Assembly = nullptr;
+                AssemblyHolder = nullptr;
                 Attempted = false;
             }
         };
@@ -56,12 +56,17 @@ namespace BINDER_SPACE
 
         const AttemptResult* GetAttempt(bool foundInContext) const;
 
+        inline LPCWSTR GetDiagnosticInfo() const;
+        inline void AppendDiagnosticInfo(const SString& info);
+
     protected:
         bool m_isContextBound;
         ReleaseHolder<Assembly> m_pAssembly;
 
         AttemptResult m_inContextAttempt;
         AttemptResult m_applicationAssembliesAttempt;
+
+        SString m_diagnosticInfo;
     };
 };
 

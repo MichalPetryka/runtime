@@ -57,7 +57,6 @@ void DumpPrimToConsoleBare(MethodContext* mc, CorInfoType prim, DWORDLONG classH
         case CORINFO_TYPE_DOUBLE:
             printf("float64");
             return;
-        //  case CORINFO_TYPE_STRING: printf("string"); return;
         case CORINFO_TYPE_PTR:
             printf("ptr");
             return;
@@ -95,15 +94,9 @@ void DumpPrimToConsoleBare(MethodContext* mc, CorInfoType prim, DWORDLONG classH
 
             return;
         }
-        case CORINFO_TYPE_REFANY:
-            printf("refany");
-            return;
-        case CORINFO_TYPE_VAR:
-            printf("var");
-            return;
         default:
             LogWarning("unknown type in PrimToString(0x%x)", prim);
-            __debugbreak();
+            DEBUG_BREAK;
             return;
     }
 }

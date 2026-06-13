@@ -6,6 +6,11 @@
 
 namespace System.Net.Sockets
 {
+    public enum ConnectAlgorithm
+    {
+        Default = 0,
+        Parallel = 1,
+    }
     public enum IOControlCode : long
     {
         [System.Runtime.Versioning.SupportedOSPlatformAttribute("windows")]
@@ -343,6 +348,7 @@ namespace System.Net.Sockets
         public System.Threading.Tasks.ValueTask ConnectAsync(System.Net.IPAddress[] addresses, int port, System.Threading.CancellationToken cancellationToken) { throw null; }
         public bool ConnectAsync(System.Net.Sockets.SocketAsyncEventArgs e) { throw null; }
         public static bool ConnectAsync(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocolType, System.Net.Sockets.SocketAsyncEventArgs e) { throw null; }
+        public static bool ConnectAsync(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocolType, System.Net.Sockets.SocketAsyncEventArgs e, System.Net.Sockets.ConnectAlgorithm connectAlgorithm) { throw null; }
         public System.Threading.Tasks.Task ConnectAsync(string host, int port) { throw null; }
         public System.Threading.Tasks.ValueTask ConnectAsync(string host, int port, System.Threading.CancellationToken cancellationToken) { throw null; }
         public void Disconnect(bool reuseSocket) { }
@@ -568,6 +574,7 @@ namespace System.Net.Sockets
         DropMembership = 13,
         DontFragment = 14,
         AddSourceMembership = 15,
+        FastOpen = 15,
         DontRoute = 16,
         DropSourceMembership = 16,
         TcpKeepAliveRetryCount = 16,

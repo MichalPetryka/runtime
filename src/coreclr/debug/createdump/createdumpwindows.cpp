@@ -27,7 +27,7 @@ CreateDump(const CreateDumpOptions& options)
     _ASSERTE(options.CreateDump);
     _ASSERTE(!options.CrashReport);
 
-    ArrayHolder<char> pszName = new char[MAX_LONGPATH + 1];
+    AStringHolder pszName = new char[MAX_LONGPATH + 1];
     std::string dumpPath;
 
     // On Windows, createdump is restricted for security reasons to only the .NET process (parent process) that launched createdump
@@ -63,7 +63,7 @@ CreateDump(const CreateDumpOptions& options)
         printf_error("Invalid dump path '%s' - %s\n", dumpPath.c_str(), GetLastErrorString().c_str());
         goto exit;
     }
-    
+
     int retryCount = 10;
     // Retry the write dump on ERROR_PARTIAL_COPY
     for (int i = 0; i <= retryCount; i++)
@@ -135,3 +135,38 @@ GetLastErrorString()
     return result;
 }
 
+
+typedef DWORD(WINAPI *pfnGetTempPathA)(DWORD nBufferLength, LPSTR  lpBuffer);
+
+static volatile pfnGetTempPathA
+g_pfnGetTempPathA = nullptr;
+
+
+DWORD
+GetTempPathWrapper(
+    IN DWORD nBufferLength,
+    OUT LPSTR lpBuffer)
+{
+    if (g_pfnGetTempPathA == nullptr)
+    {
+        HMODULE hKernel32 = LoadLibraryExW(L"kernel32.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+
+        pfnGetTempPathA pLocalGetTempPathA = NULL;
+        if (hKernel32 != NULL)
+        {
+            // store to thread local variable to prevent data race
+            pLocalGetTempPathA = (pfnGetTempPathA)::GetProcAddress(hKernel32, "GetTempPath2A");
+        }
+
+        if (pLocalGetTempPathA == NULL) // method is only available with Windows 10 Creators Update or later
+        {
+            g_pfnGetTempPathA = &GetTempPathA;
+        }
+        else
+        {
+            g_pfnGetTempPathA = pLocalGetTempPathA;
+        }
+    }
+
+    return g_pfnGetTempPathA(nBufferLength, lpBuffer);
+}

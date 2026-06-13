@@ -116,6 +116,7 @@ namespace ILCompiler.Diagnostics
                 TargetOS.OSX => PerfMapOSToken.OSX,
                 TargetOS.FreeBSD => PerfMapOSToken.FreeBSD,
                 TargetOS.NetBSD => PerfMapOSToken.NetBSD,
+                TargetOS.OpenBSD => PerfMapOSToken.OpenBSD,
                 TargetOS.SunOS => PerfMapOSToken.SunOS,
                 _ => throw new NotImplementedException(details.OperatingSystem.ToString())
             };
@@ -135,6 +136,8 @@ namespace ILCompiler.Diagnostics
                 TargetArchitecture.ARM64 => PerfMapArchitectureToken.ARM64,
                 TargetArchitecture.X64 => PerfMapArchitectureToken.X64,
                 TargetArchitecture.X86 => PerfMapArchitectureToken.X86,
+                TargetArchitecture.RiscV64 => PerfMapArchitectureToken.RiscV64,
+                TargetArchitecture.LoongArch64 => PerfMapArchitectureToken.LoongArch64,
                 _ => throw new NotImplementedException(details.Architecture.ToString())
             };
 

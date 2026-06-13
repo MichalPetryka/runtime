@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.DotNet.XUnitExtensions;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using Microsoft.Extensions.FileSystemGlobbing.Tests.TestUtility;
 using Xunit;
@@ -850,6 +851,176 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Tests
             fileSystemInfos = directoryInfo.EnumerateFileSystemInfos();
 
             Assert.Equal(1, fileSystemInfos.Count());
+        }
+
+        [Theory]
+        [InlineData("./sdk/9.0.100-preview.4.24207.1/.version")]
+        [InlineData("././sdk/9.0.100-preview.4.24207.1/.version")]
+        public void VerifyFiles_RedundantSegment_HasMatches(string file)
+        {
+            foreach (string pattern in new[] { "**/*", "./", file })
+            {
+                var matcher = new Matcher();
+                matcher.AddInclude(pattern);
+                Assert.True(matcher.Match(file).HasMatches);
+                Assert.True(matcher.Match([file]).HasMatches);
+                Assert.True(matcher.Match("X:/foo", file).HasMatches);
+                Assert.True(matcher.Match("X:/foo", [file]).HasMatches);
+            }
+        }
+
+        [ConditionalFact]
+        public void VerifyFiles_ParentRedundantSegment_HasMatches()
+        {
+            string file = "sdk/9.0.100-preview.4.24207.1/.version";
+            foreach (string pattern in new[] { "**/*", "./", file })
+            {
+                var matcher = new Matcher();
+                matcher.AddInclude(pattern);
+                Assert.True(matcher.Match("X:/foo", $"../foo/{file}").HasMatches);
+                Assert.True(matcher.Match("X:/foo", [$"../foo/{file}"]).HasMatches);
+            }
+        }
+
+        [ConditionalFact]
+        public void VerifyFiles_ParentRedundantSegment_CurrentDirectory_HasMatches()
+        {
+            string cwd = Environment.CurrentDirectory;
+            string cwdFolderName = new DirectoryInfo(cwd).Name;
+            if (cwd == cwdFolderName) // cwd is root, we can't do ../C:/
+            {
+                throw new SkipTestException($"CurrentDirectory {cwd} is the root directory.");
+            }
+
+            string file = "sdk/9.0.100-preview.4.24207.1/.version";
+            foreach (string pattern in new[] { "**/*", "./", file })
+            {
+                var matcher = new Matcher();
+                matcher.AddInclude(pattern);
+                Assert.True(matcher.Match($"../{cwdFolderName}/{file}").HasMatches);
+                Assert.True(matcher.Match([$"../{cwdFolderName}/{file}"]).HasMatches);
+            }
+        }
+
+        [Theory]
+        [InlineData(@"/this/example/root", @"/this/EXAMPLE/root", "**/*", new[] { "some/test/file.txt" })]
+        [InlineData(@"/this/example/root", @"/this/example/root", "**/*", new[] { "some/test/file.txt" })]
+        [InlineData(@"/this/EXAMPLE/root", @"/this/example/root", "**/*", new[] { "some/test/file.txt" })]
+        public void VerifyFiles_InMemory_HasCaseInsensitiveRootMatches(string matchRoot, string filesRoot, string pattern, string[] expectedSubPaths)
+        {
+            Matcher matcher = new(StringComparison.OrdinalIgnoreCase);
+            matcher.AddInclude(pattern);
+
+            PatternMatchingResult patternMatchingResult = matcher.Match(matchRoot,
+                expectedSubPaths.Select(expectedSubPath => Path.Combine(filesRoot, expectedSubPath)));
+
+            Assert.True(patternMatchingResult.HasMatches);
+            Assert.Equal(expectedSubPaths.Length, patternMatchingResult.Files.Count());
+        }
+
+        [Theory]
+        [InlineData(@"/this/example/root", @"/this/example/root", "**/*", new[] { "some/test/file.txt" })]
+        public void VerifyFiles_InMemory_HasCaseSensitiveRootMatches(string matchRoot, string filesRoot, string pattern, string[] expectedSubPaths)
+        {
+            Matcher matcher = new(StringComparison.Ordinal);
+            matcher.AddInclude(pattern);
+
+            PatternMatchingResult patternMatchingResult = matcher.Match(matchRoot,
+                expectedSubPaths.Select(expectedSubPath => Path.Combine(filesRoot, expectedSubPath)));
+
+            Assert.True(patternMatchingResult.HasMatches);
+            Assert.Equal(expectedSubPaths.Length, patternMatchingResult.Files.Count());
+        }
+
+        [Theory]
+        [InlineData(@"/this/example/root", @"/this/EXAMPLE/root", "**/*", new[] { "some/test/file.txt" })]
+        [InlineData(@"/this/EXAMPLE/root", @"/this/example/root", "**/*", new[] { "some/test/file.txt" })]
+        public void VerifyFiles_InMemory_HasCaseSensitiveRootMisses(string matchRoot, string filesRoot, string pattern, string[] expectedSubPaths)
+        {
+            Matcher matcher = new(StringComparison.Ordinal);
+            matcher.AddInclude(pattern);
+
+            PatternMatchingResult patternMatchingResult = matcher.Match(matchRoot,
+                expectedSubPaths.Select(expectedSubPath => Path.Combine(filesRoot, expectedSubPath)));
+
+            Assert.False(patternMatchingResult.HasMatches);
+            Assert.Equal(0, patternMatchingResult.Files.Count());
+        }
+
+        [Fact]
+        public void StemIsCorrectForMultipleWildcardSiblingDirectories()
+        {
+            var matcher = new Matcher();
+            matcher.AddInclude("sys*/1*/*.dll");
+
+            var files = new[]
+            {
+                "system32/1028/VsGraphicsResources.dll",
+                "system32/1028/vsjitdebuggerui.dll",
+                "system32/1029/VsGraphicsResources.dll",
+                "system32/1029/vsjitdebuggerui.dll",
+                "system32/1031/VsGraphicsResources.dll",
+                "system32/1031/vsjitdebuggerui.dll",
+             };
+
+            var results = matcher.Match("./", files);
+
+            var actual = results.Files.Select(f => f.Stem);
+            var expected = new[]
+            {
+                "system32/1028/VsGraphicsResources.dll",
+                "system32/1028/vsjitdebuggerui.dll",
+                "system32/1029/VsGraphicsResources.dll",
+                "system32/1029/vsjitdebuggerui.dll",
+                "system32/1031/VsGraphicsResources.dll",
+                "system32/1031/vsjitdebuggerui.dll",
+             };
+
+            AssertExtensions.CollectionEqual(expected, actual, StringComparer.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void StemIsCorrectForRecursiveWildcardWithSiblingDirectories()
+        {
+            var matcher = new Matcher();
+            matcher.AddInclude("sys*/**/*.dll");
+
+            var files = new[]
+            {
+                "system32/drivers/acpi.dll",
+                "system32/drivers/usb.dll",
+                "system32/config/sam.dll",
+                "system32/config/security.dll",
+            };
+
+            var results = matcher.Match("./", files);
+
+            var actual = results.Files.Select(f => f.Stem);
+            var expected = new[]
+            {
+                "drivers/acpi.dll",
+                "drivers/usb.dll",
+                "config/sam.dll",
+                "config/security.dll",
+            };
+
+            AssertExtensions.CollectionEqual(expected, actual, StringComparer.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void VerifyInMemoryDirectoryInfo_ParentPatternMatches()
+        {
+            string rootDir = "/Folder1";
+            string[] files = ["/Folder1/File1.txt", "/Folder2/File2.txt"];
+
+            var matcher = new Matcher();
+            matcher.AddInclude("../Folder2/**");
+
+            var result = matcher.Execute(new InMemoryDirectoryInfo(rootDir, files));
+
+            Assert.True(result.HasMatches);
+            Assert.Single(result.Files);
+            Assert.Equal("../Folder2/File2.txt", result.Files.First().Path);
         }
     }
 }

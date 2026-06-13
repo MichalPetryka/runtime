@@ -2,30 +2,61 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapTrimming.Universe>("Foo", typeof(DeadCodeElimination.TestInteropMapTrimming.ConditionalTypeMapEntry), typeof(DeadCodeElimination.TestInteropMapTrimming.TypeMapTrimTarget))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapTrimming.Universe>("Bar", typeof(DeadCodeElimination.TestInteropMapTrimming.UnconditionalTypeMapEntry))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapTrimming.Universe>("GenUsedForExternal", typeof(DeadCodeElimination.TestInteropMapTrimming.ExternalEntryFromGenUsed), typeof(DeadCodeElimination.TestInteropMapTrimming.GenUsedForExternal<object>))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapTrimming.Universe>("GenUnused", typeof(DeadCodeElimination.TestInteropMapTrimming.ExternalEntryFromGenUnused), typeof(DeadCodeElimination.TestInteropMapTrimming.GenUnused<object>))]
+[assembly: TypeMapAssociation<DeadCodeElimination.TestInteropMapTrimming.Universe>(typeof(DeadCodeElimination.TestInteropMapTrimming.SourceType), typeof(DeadCodeElimination.TestInteropMapTrimming.ProxyType))]
+[assembly: TypeMapAssociation<DeadCodeElimination.TestInteropMapTrimming.Universe>(typeof(DeadCodeElimination.TestInteropMapTrimming.GenUsedForProxy<object>), typeof(DeadCodeElimination.TestInteropMapTrimming.ProxyFromGenUsed))]
+[assembly: TypeMapAssociation<DeadCodeElimination.TestInteropMapTrimming.Universe>(typeof(DeadCodeElimination.TestInteropMapTrimming.GenUnused<object>), typeof(DeadCodeElimination.TestInteropMapTrimming.ProxyFromGenUnused))]
+
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("A", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target1), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget1<DeadCodeElimination.TestInteropMapArrayTrimming.Atom>[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("B", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target2), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget2<DeadCodeElimination.TestInteropMapArrayTrimming.Atom>[,]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("C", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target3), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget3<DeadCodeElimination.TestInteropMapArrayTrimming.Atom>*[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("D", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target4), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget4<DeadCodeElimination.TestInteropMapArrayTrimming.Atom>[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("E", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target5), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget5[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("F", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target6), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget6[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("G", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target7), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget7[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("H", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target8), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget8[]))]
+[assembly: TypeMap<DeadCodeElimination.TestInteropMapArrayTrimming>("I", typeof(DeadCodeElimination.TestInteropMapArrayTrimming.Target9), typeof(DeadCodeElimination.TestInteropMapArrayTrimming.TrimTarget9[,]))]
 
 class DeadCodeElimination
 {
     public static int Run()
     {
         SanityTest.Run();
+        Test110932Regression.Run();
         TestInstanceMethodOptimization.Run();
         TestReflectionInvokeSignatures.Run();
         TestAbstractTypeNeverDerivedVirtualsOptimization.Run();
         TestAbstractNeverDerivedWithDevirtualizedCall.Run();
         TestAbstractDerivedByUnrelatedTypeWithDevirtualizedCall.Run();
         TestUnusedDefaultInterfaceMethod.Run();
+        TestInlinedDeadBranchElimination.Run();
+        TestComplexInlinedDeadBranchElimination.Run();
         TestArrayElementTypeOperations.Run();
         TestStaticVirtualMethodOptimizations.Run();
+        TestTypeIs.Run();
         TestTypeEquals.Run();
+        TestTypeEqualityDeadBranchScanRemoval.Run();
+        TestTypeIsEnum.Run();
         TestTypeIsValueType.Run();
         TestBranchesInGenericCodeRemoval.Run();
         TestUnmodifiableStaticFieldOptimization.Run();
         TestUnmodifiableInstanceFieldOptimization.Run();
         TestGetMethodOptimization.Run();
+        TestTypeOfCodegenBranchElimination.Run();
+        TestInvisibleGenericsTrimming.Run();
+        TestTypeHandlesInGenericDictionaries.Run();
+        TestMetadataMethodTables.Run();
+        TestInteropMapTrimming.Run();
+        TestInteropMapArrayTrimming.Run();
 
         return 100;
     }
@@ -44,6 +75,34 @@ class DeadCodeElimination
                 throw new Exception();
 
             ThrowIfPresent(typeof(SanityTest), nameof(NotPresentType));
+        }
+    }
+
+    class Test110932Regression
+    {
+        static bool s_trueConst = true;
+        static bool s_falseConst = false;
+
+        interface I
+        {
+            static virtual bool GetValue() => false;
+        }
+
+        class C : I
+        {
+            static bool I.GetValue() => true;
+        }
+
+        public static void Run()
+        {
+            if (!Call<C>())
+                throw new Exception();
+        }
+        static bool Call<T>() where T : I
+        {
+            if (T.GetValue())
+                return s_trueConst;
+            return s_falseConst;
         }
     }
 
@@ -98,8 +157,13 @@ class DeadCodeElimination
 
             {
                 MethodInfo mi = typeof(TestReflectionInvokeSignatures).GetMethod(nameof(Invoke2));
-                mi.Invoke(null, new object[1]);
+                var args = new object[1];
+                mi.Invoke(null, args);
                 ThrowIfNotPresent(typeof(TestReflectionInvokeSignatures), nameof(Allocated1));
+                if (args[0].GetType().Name != nameof(Allocated1))
+                    throw new Exception();
+                if (!args[0].ToString().Contains(nameof(Allocated1)))
+                    throw new Exception();
             }
         }
     }
@@ -248,6 +312,80 @@ class DeadCodeElimination
         }
     }
 
+    class TestInlinedDeadBranchElimination
+    {
+        static int GetIntConstant() => 42;
+        static int GetIntConstantWrapper() => GetIntConstant();
+
+        class NeverReferenced1 { }
+
+        enum MyEnum { One, Two }
+
+        static MyEnum GetEnumConstant() => MyEnum.Two;
+
+        class NeverReferenced2 { }
+
+        public static void Run()
+        {
+            if (GetIntConstantWrapper() == 1)
+            {
+                Activator.CreateInstance(typeof(NeverReferenced1));
+            }
+
+            ThrowIfPresent(typeof(TestInlinedDeadBranchElimination), nameof(NeverReferenced1));
+
+            if (GetEnumConstant() == MyEnum.One)
+            {
+                Activator.CreateInstance(typeof(NeverReferenced2));
+            }
+
+            ThrowIfPresent(typeof(TestInlinedDeadBranchElimination), nameof(NeverReferenced2));
+        }
+    }
+
+    class TestComplexInlinedDeadBranchElimination
+    {
+        class Log
+        {
+            public static Log Instance;
+
+            public bool IsEnabled => false;
+        }
+
+        class OperatingSystem
+        {
+            public static bool IsInterix => false;
+        }
+
+        public static bool CombinedCheck() => Log.Instance.IsEnabled || OperatingSystem.IsInterix;
+
+        class NeverReferenced1 { }
+
+        public static void Run()
+        {
+            bool didThrow = false;
+
+            // CombinedCheck is going to throw a NullRef but we still should have been able to deadcode
+            // the Log.Instance.IsEnabled call (this pattern is common in EventSources).
+            try
+            {
+                if (CombinedCheck())
+                {
+                    Activator.CreateInstance(typeof(NeverReferenced1));
+                }
+            }
+            catch (NullReferenceException)
+            {
+                didThrow = true;
+            }
+
+            if (!didThrow)
+                throw new Exception();
+
+            ThrowIfPresent(typeof(TestComplexInlinedDeadBranchElimination), nameof(NeverReferenced1));
+        }
+    }
+
     class TestArrayElementTypeOperations
     {
         public static void Run()
@@ -266,15 +404,7 @@ class DeadCodeElimination
                     throw new Exception();
             }
 
-            // ...but not nullable...
-            {
-                Array arr = new Nullable<NeverAllocated2>[1];
-                arr.GetValue(0);
-                ThrowIfPresent(typeof(TestArrayElementTypeOperations), nameof(Marker2));
-            }
-
-
-            // ...or reference type element types
+            // ...but not reference type element types
             {
                 Array arr = new NeverAllocated3[1];
                 arr.GetValue(0);
@@ -338,21 +468,246 @@ class DeadCodeElimination
         }
     }
 
+
+    class TestTypeIs
+    {
+        class Never1 { }
+        class Canary1 { }
+
+        class Maybe1<T, U> { }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static object GetTheObject() => new object();
+
+        static volatile object s_sink;
+
+        public static void Run()
+        {
+#if !DEBUG
+            {
+                RunCheck(GetTheObject());
+
+                static void RunCheck(object t)
+                {
+                    if (t is Never1)
+                    {
+                        s_sink = new Canary1();
+                    }
+                }
+
+                ThrowIfPresent(typeof(TestTypeIs), nameof(Canary1));
+            }
+
+            {
+                RunCheck<object>(new Maybe1<object, string>());
+
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                static void RunCheck<T>(object t)
+                {
+                    if (t is Maybe1<T, string>)
+                    {
+                        return;
+                    }
+                    throw new Exception();
+                }
+            }
+#endif
+        }
+    }
+
     class TestTypeEquals
     {
+        sealed class Gen<T> { }
+
         sealed class Never { }
 
-        static Type s_type = null;
+        class Never2 { }
+        class Canary2 { }
+        class Never3 { }
+        class Canary3 { }
+        class Never4 { }
+        class Canary4 { }
+
+        class Maybe1<T, U> { }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetTheType() => null;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetThePointerType() => typeof(void*);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static object GetTheObject() => new object();
+
+        static volatile object s_sink;
 
         public static void Run()
         {
             // This was asserting the BCL because Never would not have reflection metadata
             // despite the typeof
-            Console.WriteLine(s_type == typeof(Never));
+            Console.WriteLine(GetTheType() == typeof(Never));
+
+            // This was a compiler crash
+            Console.WriteLine(typeof(object) == typeof(Gen<>));
 
 #if !DEBUG
             ThrowIfPresent(typeof(TestTypeEquals), nameof(Never));
+
+            {
+                RunCheck(GetTheType());
+
+                static void RunCheck(Type t)
+                {
+                    if (t == typeof(Never2))
+                    {
+                        s_sink = new Canary2();
+                    }
+                }
+
+                ThrowIfPresent(typeof(TestTypeEquals), nameof(Canary2));
+            }
+
+            {
+
+                RunCheck(GetTheObject());
+
+                static void RunCheck(object o)
+                {
+                    if (o.GetType() == typeof(Never3))
+                    {
+                        s_sink = new Canary3();
+                    }
+                }
+
+                ThrowIfPresent(typeof(TestTypeEquals), nameof(Canary3));
+            }
+
+            {
+
+                RunCheck(GetTheObject());
+
+                static void RunCheck(object o)
+                {
+                    if (typeof(Never4) == o.GetType())
+                    {
+                        s_sink = new Canary4();
+                    }
+                }
+
+                ThrowIfPresent(typeof(TestTypeEquals), nameof(Canary4));
+            }
+
+            {
+                RunCheck(GetThePointerType());
+
+                static void RunCheck(Type t)
+                {
+                    if (t == typeof(void*))
+                    {
+                        return;
+                    }
+                    throw new Exception();
+                }
+            }
+
+            {
+                RunCheck<object>(typeof(Maybe1<object, string>));
+
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                static void RunCheck<T>(Type t)
+                {
+                    if (t == typeof(Maybe1<T, string>))
+                    {
+                        return;
+                    }
+                    throw new Exception();
+                }
+            }
 #endif
+        }
+    }
+
+    class TestTypeEqualityDeadBranchScanRemoval
+    {
+        class NeverAllocated1 { }
+        class NeverAllocated2 { }
+        class NeverAllocated3 { }
+
+        class PossiblyAllocated1 { }
+        class PossiblyAllocated2 { }
+
+        class MyAttribute : Attribute
+        {
+            public Type TheType;
+
+            public MyAttribute(Type t) => TheType = t;
+        }
+
+        [My(typeof(NeverAllocated3))]
+        class AttributeHolder { }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetNeverObject() => null;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetNeverAllocated3Type() => typeof(AttributeHolder).GetCustomAttribute<MyAttribute>().TheType;
+
+        static volatile Type s_sink;
+
+        public static void Run()
+        {
+            if (GetNeverObject() == typeof(NeverAllocated1))
+            {
+                Console.WriteLine(new NeverAllocated1().ToString());
+                Console.WriteLine(new NeverAllocated2().ToString());
+            }
+#if !DEBUG
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeEqualityDeadBranchScanRemoval), nameof(NeverAllocated1));
+            ThrowIfPresent(typeof(TestTypeEqualityDeadBranchScanRemoval), nameof(NeverAllocated2));
+#endif
+
+            if (GetNeverObject() == typeof(PossiblyAllocated1))
+            {
+                Console.WriteLine(new PossiblyAllocated1().ToString());
+                Console.WriteLine(new PossiblyAllocated2().ToString());
+            }
+            if (Environment.GetEnvironmentVariable("SURETHING") != null)
+                s_sink = typeof(PossiblyAllocated1);
+
+            if (GetNeverAllocated3Type() == typeof(NeverAllocated3))
+            {
+                Console.WriteLine($"{nameof(NeverAllocated3)} check succeeded");
+            }
+            else
+            {
+                throw new Exception();
+            }
+        }
+    }
+
+
+    class TestTypeIsEnum
+    {
+        class Never { }
+
+        class Ever { }
+
+        static void Generic<T>()
+        {
+            if (typeof(T).IsEnum)
+            {
+                Activator.CreateInstance(typeof(Never));
+            }
+
+            Activator.CreateInstance(typeof(Ever));
+        }
+
+        public static void Run()
+        {
+            Generic<object>();
+
+            ThrowIfPresent(typeof(TestTypeIsEnum), nameof(Never));
+            ThrowIfNotPresent(typeof(TestTypeIsEnum), nameof(Ever));
         }
     }
 
@@ -639,6 +994,496 @@ class DeadCodeElimination
         }
     }
 
+    class TestTypeOfCodegenBranchElimination
+    {
+        class Never1 { }
+        class Never2 { }
+        class Never3 { }
+        class Never4<T> { }
+        class Never5<T> { }
+        class Never6<T> { }
+
+        class Canary1 { }
+        class Canary2 { }
+        class Canary3 { }
+        class Canary4 { }
+        class Canary5 { }
+        class Canary6 { }
+
+        class Maybe1<T> { }
+
+        class Marker1 { }
+
+        class Atom1 { }
+
+        interface IDynamicCastableImplemented { void A(); }
+        [DynamicInterfaceCastableImplementation]
+        interface IDynamicCastableImplementedImpl : IDynamicCastableImplemented { void IDynamicCastableImplemented.A() { } }
+        class DynamicInterfaceCastable : IDynamicInterfaceCastable
+        {
+            RuntimeTypeHandle IDynamicInterfaceCastable.GetInterfaceImplementation(RuntimeTypeHandle interfaceType) => typeof(IDynamicCastableImplementedImpl).TypeHandle;
+            bool IDynamicInterfaceCastable.IsInterfaceImplemented(RuntimeTypeHandle interfaceType, bool throwIfNotImplemented) => true;
+        }
+
+        [UnconditionalSuppressMessage("AotAnalysis", "IL3050:UnrecognizedAotPattern",
+            Justification = "That's the point")]
+        public static void Run()
+        {
+            if (GetUnknownType().GetType() == typeof(Never1))
+            {
+                Consume(new Canary1());
+            }
+#if !DEBUG
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeOfCodegenBranchElimination), nameof(Canary1));
+#endif
+
+            if (GetUnknownType() is Never2)
+            {
+                Consume(new Canary2());
+            }
+#if !DEBUG
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeOfCodegenBranchElimination), nameof(Canary2));
+#endif
+
+            IsNever3<object>(new object());
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static void IsNever3<T>(object o)
+            {
+                if (typeof(T) == typeof(Never3))
+                {
+                    Consume(new Canary3());
+                }
+            }
+#if false // This optimization is disabled for now, don't check.
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeOfCodegenBranchElimination), nameof(Canary3));
+#endif
+
+            // *********
+
+            if (GetUnknownType().GetType() == typeof(Never4<object>))
+            {
+                Consume(new Canary4());
+            }
+#if !DEBUG
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeOfCodegenBranchElimination), nameof(Canary4));
+#endif
+
+            if (GetUnknownType() is Never5<object>)
+            {
+                Consume(new Canary5());
+            }
+#if !DEBUG
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeOfCodegenBranchElimination), nameof(Canary5));
+#endif
+
+            IsNever6<object>(new object());
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static void IsNever6<T>(object o)
+            {
+                if (typeof(T) == typeof(Never6<object>))
+                {
+                    Consume(new Canary6());
+                }
+            }
+#if false // This optimization is disabled for now, don't check.
+            ThrowIfPresentWithUsableMethodTable(typeof(TestTypeOfCodegenBranchElimination), nameof(Canary6));
+#endif
+
+            // ************
+
+            Activator.CreateInstance(typeof(Maybe1<>).MakeGenericType(GetAtom1()));
+
+            if (GetUnknownType().GetType() == typeof(Maybe1<object>))
+            {
+                // This should not be optimized away because Maybe1<object> is possible
+                // with the type loader template for MakeGeneric above.
+                Consume(new Marker1());
+            }
+            ThrowIfNotPresent(typeof(TestTypeOfCodegenBranchElimination), nameof(Marker1));
+
+            // ************
+
+            if (GetDynamicInterfaceCastableType() is not IDynamicCastableImplemented)
+               throw new Exception();
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static object GetDynamicInterfaceCastableType() => new DynamicInterfaceCastable();
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static void Consume(object o) { }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static object GetUnknownType() => new object();
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static Type GetAtom1() => typeof(Atom1);
+        }
+    }
+
+    class TestInvisibleGenericsTrimming
+    {
+        class NotPresentType1<T>;
+        class NotPresentType2<T>;
+
+        class PresentType<T>;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static bool IsNotPresentType1(object o) => o is NotPresentType1<object>;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static bool IsNotPresentType2(object o) => o.GetType() == typeof(NotPresentType2<object>);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static bool IsPresentType(object o) => o.GetType() == typeof(PresentType<object>);
+
+        public static void Run()
+        {
+            IsNotPresentType1(new object());
+#if !DEBUG
+            ThrowIfPresent(typeof(TestInvisibleGenericsTrimming), "NotPresentType1`1");
+#endif
+
+            IsNotPresentType2(new object());
+#if !DEBUG
+            ThrowIfPresent(typeof(TestInvisibleGenericsTrimming), "NotPresentType2`1");
+#endif
+
+            IsPresentType(new PresentType<object>());
+            ThrowIfNotPresent(typeof(TestInvisibleGenericsTrimming), "PresentType`1");
+        }
+    }
+
+    class TestTypeHandlesInGenericDictionaries
+    {
+        class InvisibleType1;
+        class InvisibleType2;
+        class VisibleType1;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void GenericMethod<T, U, V>(object o, string expectedNameOfV)
+        {
+            if (o is T)
+                Console.WriteLine("Yes");
+
+            if (o.GetType() == typeof(U))
+                Console.WriteLine("Yes");
+
+            if (typeof(V).Name != expectedNameOfV)
+                throw new Exception();
+        }
+
+        public static void Run()
+        {
+            GenericMethod<InvisibleType1, InvisibleType2, VisibleType1>(new object(), nameof(VisibleType1));
+
+            ThrowIfPresent(typeof(TestTypeHandlesInGenericDictionaries), nameof(InvisibleType1));
+#if !DEBUG
+            ThrowIfPresent(typeof(TestTypeHandlesInGenericDictionaries), nameof(InvisibleType2));
+#endif
+        }
+    }
+
+    class TestMetadataMethodTables
+    {
+        class NotReferenced1;
+
+        class UnallocatedClass
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private NotReferenced1 GetNotReferenced() => new NotReferenced1();
+            public override string ToString() => GetNotReferenced().ToString();
+        }
+
+        struct ImplicitlyAllocatedStruct
+        {
+            public override string ToString() => nameof(ImplicitlyAllocatedStruct);
+        }
+
+        class NotReferenced2;
+
+        class UnallocatedClassInGenericDictionary
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private NotReferenced2 GetNotReferenced() => new NotReferenced2();
+            public override string ToString() => GetNotReferenced().ToString();
+        }
+
+        struct ImplicitlyAllocatedStructInGenericDictionary<T>
+        {
+            public override string ToString() => nameof(ImplicitlyAllocatedStructInGenericDictionary<>);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetTheT<T>() => typeof(T);
+
+        public static void Run()
+        {
+#if !DEBUG
+            // typeof of a class shouldn't be considered allocation
+            {
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                static Type GetUnallocatedClass() => typeof(UnallocatedClass);
+
+                bool didThrow = false;
+                try
+                {
+                    RuntimeHelpers.GetUninitializedObject(GetUnallocatedClass());
+                }
+                catch (NotSupportedException)
+                {
+                    didThrow = true;
+                }
+
+                if (!didThrow)
+                    throw new Exception();
+
+                ThrowIfPresent(typeof(TestMetadataMethodTables), nameof(NotReferenced1));
+                if (GetUnallocatedClass().Name != nameof(UnallocatedClass))
+                    throw new Exception();
+            }
+
+            // same if it's in a generic dictionary
+            {
+                bool didThrow = false;
+                try
+                {
+                    RuntimeHelpers.GetUninitializedObject(GetTheT<UnallocatedClassInGenericDictionary>());
+                }
+                catch (NotSupportedException)
+                {
+                    didThrow = true;
+                }
+
+                if (!didThrow)
+                    throw new Exception();
+
+                ThrowIfPresent(typeof(TestMetadataMethodTables), nameof(NotReferenced2));
+                if (GetTheT<UnallocatedClassInGenericDictionary>().Name != nameof(UnallocatedClassInGenericDictionary))
+                    throw new Exception();
+            }
+
+            // typeof of a valuetype unfortunately needs to be (e.g. due to RuntimeHelpers.Box)
+            {
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                static Type GetImplicitlyAllocatedStruct() => typeof(ImplicitlyAllocatedStruct);
+
+                object o = RuntimeHelpers.GetUninitializedObject(GetImplicitlyAllocatedStruct());
+                if (o.ToString() != nameof(ImplicitlyAllocatedStruct))
+                    throw new Exception();
+
+                if (GetImplicitlyAllocatedStruct().Name != nameof(ImplicitlyAllocatedStruct))
+                    throw new Exception();
+            }
+
+            // same in a generic dictionary
+            {
+                object o = RuntimeHelpers.GetUninitializedObject(GetTheT<ImplicitlyAllocatedStructInGenericDictionary<object>>());
+                if (o.ToString() != nameof(ImplicitlyAllocatedStructInGenericDictionary<>))
+                    throw new Exception();
+
+                if (GetTheT<ImplicitlyAllocatedStructInGenericDictionary<object>>().Name != nameof(ImplicitlyAllocatedStructInGenericDictionary<>) + "`1")
+                    throw new Exception();
+            }
+#endif
+        }
+    }
+
+    internal class TestInteropMapTrimming
+    {
+        internal class Universe;
+
+        internal class ConditionalTypeMapEntry;
+        internal class UnconditionalTypeMapEntry;
+        internal class TypeMapTrimTarget;
+        internal class GenUsedForExternal<T> where T : class;
+        internal class ExternalEntryFromGenUsed;
+
+        internal class SourceType;
+        internal class ProxyType;
+
+        internal class GenUsedForProxy<T> where T : class;
+        internal class ProxyFromGenUsed;
+        internal class GenUnused<T> where T : class;
+        internal class ProxyFromGenUnused;
+        internal class ExternalEntryFromGenUnused;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static object GetUnknown() => null;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void Consume(object o) { }
+
+        public static void Run()
+        {
+            var map = TypeMapping.GetOrCreateExternalTypeMapping<Universe>();
+
+            {
+                if (GetUnknown() is TypeMapTrimTarget)
+                {
+                    Console.WriteLine("Unexpected!");
+                }
+
+                var mappedType = map["Foo"];
+                ThrowIfUsableMethodTable(mappedType);
+                if (mappedType.Name != nameof(ConditionalTypeMapEntry))
+                    throw new Exception();
+
+                if ((bool)typeof(TestInteropMapTrimming).GetMethod(nameof(TypeCheckUnknown)).MakeGenericMethod(GetObjectType()).Invoke(null, null))
+                {
+                    Console.WriteLine("Unexpected!");
+                }
+
+                var mappedTypeConstructed = map["GenUsedForExternal"];
+                ThrowIfUsableMethodTable(mappedTypeConstructed);
+                if (mappedTypeConstructed.Name != nameof(ExternalEntryFromGenUsed))
+                    throw new Exception();
+            }
+
+            {
+                var mappedType = map["Bar"];
+                ThrowIfUsableMethodTable(mappedType);
+                if (mappedType.Name != nameof(UnconditionalTypeMapEntry))
+                    throw new Exception();
+            }
+
+            var proxyMap = TypeMapping.GetOrCreateProxyTypeMapping<Universe>();
+
+            {
+                Consume(new SourceType());
+
+                var mappedType = proxyMap[typeof(SourceType)];
+                ThrowIfUsableMethodTable(mappedType);
+                if (mappedType.Name != nameof(ProxyType))
+                    throw new Exception();
+            }
+
+            {
+                var mappedType = (Type)typeof(TestInteropMapTrimming).GetMethod(nameof(GetProxyGeneric)).MakeGenericMethod(GetObjectType()).Invoke(null, [ proxyMap ]);
+                ThrowIfUsableMethodTable(mappedType);
+                if (mappedType.Name != nameof(ProxyFromGenUsed))
+                    throw new Exception();
+
+                ThrowIfNotPresent(typeof(TestInteropMapTrimming), nameof(ProxyFromGenUsed));
+                ThrowIfPresent(typeof(TestInteropMapTrimming), nameof(ProxyFromGenUnused));
+            }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static Type GetObjectType() => typeof(object);
+        }
+
+        public static Type GetProxyGeneric<T>(IReadOnlyDictionary<Type, Type> map) where T : class
+        {
+            return map.GetValueOrDefault(new GenUsedForProxy<T>().GetType());
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static bool TypeCheckUnknown<T>() where T : class => GetUnknown() is GenUsedForExternal<T>;
+    }
+
+    internal class TestInteropMapArrayTrimming
+    {
+        public struct TrimTarget1<T>;
+        public struct TrimTarget2<T>;
+        public struct TrimTarget3<T>;
+        public struct TrimTarget4<T>;
+        public struct TrimTarget5;
+        public struct TrimTarget6;
+        public struct TrimTarget7;
+        public struct TrimTarget8;
+        public class TrimTarget9;
+        public class Target1;
+        public class Target2;
+        public class Target3;
+        public class Target4;
+        public class Target5;
+        public class Target6;
+        public class Target7;
+        public class Target8;
+        public class Target9;
+        public class Atom;
+
+        public static unsafe object[] MakeGenerics<T>()
+        {
+            return [
+                new TrimTarget1<T>[1],
+                new TrimTarget2<T>[1,1],
+                new TrimTarget3<T>*[1],
+                // Skipping TrimTarget4
+                // Skipping TrimTarget5
+                new TrimTarget6[1]
+                ];
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetAtom() => typeof(Atom);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static object GetUnknown() => null;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static object MakeSharedGeneric<T>()
+            => new T[1,1];
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static bool TestSharedGeneric<T>()
+            => MakeSharedGeneric<T>() is T[,];
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static Type GetTrimTarget9() => typeof(TrimTarget9);
+
+        public static void Run()
+        {
+            if (GetUnknown() is TrimTarget7[])
+            {
+                Console.WriteLine("Unexpected");
+            }
+            if (GetUnknown() is TrimTarget8)
+            {
+                Console.WriteLine("Unexpected");
+            }
+
+            typeof(TestInteropMapArrayTrimming).GetMethod(nameof(MakeGenerics)).MakeGenericMethod([GetAtom()]).Invoke(null, []);
+
+            typeof(TestInteropMapArrayTrimming).GetMethod(nameof(TestSharedGeneric)).MakeGenericMethod([GetTrimTarget9()]).Invoke(null, []);
+
+            var map = TypeMapping.GetOrCreateExternalTypeMapping<TestInteropMapArrayTrimming>();
+
+            // A, B, C, F, G: trim target element type is reachable — entries must be present
+            // I: trim target can be constructed at runtime using type loader
+            if (!map.TryGetValue("A", out Type typeA) || typeA.Name != nameof(Target1))
+                throw new Exception("Expected entry A");
+            ThrowIfUsableMethodTable(typeA);
+
+            if (!map.TryGetValue("B", out Type typeB) || typeB.Name != nameof(Target2))
+                throw new Exception("Expected entry B");
+            ThrowIfUsableMethodTable(typeB);
+
+            if (!map.TryGetValue("C", out Type typeC) || typeC.Name != nameof(Target3))
+                throw new Exception("Expected entry C");
+            ThrowIfUsableMethodTable(typeC);
+
+            if (!map.TryGetValue("F", out Type typeF) || typeF.Name != nameof(Target6))
+                throw new Exception("Expected entry F");
+            ThrowIfUsableMethodTable(typeF);
+
+            if (!map.TryGetValue("G", out Type typeG) || typeG.Name != nameof(Target7))
+                throw new Exception("Expected entry G");
+            ThrowIfUsableMethodTable(typeG);
+
+            if (!map.TryGetValue("I", out Type typeI) || typeI.Name != nameof(Target9))
+                throw new Exception("Expected entry I");
+            ThrowIfUsableMethodTable(typeI);
+
+            // D, E: trim target element type is unreachable. H: element is reachable, but TrimTarget8[] is unreachable.
+            if (map.TryGetValue("D", out _))
+                throw new Exception("Unexpected entry D");
+            if (map.TryGetValue("E", out _))
+                throw new Exception("Unexpected entry E");
+            if (map.TryGetValue("H", out _))
+                throw new Exception("Unexpected entry H");
+        }
+    }
+
     [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2070:UnrecognizedReflectionPattern",
         Justification = "That's the point")]
     private static Type GetTypeSecretly(Type testType, string typeName) => testType.GetNestedType(typeName, BindingFlags.NonPublic | BindingFlags.Public);
@@ -651,14 +1496,19 @@ class DeadCodeElimination
         }
     }
 
-    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072:UnrecognizedReflectionPattern",
-        Justification = "That's the point")]
     private static void ThrowIfPresentWithUsableMethodTable(Type testType, string typeName)
     {
         Type t = GetTypeSecretly(testType, typeName);
         if (t == null)
             return;
 
+        ThrowIfUsableMethodTable(t);
+    }
+
+    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2067:UnrecognizedReflectionPattern",
+        Justification = "That's the point")]
+    private static void ThrowIfUsableMethodTable(Type t)
+    {
         try
         {
             RuntimeHelpers.GetUninitializedObject(t);

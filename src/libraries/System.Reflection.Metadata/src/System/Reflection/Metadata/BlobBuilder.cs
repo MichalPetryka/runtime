@@ -47,7 +47,7 @@ namespace System.Reflection.Metadata
         private uint _length;
 
         private const uint IsFrozenMask = 0x80000000;
-        private bool IsHead => (_length & IsFrozenMask) == 0;
+        internal bool IsHead => (_length & IsFrozenMask) == 0;
         private int Length => (int)(_length & ~IsFrozenMask);
         private uint FrozenLength => _length | IsFrozenMask;
         private Span<byte> Span => _buffer.AsSpan(0, Length);
@@ -97,8 +97,7 @@ namespace System.Reflection.Metadata
             {
                 if (chunk != this)
                 {
-                    chunk.ClearChunk();
-                    chunk.FreeChunk();
+                    chunk.ClearAndFreeChunk();
                 }
             }
 
@@ -396,6 +395,7 @@ namespace System.Reflection.Metadata
             // avoid chaining empty chunks:
             if (prefix.Count == 0)
             {
+                prefix.ClearAndFreeChunk();
                 return;
             }
 
@@ -456,6 +456,7 @@ namespace System.Reflection.Metadata
             // avoid chaining empty chunks:
             if (suffix.Count == 0)
             {
+                suffix.ClearAndFreeChunk();
                 return;
             }
 
@@ -478,7 +479,12 @@ namespace System.Reflection.Metadata
             // The value is not used, other than for calculating the value of Count property.
             suffix._previousLengthOrFrozenSuffixLengthDelta = suffixPreviousLength + oldSuffixLength - suffix.Length;
 
-            if (!isEmpty)
+            if (isEmpty)
+            {
+                var suffixLast = suffix._nextOrPrevious;
+                _nextOrPrevious = (suffixLast != suffix) ? suffixLast : this;
+            }
+            else
             {
                 // First and last chunks:
                 //
@@ -588,6 +594,7 @@ namespace System.Reflection.Metadata
             }
 
             int start = ReserveBytesImpl(byteCount);
+            Array.Clear(_buffer, start, byteCount);
             return new Blob(_buffer, start, byteCount);
         }
 
@@ -821,7 +828,7 @@ namespace System.Reflection.Metadata
         public void WriteByte(byte value)
         {
             int start = ReserveBytesPrimitive(sizeof(byte));
-            _buffer.WriteByte(start, value);
+            _buffer[start] = value;
         }
 
         /// <exception cref="InvalidOperationException">Builder is not writable, it has been linked with another one.</exception>
@@ -1176,6 +1183,12 @@ namespace System.Reflection.Metadata
             return (length <= MaxDisplaySize) ?
                 BitConverter.ToString(bytes, 0, length) :
                 BitConverter.ToString(bytes, 0, MaxDisplaySize / 2) + "-...-" + BitConverter.ToString(bytes, length - MaxDisplaySize / 2, MaxDisplaySize / 2);
+        }
+
+        private void ClearAndFreeChunk()
+        {
+            ClearChunk();
+            FreeChunk();
         }
     }
 }

@@ -22,6 +22,13 @@ namespace System.Threading.RateLimiting
         private long _failedLeasesCount;
         private long _successfulLeasesCount;
 
+        /// <summary>
+        /// Function to calculate elapsed time from a given tick value.
+        /// Defaults to <see cref="RateLimiterHelper.GetElapsedTime(long?)"/>.
+        /// In tests, this field can be reassigned via reflection to inject custom time behavior without modifying the public API.
+        /// </summary>
+        private readonly Func<long?, TimeSpan?> _getElapsedTime = RateLimiterHelper.GetElapsedTime;
+
         private readonly Timer? _renewTimer;
         private readonly FixedWindowRateLimiterOptions _options;
         private readonly Deque<RequestRegistration> _queue = new Deque<RequestRegistration>();
@@ -30,10 +37,9 @@ namespace System.Threading.RateLimiting
 
         private static readonly RateLimitLease SuccessfulLease = new FixedWindowLease(true, null);
         private static readonly RateLimitLease FailedLease = new FixedWindowLease(false, null);
-        private static readonly double TickFrequency = (double)TimeSpan.TicksPerSecond / Stopwatch.Frequency;
 
         /// <inheritdoc />
-        public override TimeSpan? IdleDuration => _idleSince is null ? null : new TimeSpan((long)((Stopwatch.GetTimestamp() - _idleSince) * TickFrequency));
+        public override TimeSpan? IdleDuration => RateLimiterHelper.GetElapsedTime(_idleSince);
 
         /// <inheritdoc />
         public override bool IsAutoReplenishing => _options.AutoReplenishment;
@@ -47,10 +53,7 @@ namespace System.Threading.RateLimiting
         /// <param name="options">Options to specify the behavior of the <see cref="FixedWindowRateLimiter"/>.</param>
         public FixedWindowRateLimiter(FixedWindowRateLimiterOptions options)
         {
-            if (options is null)
-            {
-                throw new ArgumentNullException(nameof(options));
-            }
+            ArgumentNullException.ThrowIfNull(options);
             if (options.PermitLimit <= 0)
             {
                 throw new ArgumentException(SR.Format(SR.ShouldBeGreaterThan0, nameof(options.PermitLimit)), nameof(options));
@@ -87,12 +90,13 @@ namespace System.Threading.RateLimiting
         public override RateLimiterStatistics? GetStatistics()
         {
             ThrowIfDisposed();
+            // Volatile.Read avoids torn reads of a long on 32bit systems.
             return new RateLimiterStatistics()
             {
                 CurrentAvailablePermits = _permitCount,
                 CurrentQueuedCount = _queueCount,
-                TotalFailedLeases = Interlocked.Read(ref _failedLeasesCount),
-                TotalSuccessfulLeases = Interlocked.Read(ref _successfulLeasesCount),
+                TotalFailedLeases = Volatile.Read(ref _failedLeasesCount),
+                TotalSuccessfulLeases = Volatile.Read(ref _successfulLeasesCount),
             };
         }
 
@@ -118,7 +122,7 @@ namespace System.Threading.RateLimiting
                 }
 
                 Interlocked.Increment(ref _failedLeasesCount);
-                return CreateFailedWindowLease(permitCount);
+                return CreateFailedWindowLease();
             }
 
             lock (Lock)
@@ -129,7 +133,7 @@ namespace System.Threading.RateLimiting
                 }
 
                 Interlocked.Increment(ref _failedLeasesCount);
-                return CreateFailedWindowLease(permitCount);
+                return CreateFailedWindowLease();
             }
         }
 
@@ -173,7 +177,17 @@ namespace System.Threading.RateLimiting
                             Debug.Assert(_queueCount >= 0);
                             if (!oldestRequest.TrySetResult(FailedLease))
                             {
-                                _queueCount += oldestRequest.Count;
+                                if (!oldestRequest.QueueCountModified)
+                                {
+                                    // We already updated the queue count, the Cancel code is about to run or running and waiting on our lock,
+                                    // tell Cancel not to do anything
+                                    oldestRequest.QueueCountModified = true;
+                                }
+                                else
+                                {
+                                    // Updating queue count was handled by the cancellation code, don't double count
+                                    _queueCount += oldestRequest.Count;
+                                }
                             }
                             else
                             {
@@ -187,7 +201,7 @@ namespace System.Threading.RateLimiting
                     {
                         Interlocked.Increment(ref _failedLeasesCount);
                         // Don't queue if queue limit reached and QueueProcessingOrder is OldestFirst
-                        return new ValueTask<RateLimitLease>(CreateFailedWindowLease(permitCount));
+                        return new ValueTask<RateLimitLease>(CreateFailedWindowLease());
                     }
                 }
 
@@ -200,13 +214,19 @@ namespace System.Threading.RateLimiting
             }
         }
 
-        private FixedWindowLease CreateFailedWindowLease(int permitCount)
+        private FixedWindowLease CreateFailedWindowLease()
         {
-            int replenishAmount = permitCount - _permitCount + _queueCount;
-            // can't have 0 replenish window, that would mean it should be a successful lease
-            int replenishWindow = Math.Max(replenishAmount / _options.PermitLimit, 1);
+            // Volatile.Read avoids torn reads of a long on 32bit systems.
+            long lastReplenishmentTick = Volatile.Read(ref _lastReplenishmentTick);
+            TimeSpan? remainingTime = _options.Window - _getElapsedTime(lastReplenishmentTick);
 
-            return new FixedWindowLease(false, TimeSpan.FromTicks(_options.Window.Ticks * replenishWindow));
+            // Clamp to zero if negative (window expired but not yet replenished)
+            if (remainingTime < TimeSpan.Zero)
+            {
+                remainingTime = TimeSpan.Zero;
+            }
+
+            return new FixedWindowLease(false, remainingTime);
         }
 
         private bool TryLeaseUnsynchronized(int permitCount, [NotNullWhen(true)] out RateLimitLease? lease)
@@ -281,12 +301,12 @@ namespace System.Threading.RateLimiting
                     return;
                 }
 
-                if (((nowTicks - _lastReplenishmentTick) * TickFrequency) < _options.Window.Ticks && !_options.AutoReplenishment)
+                if (RateLimiterHelper.GetElapsedTime(_lastReplenishmentTick, nowTicks) < _options.Window && !_options.AutoReplenishment)
                 {
                     return;
                 }
 
-                _lastReplenishmentTick = nowTicks;
+                Volatile.Write(ref _lastReplenishmentTick, nowTicks);
 
                 int availablePermitCounters = _permitCount;
 
@@ -330,10 +350,19 @@ namespace System.Threading.RateLimiting
 
                         if (!nextPendingRequest.TrySetResult(SuccessfulLease))
                         {
-                            // Queued item was canceled so add count back
+                            // Queued item was canceled so add count back, permits weren't acquired
                             _permitCount += nextPendingRequest.Count;
-                            // Updating queue count is handled by the cancellation code
-                            _queueCount += nextPendingRequest.Count;
+                            if (!nextPendingRequest.QueueCountModified)
+                            {
+                                // We already updated the queue count, the Cancel code is about to run or running and waiting on our lock,
+                                // tell Cancel not to do anything
+                                nextPendingRequest.QueueCountModified = true;
+                            }
+                            else
+                            {
+                                // Updating queue count was handled by the cancellation code, don't double count
+                                _queueCount += nextPendingRequest.Count;
+                            }
                         }
                         else
                         {
@@ -435,6 +464,9 @@ namespace System.Threading.RateLimiting
             private readonly CancellationToken _cancellationToken;
             private CancellationTokenRegistration _cancellationTokenRegistration;
 
+            // Update under the limiter lock and only if the queue count was updated by the calling code
+            public bool QueueCountModified { get; set; }
+
             // this field is used only by the disposal mechanics and never shared between threads
             private RequestRegistration? _next;
 
@@ -449,7 +481,7 @@ namespace System.Threading.RateLimiting
                 // is going to invoke the callback synchronously, but this does not create
                 // a deadlock because lock are reentrant
                 if (cancellationToken.CanBeCanceled)
-#if NETCOREAPP || NETSTANDARD2_1_OR_GREATER
+#if NET || NETSTANDARD2_1_OR_GREATER
                     _cancellationTokenRegistration = cancellationToken.UnsafeRegister(Cancel, this);
 #else
                     _cancellationTokenRegistration = cancellationToken.Register(Cancel, this);
@@ -465,7 +497,14 @@ namespace System.Threading.RateLimiting
                     var limiter = (FixedWindowRateLimiter)registration.Task.AsyncState!;
                     lock (limiter.Lock)
                     {
-                        limiter._queueCount -= registration.Count;
+                        // Queuing and replenishing code might modify the _queueCount, since there is no guarantee of when the cancellation
+                        // code runs and we only want to update the _queueCount once, we set a bool (under a lock) so either method
+                        // can update the count and not double count.
+                        if (!registration.QueueCountModified)
+                        {
+                            limiter._queueCount -= registration.Count;
+                            registration.QueueCountModified = true;
+                        }
                     }
                 }
             }

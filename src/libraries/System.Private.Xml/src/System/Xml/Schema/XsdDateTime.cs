@@ -108,16 +108,6 @@ namespace System.Xml.Schema
         private static readonly int s_Lz___ = "---".Length;
         private static readonly int s_lz___dd = "---dd".Length;
 
-        // These values were copied from the DateTime class and are
-        // needed to convert ticks to year, month and day. See comment
-        // for method GetYearMonthDay for rationale.
-        // Number of 100ns ticks per time unit
-        private const long TicksPerMillisecond = 10000;
-        private const long TicksPerSecond = TicksPerMillisecond * 1000;
-        private const long TicksPerMinute = TicksPerSecond * 60;
-        private const long TicksPerHour = TicksPerMinute * 60;
-        private const long TicksPerDay = TicksPerHour * 24;
-
         // Number of days in a non-leap year
         private const int DaysPerYear = 365;
         // Number of days in 4 years
@@ -129,6 +119,9 @@ namespace System.Xml.Schema
 
         private static ReadOnlySpan<int> DaysToMonth365 => [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
         private static ReadOnlySpan<int> DaysToMonth366 => [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366];
+
+        // Maximum DateTime.Ticks value that can safely have one day added without overflow
+        private static readonly long s_maxDateTimeTicksForEndOfDay = DateTime.MaxValue.Ticks - TimeSpan.TicksPerDay;
 
         private const int CharStackBufferSize = 64;
 
@@ -142,22 +135,43 @@ namespace System.Xml.Schema
             {
                 throw new FormatException(SR.Format(SR.XmlConvert_BadFormat, text, kinds));
             }
-            InitiateXsdDateTime(parser);
+            if (!TryInitiateXsdDateTime(parser))
+            {
+                throw new FormatException(SR.Format(SR.XmlConvert_BadFormat, text, kinds));
+            }
         }
 
-        private XsdDateTime(Parser parser) : this()
+        private bool TryInitiateXsdDateTime(Parser parser)
         {
-            InitiateXsdDateTime(parser);
-        }
+            // Per ISO 8601, 24:00:00 represents end of a calendar day
+            // (same instant as next day's 00:00:00). Set hour to 0 and add one day.
+            int hour = parser.hour;
+            bool isEndOfDay = hour == 24;
+            if (isEndOfDay)
+            {
+                Debug.Assert(parser.minute == 0, "minute must be zero when hour is 24");
+                Debug.Assert(parser.second == 0, "second must be zero when hour is 24");
+                Debug.Assert(parser.fraction == 0, "fraction must be zero when hour is 24");
+                hour = 0;
+            }
 
-        private void InitiateXsdDateTime(Parser parser)
-        {
-            _dt = new DateTime(parser.year, parser.month, parser.day, parser.hour, parser.minute, parser.second);
+            _dt = new DateTime(parser.year, parser.month, parser.day, hour, parser.minute, parser.second);
             if (parser.fraction != 0)
             {
                 _dt = _dt.AddTicks(parser.fraction);
             }
+
+            if (isEndOfDay)
+            {
+                if (_dt.Ticks > s_maxDateTimeTicksForEndOfDay)
+                {
+                    return false;
+                }
+                _dt = _dt.AddDays(1);
+            }
+
             _extra = (uint)(((int)parser.typeCode << TypeShift) | ((int)parser.kind << KindShift) | (parser.zoneHour << ZoneHourShift) | parser.zoneMinute);
+            return true;
         }
 
         internal static bool TryParse(string text, XsdDateTimeFlags kinds, out XsdDateTime result)
@@ -168,7 +182,11 @@ namespace System.Xml.Schema
                 result = default;
                 return false;
             }
-            result = new XsdDateTime(parser);
+            result = default;
+            if (!result.TryInitiateXsdDateTime(parser))
+            {
+                return false;
+            }
             return true;
         }
 
@@ -396,6 +414,7 @@ namespace System.Xml.Schema
             {
                 case DateTimeTypeCode.GMonth:
                 case DateTimeTypeCode.GDay:
+                    // codeql[cs/leap-year/unsafe-date-construction-from-two-elements] - The XML specification does not explicitly define this behavior for parsing in a non-leap year. We intentionally throw here. Altering this behavior to be more resilient, producing dates like 2/28 or 3/1, could introduce unintended consequences and may not be desirable for user.
                     result = new DateTime(DateTime.Now.Year, xdt.Month, xdt.Day);
                     break;
                 case DateTimeTypeCode.Time:
@@ -493,7 +512,7 @@ namespace System.Xml.Schema
         /// <summary>
         /// Serialization to a string
         /// </summary>
-        public override string ToString()
+        public override unsafe string ToString()
         {
             Span<char> destination = stackalloc char[CharStackBufferSize];
             bool success = TryFormat(destination, out int charsWritten);
@@ -574,7 +593,7 @@ namespace System.Xml.Schema
         {
             long ticks = _dt.Ticks;
             // n = number of days since 1/1/0001
-            int n = (int)(ticks / TicksPerDay);
+            int n = (int)(ticks / TimeSpan.TicksPerDay);
             // y400 = number of whole 400-year periods since 1/1/0001
             int y400 = n / DaysPer400Years;
             // n = day number within 400-year period
@@ -926,7 +945,7 @@ namespace System.Xml.Schema
             private bool ParseTime(ref int start)
             {
                 if (
-                    Parse2Dig(start, ref hour) && hour < 24 &&
+                    Parse2Dig(start, ref hour) && hour <= 24 &&
                     ParseChar(start + s_lzHH, ':') &&
                     Parse2Dig(start + s_lzHH_, ref minute) && minute < 60 &&
                     ParseChar(start + s_lzHH_mm, ':') &&
@@ -986,6 +1005,14 @@ namespace System.Xml.Schema
                             fraction += round;
                         }
                     }
+
+                    // Per ISO 8601, 24:00:00 represents end of a calendar day
+                    // (same instant as next day's 00:00:00), but only when minute, second, and fraction are all zero.
+                    if (hour == 24 && (minute != 0 || second != 0 || fraction != 0))
+                    {
+                        return false;
+                    }
+
                     return true;
                 }
                 // cleanup - conflict with gYear

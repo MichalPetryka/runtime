@@ -4,6 +4,7 @@
 using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text.Encodings.Web;
 using System.Text.Unicode;
 
 namespace System.Text.Json
@@ -37,6 +38,16 @@ namespace System.Text.Json
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void ValidateNewLine(string value)
+        {
+            if (value is null)
+                ThrowHelper.ThrowArgumentNullException(nameof(value));
+
+            if (value is not JsonConstants.NewLineLineFeed and not JsonConstants.NewLineCarriageReturnLineFeed)
+                ThrowHelper.ThrowArgumentOutOfRangeException_NewLine(nameof(value));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ValidateIndentCharacter(char value)
         {
             if (value is not JsonConstants.DefaultIndentCharacter and not JsonConstants.TabIndentCharacter)
@@ -67,7 +78,7 @@ namespace System.Text.Json
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ValidateDouble(double value)
         {
-            if (!JsonHelpers.IsFinite(value))
+            if (!double.IsFinite(value))
             {
                 ThrowHelper.ThrowArgumentException_ValueNotSupported();
             }
@@ -76,7 +87,7 @@ namespace System.Text.Json
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ValidateSingle(float value)
         {
-            if (!JsonHelpers.IsFinite(value))
+            if (!float.IsFinite(value))
             {
                 ThrowHelper.ThrowArgumentException_ValueNotSupported();
             }
@@ -243,28 +254,18 @@ namespace System.Text.Json
             }
         }
 
-#if !NET8_0_OR_GREATER
+#if !NET
         private static readonly UTF8Encoding s_utf8Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 #endif
 
-        public static unsafe bool IsValidUtf8String(ReadOnlySpan<byte> bytes)
+        public static bool IsValidUtf8String(ReadOnlySpan<byte> bytes)
         {
-#if NET8_0_OR_GREATER
+#if NET
             return Utf8.IsValid(bytes);
 #else
             try
             {
-#if NETCOREAPP
-                s_utf8Encoding.GetCharCount(bytes);
-#else
-                if (!bytes.IsEmpty)
-                {
-                    fixed (byte* ptr = bytes)
-                    {
-                        s_utf8Encoding.GetCharCount(ptr, bytes.Length);
-                    }
-                }
-#endif
+                _ = s_utf8Encoding.GetCharCount(bytes);
                 return true;
             }
             catch (DecoderFallbackException)
@@ -274,9 +275,9 @@ namespace System.Text.Json
 #endif
         }
 
-        internal static unsafe OperationStatus ToUtf8(ReadOnlySpan<char> source, Span<byte> destination, out int written)
+        internal static OperationStatus ToUtf8(ReadOnlySpan<char> source, Span<byte> destination, out int written)
         {
-#if NETCOREAPP
+#if NET
             OperationStatus status = Utf8.FromUtf16(source, destination, out int charsRead, out written, replaceInvalidSequences: false, isFinalBlock: true);
             Debug.Assert(status is OperationStatus.Done or OperationStatus.DestinationTooSmall or OperationStatus.InvalidData);
             Debug.Assert(charsRead == source.Length || status is not OperationStatus.Done);
@@ -285,15 +286,7 @@ namespace System.Text.Json
             written = 0;
             try
             {
-                if (!source.IsEmpty)
-                {
-                    fixed (char* charPtr = source)
-                    fixed (byte* destPtr = destination)
-                    {
-                        written = s_utf8Encoding.GetBytes(charPtr, source.Length, destPtr, destination.Length);
-                    }
-                }
-
+                written = s_utf8Encoding.GetBytes(source, destination);
                 return OperationStatus.Done;
             }
             catch (EncoderFallbackException)
@@ -305,6 +298,74 @@ namespace System.Text.Json
                 return OperationStatus.DestinationTooSmall;
             }
 #endif
+        }
+
+        internal delegate T WriteCallback<T>(ReadOnlySpan<byte> serializedValue);
+
+        internal static unsafe T WriteString<T>(ReadOnlySpan<byte> utf8Value, WriteCallback<T> writeCallback)
+        {
+            int firstByteToEscape = JsonWriterHelper.NeedsEscaping(utf8Value, JavaScriptEncoder.Default);
+
+            if (firstByteToEscape == -1)
+            {
+                int quotedLength = utf8Value.Length + 2;
+                byte[]? rented = null;
+
+                try
+                {
+                    Span<byte> quotedValue = quotedLength > JsonConstants.StackallocByteThreshold
+                        ? (rented = ArrayPool<byte>.Shared.Rent(quotedLength)).AsSpan(0, quotedLength)
+                        : stackalloc byte[JsonConstants.StackallocByteThreshold].Slice(0, quotedLength);
+
+                    quotedValue[0] = JsonConstants.Quote;
+                    utf8Value.CopyTo(quotedValue.Slice(1));
+                    quotedValue[quotedValue.Length - 1] = JsonConstants.Quote;
+
+                    return writeCallback(quotedValue);
+                }
+                finally
+                {
+                    if (rented != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(rented);
+                    }
+                }
+            }
+            else
+            {
+                Debug.Assert(int.MaxValue / JsonConstants.MaxExpansionFactorWhileEscaping >= utf8Value.Length);
+
+                int length = checked(2 + JsonWriterHelper.GetMaxEscapedLength(utf8Value.Length, firstByteToEscape));
+                byte[]? rented = null;
+
+                try
+                {
+                    scoped Span<byte> escapedValue;
+
+                    if (length > JsonConstants.StackallocByteThreshold)
+                    {
+                        rented = ArrayPool<byte>.Shared.Rent(length);
+                        escapedValue = rented;
+                    }
+                    else
+                    {
+                        escapedValue = stackalloc byte[JsonConstants.StackallocByteThreshold];
+                    }
+
+                    escapedValue[0] = JsonConstants.Quote;
+                    JsonWriterHelper.EscapeString(utf8Value, escapedValue.Slice(1), firstByteToEscape, JavaScriptEncoder.Default, out int written);
+                    escapedValue[1 + written] = JsonConstants.Quote;
+
+                    return writeCallback(escapedValue.Slice(0, written + 2));
+                }
+                finally
+                {
+                    if (rented != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(rented);
+                    }
+                }
+            }
         }
     }
 }

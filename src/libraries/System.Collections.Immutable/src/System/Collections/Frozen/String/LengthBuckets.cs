@@ -27,17 +27,15 @@ namespace System.Collections.Frozen
                 return null;
             }
 
-            int arraySize = spread * MaxPerLength;
-#if NET6_0_OR_GREATER
-            if (arraySize > Array.MaxLength)
-#else
-            if (arraySize > 0X7FFFFFC7)
-#endif
+            long expectedArraySize = (long)spread * MaxPerLength;
+            if (expectedArraySize > Array.MaxLength)
             {
                 // In the future we may lower the value, as it may be quite unlikely
                 // to have a LOT of strings of different sizes.
                 return null;
             }
+
+            int arraySize = (int)expectedArraySize;
 
             // Instead of creating a dictionary of lists or a multi-dimensional array
             // we rent a single dimension array, where every bucket has five slots.
@@ -87,7 +85,7 @@ namespace System.Collections.Frozen
                 return null;
             }
 
-#if NET6_0_OR_GREATER
+#if NET
             // We don't need an array with every value initialized to zero if we are just about to overwrite every value anyway.
             int[] copy = GC.AllocateUninitializedArray<int>(arraySize);
             Array.Copy(buckets, copy, arraySize);

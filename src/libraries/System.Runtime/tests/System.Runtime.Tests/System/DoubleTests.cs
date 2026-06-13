@@ -59,7 +59,7 @@ namespace System.Tests
         [InlineData(double.NegativeInfinity, double.PositiveInfinity, -1)]
         [InlineData(double.PositiveInfinity, double.PositiveInfinity, 0)]
         [InlineData(double.PositiveInfinity, double.NegativeInfinity, 1)]
-        public static void CompareTo_Other_ReturnsExpected(double d1, object value, int expected)
+        public static void CompareTo_Other_ReturnsExpected(double d1, object? value, int expected)
         {
             if (value is double d2)
             {
@@ -131,7 +131,7 @@ namespace System.Tests
         [InlineData(double.NaN, -double.NaN, true)]
         [InlineData(789.0, 789.0f, false)]
         [InlineData(789.0, "789", false)]
-        public static void EqualsTest(double d1, object value, bool expected)
+        public static void EqualsTest(double d1, object? value, bool expected)
         {
             if (value is double d2)
             {
@@ -159,55 +159,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NaN,              double.NaN,              double.NaN,              0.0)]
-        [InlineData(double.NaN,              0.0f,                    double.NaN,              0.0)]
-        [InlineData(double.NaN,              1.0f,                    double.NaN,              0.0)]
-        [InlineData(double.NaN,              2.7182818284590452,      double.NaN,              0.0)]
-        [InlineData(double.NaN,              10.0,                    double.NaN,              0.0)]
-        [InlineData(0.0,                     0.0,                     0.0,                     0.0)]
-        [InlineData(0.0,                     1.0,                     1.0,                     0.0)]
-        [InlineData(0.0,                     1.5707963267948966,      1.5707963267948966,      0.0)]
-        [InlineData(0.0,                     2.0,                     2.0,                     0.0)]
-        [InlineData(0.0,                     2.7182818284590452,      2.7182818284590452,      0.0)]
-        [InlineData(0.0,                     3.0,                     3.0,                     0.0)]
-        [InlineData(0.0,                     10.0,                    10.0,                    0.0)]
-        [InlineData(1.0,                     1.0,                     1.4142135623730950,      CrossPlatformMachineEpsilon * 10)]
-        [InlineData(1.0,                     1e+10,                   1e+10,                   0.0)] // dotnet/runtime#75651
-        [InlineData(1.0,                     1e+20,                   1e+20,                   0.0)] // dotnet/runtime#75651
-        [InlineData(2.7182818284590452,      0.31830988618379067,     2.7368553638387594,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (1 / pi)
-        [InlineData(2.7182818284590452,      0.43429448190325183,     2.7527563996732919,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (log10(e))
-        [InlineData(2.7182818284590452,      0.63661977236758134,     2.7918346715914253,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (2 / pi)
-        [InlineData(2.7182818284590452,      0.69314718055994531,     2.8052645352709344,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (ln(2))
-        [InlineData(2.7182818284590452,      0.70710678118654752,     2.8087463571726533,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (1 / sqrt(2))
-        [InlineData(2.7182818284590452,      0.78539816339744831,     2.8294710413783590,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (pi / 4)
-        [InlineData(2.7182818284590452,      1.0,                     2.8963867315900082,      CrossPlatformMachineEpsilon * 10)]   // x: (e)
-        [InlineData(2.7182818284590452,      1.1283791670955126,      2.9431778138036127,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (2 / sqrt(pi))
-        [InlineData(2.7182818284590452,      1.4142135623730950,      3.0641566701020120,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (sqrt(2))
-        [InlineData(2.7182818284590452,      1.4426950408889634,      3.0774055761202907,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (log2(e))
-        [InlineData(2.7182818284590452,      1.5707963267948966,      3.1394995141268918,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (pi / 2)
-        [InlineData(2.7182818284590452,      2.3025850929940457,      3.5624365551415857,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (ln(10))
-        [InlineData(2.7182818284590452,      2.7182818284590452,      3.8442310281591168,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (e)
-        [InlineData(2.7182818284590452,      3.1415926535897932,      4.1543544023133136,      CrossPlatformMachineEpsilon * 10)]   // x: (e)   y: (pi)
-        [InlineData(10.0,                    0.31830988618379067,     10.005064776584025,      CrossPlatformMachineEpsilon * 100)]  //          y: (1 / pi)
-        [InlineData(10.0,                    0.43429448190325183,     10.009426142242702,      CrossPlatformMachineEpsilon * 100)]  //          y: (log10(e))
-        [InlineData(10.0,                    0.63661977236758134,     10.020243746265325,      CrossPlatformMachineEpsilon * 100)]  //          y: (2 / pi)
-        [InlineData(10.0,                    0.69314718055994531,     10.023993865417028,      CrossPlatformMachineEpsilon * 100)]  //          y: (ln(2))
-        [InlineData(10.0,                    0.70710678118654752,     10.024968827881711,      CrossPlatformMachineEpsilon * 100)]  //          y: (1 / sqrt(2))
-        [InlineData(10.0,                    0.78539816339744831,     10.030795096853892,      CrossPlatformMachineEpsilon * 100)]  //          y: (pi / 4)
-        [InlineData(10.0,                    1.0,                     10.049875621120890,      CrossPlatformMachineEpsilon * 100)]  //
-        [InlineData(10.0,                    1.1283791670955126,      10.063460614755501,      CrossPlatformMachineEpsilon * 100)]  //          y: (2 / sqrt(pi))
-        [InlineData(10.0,                    1.4142135623730950,      10.099504938362078,      CrossPlatformMachineEpsilon * 100)]  //          y: (sqrt(2))
-        [InlineData(10.0,                    1.4426950408889634,      10.103532500121213,      CrossPlatformMachineEpsilon * 100)]  //          y: (log2(e))
-        [InlineData(10.0,                    1.5707963267948966,      10.122618292728040,      CrossPlatformMachineEpsilon * 100)]  //          y: (pi / 2)
-        [InlineData(10.0,                    2.3025850929940457,      10.261671311754163,      CrossPlatformMachineEpsilon * 100)]  //          y: (ln(10))
-        [InlineData(10.0,                    2.7182818284590452,      10.362869105558106,      CrossPlatformMachineEpsilon * 100)]  //          y: (e)
-        [InlineData(10.0,                    3.1415926535897932,      10.481870272097884,      CrossPlatformMachineEpsilon * 100)]  //          y: (pi)
-        [InlineData(double.PositiveInfinity, double.NaN,              double.PositiveInfinity, 0.0)]
-        [InlineData(double.PositiveInfinity, 0.0,                     double.PositiveInfinity, 0.0)]
-        [InlineData(double.PositiveInfinity, 1.0,                     double.PositiveInfinity, 0.0)]
-        [InlineData(double.PositiveInfinity, 2.7182818284590452,      double.PositiveInfinity, 0.0)]
-        [InlineData(double.PositiveInfinity, 10.0,                    double.PositiveInfinity, 0.0)]
-        [InlineData(double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity, 0.0)]
+        [MemberData(nameof(GenericMathTestMemberData.HypotDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void Hypot(double x, double y, double expectedResult, double allowedVariance)
         {
             AssertExtensions.Equal(expectedResult, double.Hypot(-x, -y), allowedVariance);
@@ -241,19 +193,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, false)]    // Negative Infinity
-        [InlineData(double.MinValue, false)]            // Min Negative Normal
-        [InlineData(-2.2250738585072014E-308, false)]   // Max Negative Normal
-        [InlineData(-2.2250738585072009E-308, false)]   // Min Negative Subnormal
-        [InlineData(-double.Epsilon, false)]            // Max Negative Subnormal (Negative Epsilon)
-        [InlineData(-0.0, false)]                       // Negative Zero
-        [InlineData(double.NaN, true)]                  // NaN
-        [InlineData(0.0, false)]                        // Positive Zero
-        [InlineData(double.Epsilon, false)]             // Min Positive Subnormal (Positive Epsilon)
-        [InlineData(2.2250738585072009E-308, false)]    // Max Positive Subnormal
-        [InlineData(2.2250738585072014E-308, false)]    // Min Positive Normal
-        [InlineData(double.MaxValue, false)]            // Max Positive Normal
-        [InlineData(double.PositiveInfinity, false)]    // Positive Infinity
+        [MemberData(nameof(GenericMathTestMemberData.IsNaNDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void IsNaN(double d, bool expected)
         {
             Assert.Equal(expected, double.IsNaN(d));
@@ -279,19 +219,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, false)]    // Negative Infinity
-        [InlineData(double.MinValue, false)]            // Min Negative Normal
-        [InlineData(-2.2250738585072014E-308, false)]   // Max Negative Normal
-        [InlineData(-2.2250738585072009E-308, false)]   // Min Negative Subnormal
-        [InlineData(-double.Epsilon, false)]            // Max Negative Subnormal (Negative Epsilon)
-        [InlineData(-0.0, false)]                       // Negative Zero
-        [InlineData(double.NaN, false)]                 // NaN
-        [InlineData(0.0, false)]                        // Positive Zero
-        [InlineData(double.Epsilon, false)]             // Min Positive Subnormal (Positive Epsilon)
-        [InlineData(2.2250738585072009E-308, false)]    // Max Positive Subnormal
-        [InlineData(2.2250738585072014E-308, false)]    // Min Positive Normal
-        [InlineData(double.MaxValue, false)]            // Max Positive Normal
-        [InlineData(double.PositiveInfinity, true)]     // Positive Infinity
+        [MemberData(nameof(GenericMathTestMemberData.IsPositiveInfinityDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void IsPositiveInfinity(double d, bool expected)
         {
             Assert.Equal(expected, double.IsPositiveInfinity(d));
@@ -403,6 +331,154 @@ namespace System.Tests
             yield return new object[] { "NaN", NumberStyles.Any, invariantFormat, double.NaN };
             yield return new object[] { "Infinity", NumberStyles.Any, invariantFormat, double.PositiveInfinity };
             yield return new object[] { "-Infinity", NumberStyles.Any, invariantFormat, double.NegativeInfinity };
+
+            // Hex float parsing tests (IEEE 754:2008 §5.12.3)
+            // Basic values
+            yield return new object[] { "0x1.0p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x1.8p0", NumberStyles.HexFloat, invariantFormat, 1.5 };
+            yield return new object[] { "0x1.0p1", NumberStyles.HexFloat, invariantFormat, 2.0 };
+            yield return new object[] { "0x1.0p-1", NumberStyles.HexFloat, invariantFormat, 0.5 };
+            yield return new object[] { "0x0.8p0", NumberStyles.HexFloat, invariantFormat, 0.5 };
+            yield return new object[] { "0x1.4p3", NumberStyles.HexFloat, invariantFormat, 10.0 };
+            yield return new object[] { "0x1.0p10", NumberStyles.HexFloat, invariantFormat, 1024.0 };
+            yield return new object[] { "0x1.0p-10", NumberStyles.HexFloat, invariantFormat, 0.0009765625 };
+            yield return new object[] { "0x1.0p+10", NumberStyles.HexFloat, invariantFormat, 1024.0 };
+            yield return new object[] { "0x10p0", NumberStyles.HexFloat, invariantFormat, 16.0 };
+
+            // Sign handling
+            yield return new object[] { "-0x1.0p0", NumberStyles.HexFloat, invariantFormat, -1.0 };
+            yield return new object[] { "+0x1.0p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "-0x1.8p1", NumberStyles.HexFloat, invariantFormat, -3.0 };
+            yield return new object[] { "+0xAp0", NumberStyles.HexFloat, invariantFormat, 10.0 };
+
+            // Case variations
+            yield return new object[] { "0X1.0P0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x1.Ap1", NumberStyles.HexFloat, invariantFormat, 3.25 };
+            yield return new object[] { "0x1.ap1", NumberStyles.HexFloat, invariantFormat, 3.25 };
+            yield return new object[] { "0X1.AP1", NumberStyles.HexFloat, invariantFormat, 3.25 };
+            yield return new object[] { "0x1.AbCdEfP+4", NumberStyles.HexFloat, invariantFormat, 26.737776756286621 };
+            yield return new object[] { "0xaBcDeF.0P0", NumberStyles.HexFloat, invariantFormat, 11259375.0 };
+
+            // Zero variants
+            yield return new object[] { "0x0p0", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "-0x0p0", NumberStyles.HexFloat, invariantFormat, -0.0 };
+            yield return new object[] { "0x0.0p0", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x00p0", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x000.000p0", NumberStyles.HexFloat, invariantFormat, 0.0 };
+
+            // Fractional-only significand (no integer part before decimal)
+            yield return new object[] { "0x.8p1", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x.Cp2", NumberStyles.HexFloat, invariantFormat, 3.0 };
+            yield return new object[] { "0x.4p2", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x.001p12", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x.1p4", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x.1p04", NumberStyles.HexFloat, invariantFormat, 1.0 };
+
+            // Leading zeros in integer and fractional parts
+            yield return new object[] { "0x001p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x0001.0p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x1.00000p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x00Ap0", NumberStyles.HexFloat, invariantFormat, 10.0 };
+
+            // Trailing decimal point (no fractional digits)
+            yield return new object[] { "0x1.p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0xA.p0", NumberStyles.HexFloat, invariantFormat, 10.0 };
+
+            // Edge case values
+            yield return new object[] { "0x1.0p-1074", NumberStyles.HexFloat, invariantFormat, double.Epsilon };
+            yield return new object[] { "0x1.fffffffffffffp1023", NumberStyles.HexFloat, invariantFormat, double.MaxValue };
+            yield return new object[] { "-0x1.fffffffffffffp1023", NumberStyles.HexFloat, invariantFormat, double.MinValue };
+            yield return new object[] { "0x1.0p-1022", NumberStyles.HexFloat, invariantFormat, 2.2250738585072014E-308 }; // Min normal
+            yield return new object[] { "0x0.0000000000001p-1022", NumberStyles.HexFloat, invariantFormat, double.Epsilon }; // Min subnormal
+            yield return new object[] { "0x1.fffffffffffffp+1023", NumberStyles.HexFloat, invariantFormat, 1.7976931348623157E+308 }; // MAX
+
+            // Well-known constants
+            yield return new object[] { "0x1.921fb54442d18p+1", NumberStyles.HexFloat, invariantFormat, Math.PI };
+            yield return new object[] { "0x1.5bf0a8b145769p+1", NumberStyles.HexFloat, invariantFormat, Math.E };
+            // Various representations of pi (same value, different significand/exponent splits)
+            yield return new object[] { "0x3.243f6a8885a3p0", NumberStyles.HexFloat, invariantFormat, Math.PI };
+            yield return new object[] { "0x6.487ed5110b46p-1", NumberStyles.HexFloat, invariantFormat, Math.PI };
+            yield return new object[] { "0xc.90fdaa22168cp-2", NumberStyles.HexFloat, invariantFormat, Math.PI };
+            yield return new object[] { "0x19.21fb54442d18p-3", NumberStyles.HexFloat, invariantFormat, Math.PI };
+            yield return new object[] { "0x0.c90fdaa22168cp2", NumberStyles.HexFloat, invariantFormat, Math.PI };
+            // Various representations of 190
+            yield return new object[] { "0xbep0", NumberStyles.HexFloat, invariantFormat, 190.0 };
+            yield return new object[] { "0XBE0P-4", NumberStyles.HexFloat, invariantFormat, 190.0 };
+            yield return new object[] { "0xB.Ep4", NumberStyles.HexFloat, invariantFormat, 190.0 };
+            yield return new object[] { "0x.BEp8", NumberStyles.HexFloat, invariantFormat, 190.0 };
+            yield return new object[] { "0x.0BEp12", NumberStyles.HexFloat, invariantFormat, 190.0 };
+
+            // Overflow to infinity
+            yield return new object[] { "0x1.0p1024", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "-0x1.0p1024", NumberStyles.HexFloat, invariantFormat, double.NegativeInfinity };
+            yield return new object[] { "0x1.0p99999", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0x1p+1025", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0X1p1030", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0x1p+1100", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0X.8p+1025", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0x0.8p1025", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0x2p+1023", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0x2.0p+1023", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0X4p+1022", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+            yield return new object[] { "0x1.ffffffffffffffp+1023", NumberStyles.HexFloat, invariantFormat, double.PositiveInfinity };
+
+            // Underflow to zero
+            yield return new object[] { "0x1.0p-1075", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x1.0p-9999", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0X1p-1075", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x1.1p-1075", NumberStyles.HexFloat, invariantFormat, double.Epsilon };
+
+            // Round-half-even near zero
+            yield return new object[] { "0x.8p-1074", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x.81p-1074", NumberStyles.HexFloat, invariantFormat, 5e-324 };
+            yield return new object[] { "0x8p-1078", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x8.1p-1078", NumberStyles.HexFloat, invariantFormat, 5e-324 };
+            yield return new object[] { "0x80p-1082", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x81p-1082", NumberStyles.HexFloat, invariantFormat, 5e-324 };
+            yield return new object[] { "0x1p-1076", NumberStyles.HexFloat, invariantFormat, 0.0 };              // 0.5 * TINY, ties to even = 0
+            yield return new object[] { "0X2p-1076", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0X3p-1076", NumberStyles.HexFloat, invariantFormat, 5e-324 };           // 1.5 * TINY rounds up
+            yield return new object[] { "0x4p-1076", NumberStyles.HexFloat, invariantFormat, 5e-324 };
+            yield return new object[] { "0X5p-1076", NumberStyles.HexFloat, invariantFormat, 5e-324 };
+            yield return new object[] { "0X6p-1076", NumberStyles.HexFloat, invariantFormat, 1e-323 };
+            yield return new object[] { "0x7p-1076", NumberStyles.HexFloat, invariantFormat, 1e-323 };
+
+            // Round-half-even near 1.0
+            yield return new object[] { "0x1.00000000000008p0", NumberStyles.HexFloat, invariantFormat, 1.0 };                 // exactly halfway, ties to even
+            yield return new object[] { "0x1.00000000000018p0", NumberStyles.HexFloat, invariantFormat, 1.0000000000000004 };  // ties to even
+
+            // Round-half-even near MIN normal boundary
+            yield return new object[] { "0x0.fffffffffffff8p-1022", NumberStyles.HexFloat, invariantFormat, 2.2250738585072014E-308 };
+            yield return new object[] { "0x1.00000000000008p-1022", NumberStyles.HexFloat, invariantFormat, 2.2250738585072014E-308 };
+
+            // Whitespace handling
+            yield return new object[] { " 0x1.0p0 ", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "  0x1.0p0  ", NumberStyles.HexFloat, invariantFormat, 1.0 };
+
+            // Integer-only form (with p0)
+            yield return new object[] { "0xAp0", NumberStyles.HexFloat, invariantFormat, 10.0 };
+            yield return new object[] { "0xFFp0", NumberStyles.HexFloat, invariantFormat, 255.0 };
+            yield return new object[] { "0x1p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+            yield return new object[] { "0x100p0", NumberStyles.HexFloat, invariantFormat, 256.0 };
+
+            // Large significand (many hex digits)
+            yield return new object[] { "0xFFFFFFFFFFFFFFp0", NumberStyles.HexFloat, invariantFormat, (double)0xFFFFFFFFFFFFFF };
+            yield return new object[] { "0x1.0000000000000p0", NumberStyles.HexFloat, invariantFormat, 1.0 };
+
+            // Denormal values
+            yield return new object[] { "0x0.8p-1073", NumberStyles.HexFloat, invariantFormat, double.Epsilon };
+            yield return new object[] { "0x0.4p-1072", NumberStyles.HexFloat, invariantFormat, double.Epsilon };
+
+            // Round-trip: format then parse
+            yield return new object[] { "0x1.999999999999ap-4", NumberStyles.HexFloat, invariantFormat, 0.1 };
+
+            // HexFloat without AllowDecimalPoint should parse integers only
+            yield return new object[] { "0xFFp0", NumberStyles.AllowHexSpecifier | NumberStyles.AllowExponent | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, invariantFormat, 255.0 };
+            yield return new object[] { "0xAp0", NumberStyles.AllowHexSpecifier | NumberStyles.AllowExponent, invariantFormat, 10.0 };
+
+            // Zero with absurd exponent (still zero)
+            yield return new object[] { "0x0p99999", NumberStyles.HexFloat, invariantFormat, 0.0 };
+            yield return new object[] { "0x0p-99999", NumberStyles.HexFloat, invariantFormat, 0.0 };
         }
 
         [Theory]
@@ -529,6 +605,45 @@ namespace System.Tests
 
             yield return new object[] { "ab", NumberStyles.None, null, typeof(FormatException) }; // Negative hex value
             yield return new object[] { "  123  ", NumberStyles.None, null, typeof(FormatException) }; // Trailing and leading whitespace
+
+            // Invalid hex float inputs
+            yield return new object[] { "", NumberStyles.HexFloat, null, typeof(FormatException) }; // Empty
+            yield return new object[] { " ", NumberStyles.HexFloat, null, typeof(FormatException) }; // Whitespace only
+            yield return new object[] { "0x", NumberStyles.HexFloat, null, typeof(FormatException) }; // Prefix only
+            yield return new object[] { "0x.p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // No significand digits
+            yield return new object[] { "0x1.0e5", NumberStyles.HexFloat, null, typeof(FormatException) }; // 'e' exponent instead of 'p'
+            yield return new object[] { "0x1.0p", NumberStyles.HexFloat, null, typeof(FormatException) }; // Exponent marker without digits
+            yield return new object[] { "0x1.8", NumberStyles.HexFloat, null, typeof(FormatException) }; // Fractional part without exponent
+            yield return new object[] { "0x.8", NumberStyles.HexFloat, null, typeof(FormatException) }; // Fractional-only without exponent
+            yield return new object[] { "0x0", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without exponent
+            yield return new object[] { "0xA", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without exponent
+            yield return new object[] { "0xFF", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without exponent
+            yield return new object[] { "0x100", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without exponent
+            yield return new object[] { "A", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without prefix or exponent
+            yield return new object[] { "1", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without prefix or exponent
+            yield return new object[] { "FF", NumberStyles.HexFloat, null, typeof(FormatException) }; // Integer without prefix or exponent
+            yield return new object[] { "0xGp0", NumberStyles.HexFloat, null, typeof(FormatException) }; // Invalid hex char
+            yield return new object[] { "0x1.Gp0", NumberStyles.HexFloat, null, typeof(FormatException) }; // Invalid hex char in fraction
+            yield return new object[] { "0x1.0p0garbage", NumberStyles.HexFloat, null, typeof(FormatException) }; // Trailing garbage
+            yield return new object[] { "+-0x1.0p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // Double sign
+            yield return new object[] { "0x1.0p+-1", NumberStyles.HexFloat, null, typeof(FormatException) }; // Double exponent sign
+            yield return new object[] { "NaN", NumberStyles.HexFloat, null, typeof(FormatException) }; // NaN not valid for HexFloat
+            yield return new object[] { "Infinity", NumberStyles.HexFloat, null, typeof(FormatException) }; // Infinity not valid for HexFloat
+            yield return new object[] { "0xX1.0p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // double X
+            yield return new object[] { "x1.0p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0 before x
+            yield return new object[] { "0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "1p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "1.0p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "1.8p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "Ap0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "FF.8p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "FFp0", NumberStyles.HexFloat, null, typeof(FormatException) }; // missing 0x prefix
+            yield return new object[] { "0x1.0p 0", NumberStyles.HexFloat, null, typeof(FormatException) }; // internal whitespace in exponent
+            yield return new object[] { "0x1pa", NumberStyles.HexFloat, null, typeof(FormatException) }; // non-digit in exponent
+            yield return new object[] { "xyz", NumberStyles.HexFloat, null, typeof(FormatException) }; // no hex digits
+            yield return new object[] { "0x1.0.p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // double decimal point
+            yield return new object[] { "0x 1p0", NumberStyles.HexFloat, null, typeof(FormatException) }; // embedded whitespace after prefix
+            yield return new object[] { "0x1.8p0", NumberStyles.AllowHexSpecifier | NumberStyles.AllowExponent, null, typeof(FormatException) }; // decimal point not allowed without AllowDecimalPoint
         }
 
         [Theory]
@@ -916,6 +1031,138 @@ namespace System.Tests
         }
 
         [Theory]
+        // Basic values
+        [InlineData(1.0, "x", "0x1p+0")]
+        [InlineData(1.5, "x", "0x1.8p+0")]
+        [InlineData(2.0, "x", "0x1p+1")]
+        [InlineData(0.5, "x", "0x1p-1")]
+        [InlineData(-1.0, "x", "-0x1p+0")]
+        [InlineData(10.0, "x", "0x1.4p+3")]
+        [InlineData(0.25, "x", "0x1p-2")]
+        [InlineData(0.75, "x", "0x1.8p-1")]
+        [InlineData(100.0, "x", "0x1.9p+6")]
+        [InlineData(0.1, "x", "0x1.999999999999ap-4")]
+        [InlineData(0.3, "x", "0x1.3333333333333p-2")]
+        [InlineData(Math.PI, "x", "0x1.921fb54442d18p+1")]
+        [InlineData(Math.E, "x", "0x1.5bf0a8b145769p+1")]
+        [InlineData(1234567890.123456, "x", "0x1.26580b487e6b4p+30")]
+        [InlineData(-2.2250738585072014E-308, "x", "-0x1p-1022")]
+        // Zero
+        [InlineData(0.0, "x", "0x0p+0")]
+        [InlineData(-0.0, "x", "-0x0p+0")]
+        // Special values
+        [InlineData(double.NaN, "x", "NaN")]
+        [InlineData(double.PositiveInfinity, "x", "Infinity")]
+        [InlineData(double.NegativeInfinity, "x", "-Infinity")]
+        // Edge case values
+        [InlineData(double.MaxValue, "x", "0x1.fffffffffffffp+1023")]
+        [InlineData(double.MinValue, "x", "-0x1.fffffffffffffp+1023")]
+        [InlineData(double.Epsilon, "x", "0x1p-1074")]
+        [InlineData(-double.Epsilon, "x", "-0x1p-1074")]
+        [InlineData(2.2250738585072009E-308, "x", "0x1.ffffffffffffep-1023")] // Max subnormal
+        [InlineData(1.48219693752374E-323, "x", "0x1.8p-1073")]              // 3 * Epsilon
+        [InlineData(2.2250738585072014E-308, "x", "0x1p-1022")] // Min normal
+        // Uppercase
+        [InlineData(3.25, "X", "0X1.AP+1")]
+        [InlineData(10.0, "X", "0X1.4P+3")]
+        [InlineData(255.5, "X", "0X1.FFP+7")]
+        // Explicit precision
+        [InlineData(1.0, "x0", "0x1p+0")]
+        [InlineData(1.0, "x2", "0x1.00p+0")]
+        [InlineData(1.5, "x4", "0x1.8000p+0")]
+        [InlineData(1.5, "x13", "0x1.8000000000000p+0")]
+        [InlineData(1.5, "x1", "0x1.8p+0")]
+        [InlineData(0.1, "x1", "0x1.ap-4")] // 0.1 = 1.999999999999a, round at 1 digit: 0x19... > 0x10, round up
+        [InlineData(1.0, "x15", "0x1.000000000000000p+0")] // precision > default (13)
+        // Precision with uppercase
+        [InlineData(3.25, "X4", "0X1.A000P+1")]
+        [InlineData(1.5, "X0", "0X2P+0")]
+        // Precision rounding: tie-to-even
+        [InlineData(1.53125, "x1", "0x1.8p+0")]              // 1.8800...p+0 x1: halfway, 8 is even => stays 8
+        [InlineData(1.59375, "x1", "0x1.ap+0")]              // 1.9800...p+0 x1: halfway, 9 is odd => rounds to a
+        [InlineData(1.5937499999999998, "x1", "0x1.9p+0")]   // just below halfway => truncate
+        [InlineData(1.5937500000000002, "x1", "0x1.ap+0")]   // just above halfway => round up
+        // Precision rounding: carry into leading digit
+        [InlineData(1.9999999999999998, "x0", "0x2p+0")]     // 1.fffff...p+0 x0: rounds up to 2
+        // Precision rounding: carry through all fractional nibbles bumps exponent
+        [InlineData(1.9999999999999998, "x1", "0x1.0p+1")]   // 1.fffff...p+0 x1: round up overflows => exponent bumps
+        // Large precision (beyond mantissa bits)
+        [InlineData(1.0, "x20", "0x1.00000000000000000000p+0")]
+        [InlineData(double.Epsilon, "x20", "0x1.00000000000000000000p-1074")]
+        // Zero with precision
+        [InlineData(0.0, "x3", "0x0.000p+0")]
+        [InlineData(0.0, "x0", "0x0p+0")]
+        [InlineData(0.0, "x20", "0x0.00000000000000000000p+0")]
+        [InlineData(-0.0, "x0", "-0x0p+0")]
+        [InlineData(-0.0, "x3", "-0x0.000p+0")]
+        // Precision rounding at MaxValue boundary (non-round-trippable: result exceeds double range)
+        [InlineData(double.MaxValue, "x0", "0x2p+1023")]
+        [InlineData(double.MaxValue, "x1", "0x1.0p+1024")]
+        public static void ToStringHexFloat(double d, string format, string expected)
+        {
+            Assert.Equal(expected, d.ToString(format, NumberFormatInfo.InvariantInfo));
+            NumberFormatTestHelper.TryFormatNumberTest(d, format, NumberFormatInfo.InvariantInfo, expected, formatCasingMatchesOutput: false);
+
+            if (!double.IsNaN(d) && !double.IsInfinity(d) && format.Length == 1) // round-trip: default precision only
+            {
+                double parsed = double.Parse(expected, NumberStyles.HexFloat, NumberFormatInfo.InvariantInfo);
+                Assert.Equal(d, parsed);
+            }
+        }
+
+        [Theory]
+        [InlineData("-0x0p0")]
+        [InlineData("-0x0.0p0")]
+        public static void ParseHexFloat_NegativeZero(string input)
+        {
+            double result = double.Parse(input, NumberStyles.HexFloat, NumberFormatInfo.InvariantInfo);
+            Assert.True(double.IsNegative(result) && result == 0.0);
+
+            result = double.Parse(input.AsSpan(), NumberStyles.HexFloat, NumberFormatInfo.InvariantInfo);
+            Assert.True(double.IsNegative(result) && result == 0.0);
+
+            result = double.Parse(Encoding.UTF8.GetBytes(input), NumberStyles.HexFloat, NumberFormatInfo.InvariantInfo);
+            Assert.True(double.IsNegative(result) && result == 0.0);
+
+            Assert.True(double.TryParse(input, NumberStyles.HexFloat, NumberFormatInfo.InvariantInfo, out result));
+            Assert.True(double.IsNegative(result) && result == 0.0);
+        }
+
+        [Fact]
+        public static void HexFloat_CustomNumberFormat()
+        {
+            var commaSep = new NumberFormatInfo { NumberDecimalSeparator = "," };
+            Assert.Equal(1.5, double.Parse("0x1,8p0", NumberStyles.HexFloat, commaSep));
+            Assert.False(double.TryParse("0x1.8p0", NumberStyles.HexFloat, commaSep, out _));
+            Assert.Equal("0x1,8p+0", 1.5.ToString("x", commaSep));
+            NumberFormatTestHelper.TryFormatNumberTest(1.5, "x", commaSep, "0x1,8p+0", formatCasingMatchesOutput: false);
+
+            var tildeMinus = new NumberFormatInfo { NegativeSign = "~" };
+            Assert.Equal("~0x1p+0", (-1.0).ToString("x", tildeMinus));
+            NumberFormatTestHelper.TryFormatNumberTest(-1.0, "x", tildeMinus, "~0x1p+0", formatCasingMatchesOutput: false);
+
+            // Multi-character decimal separator
+            var multiSep = new NumberFormatInfo { NumberDecimalSeparator = "::" };
+            Assert.Equal(1.5, double.Parse("0x1::8p0", NumberStyles.HexFloat, multiSep));
+            Assert.False(double.TryParse("0x1.8p0", NumberStyles.HexFloat, multiSep, out _));
+            Assert.Equal("0x1::8p+0", 1.5.ToString("x", multiSep));
+            NumberFormatTestHelper.TryFormatNumberTest(1.5, "x", multiSep, "0x1::8p+0", formatCasingMatchesOutput: false);
+        }
+
+        [Theory]
+        [InlineData(NumberStyles.HexFloat | NumberStyles.AllowThousands)]
+        [InlineData(NumberStyles.HexFloat | NumberStyles.AllowCurrencySymbol)]
+        [InlineData(NumberStyles.HexFloat | NumberStyles.AllowTrailingSign)]
+        [InlineData(NumberStyles.HexFloat | NumberStyles.AllowParentheses)]
+        [InlineData(NumberStyles.AllowHexSpecifier)]
+        [InlineData(NumberStyles.AllowBinarySpecifier)]
+        public static void HexFloat_StyleValidation(NumberStyles style)
+        {
+            Assert.Throws<ArgumentException>(() => double.Parse("0x1p0", style));
+            Assert.Throws<ArgumentException>(() => double.TryParse("0x1p0", style, NumberFormatInfo.InvariantInfo, out _));
+        }
+
+        [Theory]
         [InlineData(double.NegativeInfinity, false)]    // Negative Infinity
         [InlineData(double.MinValue, true)]             // Min Negative Normal
         [InlineData(-2.2250738585072014E-308, true)]    // Max Negative Normal
@@ -935,19 +1182,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, true)]     // Negative Infinity
-        [InlineData(double.MinValue, true)]             // Min Negative Normal
-        [InlineData(-2.2250738585072014E-308, true)]    // Max Negative Normal
-        [InlineData(-2.2250738585072009E-308, true)]    // Min Negative Subnormal
-        [InlineData(-4.94065645841247E-324, true)]      // Max Negative Subnormal
-        [InlineData(-0.0, true)]                        // Negative Zero
-        [InlineData(double.NaN, true)]                  // NaN
-        [InlineData(0.0, false)]                        // Positive Zero
-        [InlineData(4.94065645841247E-324, false)]      // Min Positive Subnormal
-        [InlineData(2.2250738585072009E-308, false)]    // Max Positive Subnormal
-        [InlineData(2.2250738585072014E-308, false)]    // Min Positive Normal
-        [InlineData(double.MaxValue, false)]            // Max Positive Normal
-        [InlineData(double.PositiveInfinity, false)]    // Positive Infinity
+        [MemberData(nameof(GenericMathTestMemberData.IsNegativeDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void IsNegative(double d, bool expected)
         {
             Assert.Equal(expected, double.IsNegative(d));
@@ -1060,92 +1295,28 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, double.PositiveInfinity, double.PositiveInfinity)]
-        [InlineData(double.PositiveInfinity, double.NegativeInfinity, double.PositiveInfinity)]
-        [InlineData(double.MinValue, double.MaxValue, double.MaxValue)]
-        [InlineData(double.MaxValue, double.MinValue, double.MaxValue)]
-        [InlineData(double.NaN, double.NaN, double.NaN)]
-        [InlineData(double.NaN, 1.0, 1.0)]
-        [InlineData(1.0, double.NaN, 1.0)]
-        [InlineData(double.PositiveInfinity, double.NaN, double.PositiveInfinity)]
-        [InlineData(double.NegativeInfinity, double.NaN, double.NegativeInfinity)]
-        [InlineData(double.NaN, double.PositiveInfinity, double.PositiveInfinity)]
-        [InlineData(double.NaN, double.NegativeInfinity, double.NegativeInfinity)]
-        [InlineData(-0.0, 0.0, 0.0)]
-        [InlineData(0.0, -0.0, 0.0)]
-        [InlineData(2.0, -3.0, -3.0)]
-        [InlineData(-3.0, 2.0, -3.0)]
-        [InlineData(3.0, -2.0, 3.0)]
-        [InlineData(-2.0, 3.0, 3.0)]
+        [MemberData(nameof(GenericMathTestMemberData.MaxMagnitudeNumberDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void MaxMagnitudeNumberTest(double x, double y, double expectedResult)
         {
             AssertExtensions.Equal(expectedResult, double.MaxMagnitudeNumber(x, y), 0.0);
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, double.PositiveInfinity, double.PositiveInfinity)]
-        [InlineData(double.PositiveInfinity, double.NegativeInfinity, double.PositiveInfinity)]
-        [InlineData(double.MinValue, double.MaxValue, double.MaxValue)]
-        [InlineData(double.MaxValue, double.MinValue, double.MaxValue)]
-        [InlineData(double.NaN, double.NaN, double.NaN)]
-        [InlineData(double.NaN, 1.0, 1.0)]
-        [InlineData(1.0, double.NaN, 1.0)]
-        [InlineData(double.PositiveInfinity, double.NaN, double.PositiveInfinity)]
-        [InlineData(double.NegativeInfinity, double.NaN, double.NegativeInfinity)]
-        [InlineData(double.NaN, double.PositiveInfinity, double.PositiveInfinity)]
-        [InlineData(double.NaN, double.NegativeInfinity, double.NegativeInfinity)]
-        [InlineData(-0.0, 0.0, 0.0)]
-        [InlineData(0.0, -0.0, 0.0)]
-        [InlineData(2.0, -3.0, 2.0)]
-        [InlineData(-3.0, 2.0, 2.0)]
-        [InlineData(3.0, -2.0, 3.0)]
-        [InlineData(-2.0, 3.0, 3.0)]
+        [MemberData(nameof(GenericMathTestMemberData.MaxNumberDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void MaxNumberTest(double x, double y, double expectedResult)
         {
             AssertExtensions.Equal(expectedResult, double.MaxNumber(x, y), 0.0);
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, double.PositiveInfinity, double.NegativeInfinity)]
-        [InlineData(double.PositiveInfinity, double.NegativeInfinity, double.NegativeInfinity)]
-        [InlineData(double.MinValue, double.MaxValue, double.MinValue)]
-        [InlineData(double.MaxValue, double.MinValue, double.MinValue)]
-        [InlineData(double.NaN, double.NaN, double.NaN)]
-        [InlineData(double.NaN, 1.0, 1.0)]
-        [InlineData(1.0, double.NaN, 1.0)]
-        [InlineData(double.PositiveInfinity, double.NaN, double.PositiveInfinity)]
-        [InlineData(double.NegativeInfinity, double.NaN, double.NegativeInfinity)]
-        [InlineData(double.NaN, double.PositiveInfinity, double.PositiveInfinity)]
-        [InlineData(double.NaN, double.NegativeInfinity, double.NegativeInfinity)]
-        [InlineData(-0.0, 0.0, -0.0)]
-        [InlineData(0.0, -0.0, -0.0)]
-        [InlineData(2.0, -3.0, 2.0)]
-        [InlineData(-3.0, 2.0, 2.0)]
-        [InlineData(3.0, -2.0, -2.0)]
-        [InlineData(-2.0, 3.0, -2.0)]
+        [MemberData(nameof(GenericMathTestMemberData.MinMagnitudeNumberDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void MinMagnitudeNumberTest(double x, double y, double expectedResult)
         {
             AssertExtensions.Equal(expectedResult, double.MinMagnitudeNumber(x, y), 0.0);
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity, double.PositiveInfinity, double.NegativeInfinity)]
-        [InlineData(double.PositiveInfinity, double.NegativeInfinity, double.NegativeInfinity)]
-        [InlineData(double.MinValue, double.MaxValue, double.MinValue)]
-        [InlineData(double.MaxValue, double.MinValue, double.MinValue)]
-        [InlineData(double.NaN, double.NaN, double.NaN)]
-        [InlineData(double.NaN, 1.0, 1.0)]
-        [InlineData(1.0, double.NaN, 1.0)]
-        [InlineData(double.PositiveInfinity, double.NaN, double.PositiveInfinity)]
-        [InlineData(double.NegativeInfinity, double.NaN, double.NegativeInfinity)]
-        [InlineData(double.NaN, double.PositiveInfinity, double.PositiveInfinity)]
-        [InlineData(double.NaN, double.NegativeInfinity, double.NegativeInfinity)]
-        [InlineData(-0.0, 0.0, -0.0)]
-        [InlineData(0.0, -0.0, -0.0)]
-        [InlineData(2.0, -3.0, -3.0)]
-        [InlineData(-3.0, 2.0, -3.0)]
-        [InlineData(3.0, -2.0, -2.0)]
-        [InlineData(-2.0, 3.0, -2.0)]
+        [MemberData(nameof(GenericMathTestMemberData.MinNumberDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void MinNumberTest(double x, double y, double expectedResult)
         {
             AssertExtensions.Equal(expectedResult, double.MinNumber(x, y), 0.0);
@@ -1662,37 +1833,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NegativeInfinity,    double.NegativeInfinity,    0.5,    double.NegativeInfinity)]
-        [InlineData(double.NegativeInfinity,    double.NaN,                 0.5,    double.NaN)]
-        [InlineData(double.NegativeInfinity,    double.PositiveInfinity,    0.5,    double.NaN)]
-        [InlineData(double.NegativeInfinity,    0.0,                        0.5,    double.NegativeInfinity)]
-        [InlineData(double.NegativeInfinity,    1.0,                        0.5,    double.NegativeInfinity)]
-        [InlineData(double.NaN,                 double.NegativeInfinity,    0.5,    double.NaN)]
-        [InlineData(double.NaN,                 double.NaN,                 0.5,    double.NaN)]
-        [InlineData(double.NaN,                 double.PositiveInfinity,    0.5,    double.NaN)]
-        [InlineData(double.NaN,                 0.0,                        0.5,    double.NaN)]
-        [InlineData(double.NaN,                 1.0,                        0.5,    double.NaN)]
-        [InlineData(double.PositiveInfinity,    double.NegativeInfinity,    0.5,    double.NaN)]
-        [InlineData(double.PositiveInfinity,    double.NaN,                 0.5,    double.NaN)]
-        [InlineData(double.PositiveInfinity,    double.PositiveInfinity,    0.5,    double.PositiveInfinity)]
-        [InlineData(double.PositiveInfinity,    0.0,                        0.5,    double.PositiveInfinity)]
-        [InlineData(double.PositiveInfinity,    1.0,                        0.5,    double.PositiveInfinity)]
-        [InlineData(1.0,                        3.0,                        0.0,    1.0)]
-        [InlineData(1.0,                        3.0,                        0.5,    2.0)]
-        [InlineData(1.0,                        3.0,                        1.0,    3.0)]
-        [InlineData(1.0,                        3.0,                        2.0,    5.0)]
-        [InlineData(2.0,                        4.0,                        0.0,    2.0)]
-        [InlineData(2.0,                        4.0,                        0.5,    3.0)]
-        [InlineData(2.0,                        4.0,                        1.0,    4.0)]
-        [InlineData(2.0,                        4.0,                        2.0,    6.0)]
-        [InlineData(3.0,                        1.0,                        0.0,    3.0)]
-        [InlineData(3.0,                        1.0,                        0.5,    2.0)]
-        [InlineData(3.0,                        1.0,                        1.0,    1.0)]
-        [InlineData(3.0,                        1.0,                        2.0,   -1.0)]
-        [InlineData(4.0,                        2.0,                        0.0,    4.0)]
-        [InlineData(4.0,                        2.0,                        0.5,    3.0)]
-        [InlineData(4.0,                        2.0,                        1.0,    2.0)]
-        [InlineData(4.0,                        2.0,                        2.0,    0.0)]
+        [MemberData(nameof(GenericMathTestMemberData.LerpDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void LerpTest(double value1, double value2, double amount, double expectedResult)
         {
             AssertExtensions.Equal(+expectedResult, double.Lerp(+value1, +value2, amount), 0);
@@ -1700,29 +1841,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NaN,               double.NaN,               0.0)]
-        [InlineData(0.0,                      0.0,                      0.0)]
-        [InlineData(0.31830988618379067,      0.005555555555555556,     CrossPlatformMachineEpsilon)]       // value:  (1 / pi)
-        [InlineData(0.43429448190325183,      0.007579868632454674,     CrossPlatformMachineEpsilon)]       // value:  (log10(e))
-        [InlineData(0.5,                      0.008726646259971648,     CrossPlatformMachineEpsilon)]
-        [InlineData(0.63661977236758134,      0.011111111111111112,     CrossPlatformMachineEpsilon)]       // value:  (2 / pi)
-        [InlineData(0.69314718055994531,      0.01209770050168668,      CrossPlatformMachineEpsilon)]       // value:  (ln(2))
-        [InlineData(0.70710678118654752,      0.012341341494884351,     CrossPlatformMachineEpsilon)]       // value:  (1 / sqrt(2))
-        [InlineData(0.78539816339744831,      0.013707783890401885,     CrossPlatformMachineEpsilon)]       // value:  (pi / 4)
-        [InlineData(1.0,                      0.017453292519943295,     CrossPlatformMachineEpsilon)]
-        [InlineData(1.1283791670955126,       0.019693931676727953,     CrossPlatformMachineEpsilon)]       // value:  (2 / sqrt(pi))
-        [InlineData(1.4142135623730950,       0.024682682989768702,     CrossPlatformMachineEpsilon)]       // value:  (sqrt(2))
-        [InlineData(1.4426950408889634,       0.02517977856570663,      CrossPlatformMachineEpsilon)]       // value:  (log2(e))
-        [InlineData(1.5,                      0.02617993877991494,      CrossPlatformMachineEpsilon)]
-        [InlineData(1.5707963267948966,       0.02741556778080377,      CrossPlatformMachineEpsilon)]       // value:  (pi / 2)
-        [InlineData(2.0,                      0.03490658503988659,      CrossPlatformMachineEpsilon)]
-        [InlineData(2.3025850929940457,       0.040187691180085916,     CrossPlatformMachineEpsilon)]       // value:  (ln(10))
-        [InlineData(2.5,                      0.04363323129985824,      CrossPlatformMachineEpsilon)]
-        [InlineData(2.7182818284590452,       0.047442967903742035,     CrossPlatformMachineEpsilon)]       // value:  (e)
-        [InlineData(3.0,                      0.05235987755982988,      CrossPlatformMachineEpsilon)]
-        [InlineData(3.1415926535897932,       0.05483113556160754,      CrossPlatformMachineEpsilon)]       // value:  (pi)
-        [InlineData(3.5,                      0.061086523819801536,     CrossPlatformMachineEpsilon)]
-        [InlineData(double.PositiveInfinity,  double.PositiveInfinity,  0.0)]
+        [MemberData(nameof(GenericMathTestMemberData.DegreesToRadiansDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void DegreesToRadiansTest(double value, double expectedResult, double allowedVariance)
         {
             AssertExtensions.Equal(-expectedResult, double.DegreesToRadians(-value), allowedVariance);
@@ -1730,29 +1849,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [InlineData(double.NaN,               double.NaN,               0.0)]
-        [InlineData(0.0,                      0.0,                      0.0)]
-        [InlineData(0.0055555555555555567,    0.3183098861837906,       CrossPlatformMachineEpsilon)]       // expected:  (1 / pi)
-        [InlineData(0.0075798686324546743,    0.4342944819032518,       CrossPlatformMachineEpsilon)]       // expected:  (log10(e))
-        [InlineData(0.008726646259971648,     0.5,                      CrossPlatformMachineEpsilon)]
-        [InlineData(0.0111111111111111124,    0.6366197723675813,       CrossPlatformMachineEpsilon)]       // expected:  (2 / pi)
-        [InlineData(0.0120977005016866801,    0.6931471805599453,       CrossPlatformMachineEpsilon)]       // expected:  (ln(2))
-        [InlineData(0.0123413414948843512,    0.7071067811865475,       CrossPlatformMachineEpsilon)]       // expected:  (1 / sqrt(2))
-        [InlineData(0.0137077838904018851,    0.7853981633974483,       CrossPlatformMachineEpsilon)]       // expected:  (pi / 4)
-        [InlineData(0.017453292519943295,     1.0,                      CrossPlatformMachineEpsilon)]
-        [InlineData(0.019693931676727953,     1.1283791670955126,       CrossPlatformMachineEpsilon)]       // expected:  (2 / sqrt(pi))
-        [InlineData(0.024682682989768702,     1.4142135623730950,       CrossPlatformMachineEpsilon)]       // expected:  (sqrt(2))
-        [InlineData(0.025179778565706630,     1.4426950408889634,       CrossPlatformMachineEpsilon)]       // expected:  (log2(e))
-        [InlineData(0.026179938779914940,     1.5,                      CrossPlatformMachineEpsilon)]
-        [InlineData(0.027415567780803770,     1.5707963267948966,       CrossPlatformMachineEpsilon)]       // expected:  (pi / 2)
-        [InlineData(0.034906585039886590,     2.0,                      CrossPlatformMachineEpsilon)]
-        [InlineData(0.040187691180085916,     2.3025850929940457,       CrossPlatformMachineEpsilon)]       // expected:  (ln(10))
-        [InlineData(0.043633231299858240,     2.5,                      CrossPlatformMachineEpsilon)]
-        [InlineData(0.047442967903742035,     2.7182818284590452,       CrossPlatformMachineEpsilon)]       // expected:  (e)
-        [InlineData(0.052359877559829880,     3.0,                      CrossPlatformMachineEpsilon)]
-        [InlineData(0.054831135561607540,     3.1415926535897932,       CrossPlatformMachineEpsilon)]       // expected:  (pi)
-        [InlineData(0.061086523819801536,     3.5,                      CrossPlatformMachineEpsilon)]
-        [InlineData(double.PositiveInfinity,  double.PositiveInfinity,  0.0)]
+        [MemberData(nameof(GenericMathTestMemberData.RadiansToDegreesDouble), MemberType = typeof(GenericMathTestMemberData))]
         public static void RadiansToDegreesTest(double value, double expectedResult, double allowedVariance)
         {
             AssertExtensions.Equal(-expectedResult, double.RadiansToDegrees(-value), allowedVariance);

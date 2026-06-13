@@ -1,28 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>$(TargetFrameworkForNETCoreTasks);$(TargetFrameworkForNETFrameworkTasks)</TargetFrameworks>
-    <NoWarn>$(NoWarn),CA1050,CA1850,CA1845,CA1859,NU5128</NoWarn>
+    <TargetFrameworks>$(NetCoreAppToolCurrent);$(NetFrameworkToolCurrent)</TargetFrameworks>
+    <NoWarn>$(NoWarn),CA1050,CA1850,CA1845,CA1859,CA1866,CS8632,NU5128</NoWarn>
     <RootNamespace>Microsoft.NET.Sdk.WebAssembly</RootNamespace>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>$(NoWarn);CS8632</NoWarn>
+    <Nullable>annotations</Nullable>
   </PropertyGroup>
-
-  <ItemDefinitionGroup>
-    <PackageReference>
-      <PrivateAssets>All</PrivateAssets>
-      <Publish>true</Publish>
-    </PackageReference>
-  </ItemDefinitionGroup>
 
   <ItemGroup>
     <Compile Include="..\Common\Utils.cs" />
     <Compile Include="..\WasmAppBuilder\WebcilConverter.cs" />
-
-    <PackageReference Include="Microsoft.Build" Version="$(MicrosoftBuildVersion)" />
-    <PackageReference Include="Microsoft.Build.Framework" Version="$(MicrosoftBuildFrameworkVersion)" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="$(MicrosoftBuildUtilitiesCoreVersion)" ExcludeAssets="runtime" />
+    <Compile Include="..\WasmAppBuilder\LogAdapter.cs" />
 
     <ProjectReference Include="..\Microsoft.NET.WebAssembly.Webcil\Microsoft.NET.WebAssembly.Webcil.csproj" />
   </ItemGroup>

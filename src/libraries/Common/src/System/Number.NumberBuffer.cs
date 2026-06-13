@@ -17,7 +17,7 @@ namespace System
         internal const int Int64NumberBufferLength = 19 + 1;    // 19 for the longest input: 9,223,372,036,854,775,807
         internal const int Int128NumberBufferLength = 39 + 1;    // 39 for the longest input: 170,141,183,460,469,231,731,687,303,715,884,105,727
         internal const int SingleNumberBufferLength = 112 + 1 + 1;  // 112 for the longest input + 1 for rounding: 1.40129846E-45
-        internal const int HalfNumberBufferLength = 21; // 19 for the longest input + 1 for rounding (+1 for the null terminator)
+        internal const int HalfNumberBufferLength = 21 + 1 + 1; // 21 for the longest input + 1 for rounding: 0.000122010707855224609375
         internal const int UInt32NumberBufferLength = 10 + 1;   // 10 for the longest input: 4,294,967,295
         internal const int UInt64NumberBufferLength = 20 + 1;   // 20 for the longest input: 18,446,744,073,709,551,615
         internal const int UInt128NumberBufferLength = 39 + 1; // 39 for the longest input: 340,282,366,920,938,463,463,374,607,431,768,211,455
@@ -30,6 +30,7 @@ namespace System
             public bool HasNonZeroTail;
             public NumberBufferKind Kind;
             public Span<byte> Digits;
+            public readonly byte* DigitsPtr => (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Digits)); // safe since constructor expects Digits to refer to unmovable memory
 
             public NumberBuffer(NumberBufferKind kind, byte* digits, int digitsLength) : this(kind, new Span<byte>(digits, digitsLength))
             {
@@ -61,7 +62,7 @@ namespace System
             public void CheckConsistency()
             {
 #if DEBUG
-                Debug.Assert((Kind == NumberBufferKind.Integer) || (Kind == NumberBufferKind.Decimal) || (Kind == NumberBufferKind.FloatingPoint));
+                Debug.Assert(Kind is NumberBufferKind.Integer or NumberBufferKind.Decimal or NumberBufferKind.FloatingPoint);
                 Debug.Assert(Digits[0] != '0', "Leading zeros should never be stored in a Number");
 
                 int numDigits;
@@ -83,19 +84,12 @@ namespace System
             }
 #pragma warning restore CA1822
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public byte* GetDigitsPointer()
-            {
-                // This is safe to do since we are a ref struct
-                return (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Digits));
-            }
-
             //
             // Code coverage note: This only exists so that Number displays nicely in the VS watch window. So yes, I know it works.
             //
             public override string ToString()
             {
-                StringBuilder sb = new StringBuilder();
+                StringBuilder sb = new();
 
                 sb.Append('[');
                 sb.Append('"');

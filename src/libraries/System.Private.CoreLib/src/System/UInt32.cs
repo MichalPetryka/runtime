@@ -44,6 +44,12 @@ namespace System
         /// <summary>Represents the number zero (0).</summary>
         private const uint Zero = 0;
 
+        /// <summary>Produces the full product of two unsigned 32-bit numbers.</summary>
+        /// <param name="left">The first number to multiply.</param>
+        /// <param name="right">The second number to multiply.</param>
+        /// <returns>The number containing the product of the specified numbers.</returns>
+        public static ulong BigMul(uint left, uint right) => Math.BigMul(left, right);
+
         // Compares this object to another object, returning an integer that
         // indicates the relationship.
         // Returns a value less than zero if this  object
@@ -289,6 +295,35 @@ namespace System
         [Intrinsic]
         public static uint LeadingZeroCount(uint value) => (uint)BitOperations.LeadingZeroCount(value);
 
+        /// <inheritdoc cref="IBinaryInteger{TSelf}.Log10(TSelf)" />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint Log10(uint value)
+        {
+            // Use Log2 to get approximate Log10 via the relationship:
+            // log10(x) ≈ (log2(x) + 1) * 1233 >> 12
+            // Then correct with a powers-of-10 lookup table.
+            // http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog10
+            value |= 1;
+            uint log2 = (uint)BitOperations.Log2(value) + 1;
+            uint approx = (log2 * 1233) >> 12;
+            return value < PowersOf10[(int)approx] ? approx - 1 : approx;
+        }
+
+        // Lookup table for power-of-10 boundaries corrections
+        private static ReadOnlySpan<uint> PowersOf10 =>
+        [
+            1,
+            10,
+            100,
+            1_000,
+            10_000,
+            100_000,
+            1_000_000,
+            10_000_000,
+            100_000_000,
+            1_000_000_000,
+        ];
+
         /// <inheritdoc cref="IBinaryInteger{TSelf}.PopCount(TSelf)" />
         [Intrinsic]
         public static uint PopCount(uint value) => (uint)BitOperations.PopCount(value);
@@ -330,19 +365,10 @@ namespace System
                     return false;
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(uint))
                 {
-                    sourceRef = ref Unsafe.Add(ref sourceRef, source.Length - sizeof(uint));
-
                     // We have at least 4 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<uint>(ref sourceRef);
-
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadUInt32BigEndian(source.Slice(source.Length - sizeof(uint)));
                 }
                 else
                 {
@@ -353,7 +379,7 @@ namespace System
                     for (int i = 0; i < source.Length; i++)
                     {
                         result <<= 8;
-                        result |= Unsafe.Add(ref sourceRef, i);
+                        result |= source[i];
                     }
                 }
             }
@@ -387,17 +413,10 @@ namespace System
                     return false;
                 }
 
-                ref byte sourceRef = ref MemoryMarshal.GetReference(source);
-
                 if (source.Length >= sizeof(uint))
                 {
                     // We have at least 4 bytes, so just read the ones we need directly
-                    result = Unsafe.ReadUnaligned<uint>(ref sourceRef);
-
-                    if (!BitConverter.IsLittleEndian)
-                    {
-                        result = BinaryPrimitives.ReverseEndianness(result);
-                    }
+                    result = BinaryPrimitives.ReadUInt32LittleEndian(source);
                 }
                 else
                 {
@@ -409,7 +428,7 @@ namespace System
 
                     for (int i = 0; i < source.Length; i++)
                     {
-                        uint part = Unsafe.Add(ref sourceRef, i);
+                        uint part = source[i];
                         part <<= (i * 8);
                         result |= part;
                     }
@@ -429,37 +448,27 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteBigEndian(Span{byte}, out int)" />
         bool IBinaryInteger<uint>.TryWriteBigEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(uint))
+            if (BinaryPrimitives.TryWriteUInt32BigEndian(destination, m_value))
             {
-                uint value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(m_value) : m_value;
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(uint);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteLittleEndian(Span{byte}, out int)" />
         bool IBinaryInteger<uint>.TryWriteLittleEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length >= sizeof(uint))
+            if (BinaryPrimitives.TryWriteUInt32LittleEndian(destination, m_value))
             {
-                uint value = BitConverter.IsLittleEndian ? m_value : BinaryPrimitives.ReverseEndianness(m_value);
-                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
-
                 bytesWritten = sizeof(uint);
                 return true;
             }
-            else
-            {
-                bytesWritten = 0;
-                return false;
-            }
+
+            bytesWritten = 0;
+            return false;
         }
 
         //
@@ -739,6 +748,9 @@ namespace System
 
         /// <inheritdoc cref="INumberBase{TSelf}.MinMagnitudeNumber(TSelf, TSelf)" />
         static uint INumberBase<uint>.MinMagnitudeNumber(uint x, uint y) => Min(x, y);
+
+        /// <inheritdoc cref="INumberBase{TSelf}.MultiplyAddEstimate(TSelf, TSelf, TSelf)" />
+        static uint INumberBase<uint>.MultiplyAddEstimate(uint left, uint right, uint addend) => (left * right) + addend;
 
         /// <inheritdoc cref="INumberBase{TSelf}.TryConvertFromChecked{TOther}(TOther, out TSelf)" />
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

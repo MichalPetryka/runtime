@@ -51,7 +51,7 @@ static void GcEnumObjectsConservatively(PTR_PTR_Object ppLowerBound, PTR_PTR_Obj
             // Only report values that lie in the GC heap range. This doesn't conclusively guarantee that the
             // value is a GC heap reference but it's a cheap check that weeds out a lot of spurious values.
             PTR_Object pObj = *ppObj;
-            if (((PTR_UInt8)pObj >= g_lowest_address) && ((PTR_UInt8)pObj <= g_highest_address))
+            if (((PTR_uint8_t)pObj >= g_lowest_address) && ((PTR_uint8_t)pObj <= g_highest_address))
                 PromoteCarefully(ppObj, GC_CALL_INTERIOR | GC_CALL_PINNED, fnGcEnumRef, pSc);
         }
     }
@@ -72,13 +72,22 @@ static void GcEnumObject(PTR_PTR_Object ppObj, uint32_t flags, ScanFunc* fnGcEnu
     //
     assert((flags & ~(GC_CALL_INTERIOR | GC_CALL_PINNED)) == 0);
 
-    // for interior pointers, we optimize the case in which
-    //  it points into the current threads stack area
-    //
-    if (flags & GC_CALL_INTERIOR)
+    if ((flags & GC_CALL_PINNED) && !pSc->promotion)
+    {
+        // Do nothing. This is the relocate phase, for something that was pinned. It does not need
+        // to be relocated.
+    }
+    else if (flags & GC_CALL_INTERIOR)
+    {
+        // for interior pointers, we optimize the case in which
+        //  it points into the current threads stack area
+        //
         PromoteCarefully(ppObj, flags, fnGcEnumRef, pSc);
+    }
     else
+    {
         fnGcEnumRef(ppObj, pSc, flags);
+    }
 }
 
 void EnumGcRef(PTR_OBJECTREF pRef, GCRefKind kind, ScanFunc* fnGcEnumRef, ScanContext* pSc)
@@ -104,7 +113,7 @@ void EnumGcRefConservatively(PTR_OBJECTREF pRef, ScanFunc* fnGcEnumRef, ScanCont
         // Only report values that lie in the GC heap range. This doesn't conclusively guarantee that the
         // value is a GC heap reference but it's a cheap check that weeds out a lot of spurious values.
         PTR_Object pObj = *pRef;
-        if (((PTR_UInt8)pObj >= g_lowest_address) && ((PTR_UInt8)pObj <= g_highest_address))
+        if (((PTR_uint8_t)pObj >= g_lowest_address) && ((PTR_uint8_t)pObj <= g_highest_address))
             PromoteCarefully(pRef, GC_CALL_INTERIOR | GC_CALL_PINNED, fnGcEnumRef, pSc);
     }
 }

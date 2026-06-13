@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
@@ -15,7 +15,7 @@ namespace System
     /// int lastElement = someArray[^1]; // lastElement = 5
     /// </code>
     /// </remarks>
-#if SYSTEM_PRIVATE_CORELIB
+#if SYSTEM_PRIVATE_CORELIB || MICROSOFT_BCL_MEMORY
     public
 #else
     internal
@@ -152,7 +152,7 @@ namespace System
 #endif
         }
 
-        private string ToStringFromEnd()
+        private unsafe string ToStringFromEnd()
         {
 #if (!NETSTANDARD2_0 && !NETFRAMEWORK)
             Span<char> span = stackalloc char[11]; // 1 for ^ and 10 for longest possible uint value

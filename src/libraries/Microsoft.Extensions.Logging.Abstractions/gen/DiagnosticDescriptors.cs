@@ -81,10 +81,10 @@ namespace Microsoft.Extensions.Logging.Generators
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
-        public static DiagnosticDescriptor LoggingMethodIsGeneric { get; } = DiagnosticDescriptorHelper.Create(
+        public static DiagnosticDescriptor LoggingMethodHasAllowsRefStructConstraint { get; } = DiagnosticDescriptorHelper.Create(
             id: "SYSLIB1011",
-            title: new LocalizableResourceString(nameof(SR.LoggingMethodIsGenericMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
-            messageFormat: new LocalizableResourceString(nameof(SR.LoggingMethodIsGenericMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            title: new LocalizableResourceString(nameof(SR.LoggingMethodHasAllowsRefStructConstraintMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            messageFormat: new LocalizableResourceString(nameof(SR.LoggingMethodHasAllowsRefStructConstraintMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
             category: "LoggingGenerator",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
@@ -207,6 +207,30 @@ namespace Microsoft.Extensions.Logging.Generators
             messageFormat: new LocalizableResourceString(nameof(SR.LoggingUnsupportedLanguageVersionMessageFormat), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
             category: "LoggingGenerator",
             defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static DiagnosticDescriptor PrimaryConstructorParameterLoggerHidden { get; } = DiagnosticDescriptorHelper.Create(
+            id: "SYSLIB1027",
+            title: new LocalizableResourceString(nameof(SR.PrimaryConstructorParameterLoggerHiddenTitle), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            messageFormat: new LocalizableResourceString(nameof(SR.PrimaryConstructorParameterLoggerHiddenMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            category: "LoggingGenerator",
+            DiagnosticSeverity.Info,
+            isEnabledByDefault: true);
+
+        public static DiagnosticDescriptor InvalidLoggingMethodParameterParams { get; } = DiagnosticDescriptorHelper.Create(
+            id: "SYSLIB1028",
+            title: new LocalizableResourceString(nameof(SR.InvalidLoggingMethodParameterParamsTitle), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            messageFormat: new LocalizableResourceString(nameof(SR.InvalidLoggingMethodParameterParamsMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            category: "LoggingGenerator",
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static DiagnosticDescriptor InvalidLoggingMethodParameterRefStruct { get; } = DiagnosticDescriptorHelper.Create(
+            id: "SYSLIB1029",
+            title: new LocalizableResourceString(nameof(SR.InvalidLoggingMethodParameterRefStructTitle), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            messageFormat: new LocalizableResourceString(nameof(SR.InvalidLoggingMethodParameterRefStructMessage), SR.ResourceManager, typeof(FxResources.Microsoft.Extensions.Logging.Generators.SR)),
+            category: "LoggingGenerator",
+            DiagnosticSeverity.Error,
             isEnabledByDefault: true);
     }
 }

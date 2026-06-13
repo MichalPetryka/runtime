@@ -4,8 +4,6 @@
 .intel_syntax noprefix
 #include <unixasmmacros.inc>
 
-#ifdef FEATURE_DYNAMIC_CODE
-
 #ifdef _DEBUG
 #define TRASH_SAVED_ARGUMENT_REGISTERS 1
 #endif
@@ -124,7 +122,7 @@ NESTED_ENTRY Rhp\FunctionName, _TEXT, NoHandler
         lea  rdi, [rsp + DISTANCE_FROM_CHILDSP_TO_RETURN_BLOCK]
         call r10
 
-        EXPORT_POINTER_TO_ADDRESS PointerToReturnFrom\FunctionName
+ALTERNATE_ENTRY ReturnFrom\FunctionName
 
         // restore fp argument registers
         movdqa          xmm0, [rsp + DISTANCE_FROM_CHILDSP_TO_FP_REGS + 0x00]
@@ -153,10 +151,4 @@ NESTED_END Rhp\FunctionName, _TEXT
 
 .endm // UNIVERSAL_TRANSITION
 
-        // To enable proper step-in behavior in the debugger, we need to have two instances
-        // of the thunk. For the first one, the debugger steps into the call in the function,
-        // for the other, it steps over it.
-        UNIVERSAL_TRANSITION UniversalTransition
-        UNIVERSAL_TRANSITION UniversalTransition_DebugStepTailCall
-
-#endif // FEATURE_DYNAMIC_CODE
+        UNIVERSAL_TRANSITION UniversalTransitionTailCall

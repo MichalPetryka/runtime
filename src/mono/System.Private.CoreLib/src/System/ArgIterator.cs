@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -63,9 +64,7 @@ namespace System
             TypedReference result = default;
             unsafe
             {
-#pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type ('TypedReference')
                 IntGetNextArg(&result);
-#pragma warning restore CS8500
             }
             return result;
         }
@@ -81,9 +80,7 @@ namespace System
             TypedReference result = default;
             unsafe
             {
-#pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type ('TypedReference')
                 IntGetNextArgWithType(&result, rth.Value);
-#pragma warning restore CS8500
             }
             return result;
         }

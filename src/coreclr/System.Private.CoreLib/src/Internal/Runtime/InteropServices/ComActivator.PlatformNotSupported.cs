@@ -2,12 +2,13 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-
-#pragma warning disable IDE0060
+using System.Runtime.Versioning;
 
 namespace Internal.Runtime.InteropServices
 {
+    [SupportedOSPlatform("windows")]
     internal static class ComActivator
     {
         /// <summary>

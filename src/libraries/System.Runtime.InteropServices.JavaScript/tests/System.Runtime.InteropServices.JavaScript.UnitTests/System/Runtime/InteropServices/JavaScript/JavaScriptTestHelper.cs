@@ -15,6 +15,7 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
     public partial class JavaScriptTestHelper
     {
         [JSImport("globalThis.console.log")]
+        [return: JSMarshalAs<JSType.DiscardNoWait>]
         public static partial void Log([JSMarshalAs<JSType.String>] string message);
 
         [JSImport("globalThis.window.location.toString")]
@@ -27,10 +28,23 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         public static partial string ReboundMemberEcho(string message);
 
         [JSExport]
+        [return: JSMarshalAs<JSType.DiscardNoWait>] // this means that the message will arrive out of order, especially across threads.
         public static void ConsoleWriteLine([JSMarshalAs<JSType.String>] string message)
         {
             Console.WriteLine(message);
         }
+
+        [JSImport("delay", "JavaScriptTestHelper")]
+        public static partial Task Delay(int ms);
+
+        [JSImport("reject", "JavaScriptTestHelper")]
+        public static partial Task Reject([JSMarshalAs<JSType.Any>] object what);
+
+        [JSImport("intentionallyMissingImport", "JavaScriptTestHelper")]
+        public static partial void IntentionallyMissingImport();
+
+        [JSImport("intentionallyMissingImportAsync", "JavaScriptTestHelper")]
+        public static partial Task IntentionallyMissingImportAsync();
 
         [JSImport("catch1toString", "JavaScriptTestHelper")]
         public static partial string catch1toString(string message, string functionName);
@@ -72,6 +86,15 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         }
         [JSImport("invoke1V", "JavaScriptTestHelper")]
         public static partial void invoke1V(int a1);
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.DiscardNoWait>] // this means that the message will arrive out of order, especially across threads.
+        public static void Optimized1O(int a1)
+        {
+            optimizedReached += a1;
+        }
+        [JSImport("invoke1O", "JavaScriptTestHelper")]
+        public static partial void invoke1O(int a1);
 
         [JSExport]
         public static int Optimized1R(int a1)
@@ -195,10 +218,29 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [JSImport("echo1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Array<JSType.Number>>]
         internal static partial double[]? echo1_DoubleArray([JSMarshalAs<JSType.Array<JSType.Number>>] double[]? value);
+        [JSImport("echo1", "JavaScriptTestHelper")]
+        internal static partial double[]? echo1_DoubleArray_NoAttributes(double[]? value);
 
         [JSImport("storeAt", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Number>]
         internal static partial double? store_DoubleArray([JSMarshalAs<JSType.Array<JSType.Number>>] double[]? value, [JSMarshalAs<JSType.Number>] int index);
+
+        [JSImport("storeAt", "JavaScriptTestHelper")]
+        internal static partial double? store_DoubleArray_NoAttributes(double[]? value, int index);
+
+        [JSImport("echo1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Array<JSType.Number>>]
+        internal static partial float[]? echo1_SingleArray([JSMarshalAs<JSType.Array<JSType.Number>>] float[]? value);
+
+        [JSImport("echo1", "JavaScriptTestHelper")]
+        internal static partial float[]? echo1_SingleArray_NoAttributes(float[]? value);
+
+        [JSImport("storeAt", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Number>]
+        internal static partial float? store_SingleArray([JSMarshalAs<JSType.Array<JSType.Number>>] float[]? value, [JSMarshalAs<JSType.Number>] int index);
+
+        [JSImport("storeAt", "JavaScriptTestHelper")]
+        internal static partial float? store_SingleArray_NoAttributes(float[]? value, int index);
 
         [JSImport("echo1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Array<JSType.String>>]
@@ -224,6 +266,10 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [return: JSMarshalAs<JSType.Object>]
         internal static partial JSObject? store_JSObjectArray([JSMarshalAs<JSType.Array<JSType.Object>>] JSObject[]? value, [JSMarshalAs<JSType.Number>] int index);
 
+        [JSImport("getInt32ArrayWithOutOfRangeValues", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Array<JSType.Number>>]
+        internal static partial int[] getInt32ArrayWithOutOfRangeValues();
+
         #endregion
 
         #region Views
@@ -242,6 +288,10 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
 
         [JSImport("echo1view", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.MemoryView>]
+        internal static partial Span<float> echo1_SpanOfSingle([JSMarshalAs<JSType.MemoryView>] Span<float> value, [JSMarshalAs<JSType.Boolean>] bool edit);
+
+        [JSImport("echo1view", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.MemoryView>]
         internal static partial ArraySegment<byte> echo1_ArraySegmentOfByte([JSMarshalAs<JSType.MemoryView>] ArraySegment<byte> value, [JSMarshalAs<JSType.Boolean>] bool edit);
 
         [JSImport("echo1view", "JavaScriptTestHelper")]
@@ -252,6 +302,53 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [return: JSMarshalAs<JSType.MemoryView>]
         internal static partial ArraySegment<double> echo1_ArraySegmentOfDouble([JSMarshalAs<JSType.MemoryView>] ArraySegment<double> value, [JSMarshalAs<JSType.Boolean>] bool edit);
 
+        [JSImport("echo1view", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static partial ArraySegment<float> echo1_ArraySegmentOfSingle([JSMarshalAs<JSType.MemoryView>] ArraySegment<float> value, [JSMarshalAs<JSType.Boolean>] bool edit);
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static partial ArraySegment<float> invoke1_ArraySegmentOfSingle([JSMarshalAs<JSType.MemoryView>] ArraySegment<float> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static ArraySegment<float> EchoArraySegmentOfSingle([JSMarshalAs<JSType.MemoryView>] ArraySegment<float> value)
+        {
+            return value;
+        }
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static partial ArraySegment<double> invoke1_ArraySegmentOfDouble([JSMarshalAs<JSType.MemoryView>] ArraySegment<double> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static ArraySegment<double> EchoArraySegmentOfDouble([JSMarshalAs<JSType.MemoryView>] ArraySegment<double> value)
+        {
+            return value;
+        }
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static partial Span<float> invoke1_SpanSingle([JSMarshalAs<JSType.MemoryView>] Span<float> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static Span<float> EchoSpanSingle([JSMarshalAs<JSType.MemoryView>] Span<float> value)
+        {
+            return value;
+        }
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static partial Span<double> invoke1_SpanDouble([JSMarshalAs<JSType.MemoryView>] Span<double> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.MemoryView>]
+        internal static Span<double> EchoSpanDouble([JSMarshalAs<JSType.MemoryView>] Span<double> value)
+        {
+            return value;
+        }
         #endregion
 
         #region  Int32
@@ -261,6 +358,11 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [JSImport("store1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Void>]
         internal static partial void store1_Int32([JSMarshalAs<JSType.Number>] int value);
+
+        [JSImport("store1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.DiscardNoWait>] // this means that the message will arrive out of order, especially across threads.
+        internal static partial void store1DiscardNoWait_Int32([JSMarshalAs<JSType.Number>] int value);
+
         [JSImport("retrieve1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Number>]
         internal static partial int retrieve1_Int32();
@@ -404,19 +506,110 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [JSImport("await1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Promise<JSType.Any>>]
         internal static partial Task<object> await1([JSMarshalAs<JSType.Promise<JSType.Any>>] Task<object> arg1);
+
         [JSImport("await1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Promise<JSType.Error>>]
         internal static partial Task<Exception> await1_TaskOfException([JSMarshalAs<JSType.Promise<JSType.Error>>] Task<Exception> arg1);
+
         [JSImport("invoke1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Promise<JSType.Any>>]
         internal static partial Task<object> invoke1_TaskOfObject([JSMarshalAs<JSType.Promise<JSType.Any>>] Task<object> value, [JSMarshalAs<JSType.String>] string name);
+
         [JSImport("invoke1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Promise<JSType.Number>>]
         internal static partial Task<int> invoke1_TaskOfInt([JSMarshalAs<JSType.Promise<JSType.Number>>] Task<int> value, [JSMarshalAs<JSType.String>] string name);
 
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.BigInt>>]
+        internal static partial Task<long> invoke1_TaskOfBigLong([JSMarshalAs<JSType.Promise<JSType.BigInt>>] Task<long> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.Number>>]
+        internal static partial Task<long> invoke1_TaskOfLong([JSMarshalAs<JSType.Promise<JSType.BigInt>>] Task<long> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invokeExportWithPromiseWithDateMaxValue", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.Date>>]
+        internal static partial Task<DateTime> invokeExportWithTaskOfMaxJSDateTime([JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invokeExportWithDateMaxValue", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Date>]
+        internal static partial DateTime invokeExportWithMaxJSDateTime([JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+        internal static partial Task<string> invoke1_TaskOfLong_ExceptionReturnTypeAssert([JSMarshalAs<JSType.Promise<JSType.BigInt>>] Task<long> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.Number>>]
+        internal static partial Task<short> invoke1_TaskOfOutOfRangeShort([JSMarshalAs<JSType.Promise<JSType.Number>>] Task<int> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invokeDelegate_DateTimeWithOffset", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Date>]
+        internal static partial DateTime invokeDelegateOfDateTime([JSMarshalAs<JSType.Function<JSType.Date, JSType.Date>>] Func<DateTime, DateTime> datetransformer, [JSMarshalAs<JSType.Date>] DateTime date, int offsetMilliseconds);
+
+        [JSImport("returnResolvedPromise", "JavaScriptTestHelper")]
+        internal static partial Task ReturnResolvedPromise();
+
+        [JSImport("invokeReturnCompletedTask", "JavaScriptTestHelper")]
+        internal static partial Task<string> InvokeReturnCompletedTask();
+
+        [JSImport("returnResolvedPromiseWithIntMaxValue", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.Number>>]
+        internal static partial Task<short> ReturnResolvedPromiseWithIntMaxValue_AsShortToBeOutOfRange();
+
+        [JSImport("returnResolvedPromiseWithIntMaxValue", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.Number>>]
+        internal static partial Task<byte> ReturnResolvedPromiseWithIntMaxValue_AsByteToBeOutOfRange();
+
+        [JSImport("returnResolvedPromiseWithDateMaxValue", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Promise<JSType.Date>>]
+        internal static partial Task<DateTime> ReturnResolvedPromiseWithDateMaxValue();
+
+        [JSImport("returnDateWithOffset", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Date>]
+        internal static partial DateTime ReturnDateTimeWithOffset([JSMarshalAs<JSType.Date>] DateTime date, int offsetMilliseconds);
+
+        [JSExport]
+        internal static Task ReturnCompletedTask()
+        {
+            return Task.CompletedTask;
+        }
+
         [JSExport]
         [return: JSMarshalAs<JSType.Promise<JSType.Any>>]
         public static async Task<object> AwaitTaskOfObject([JSMarshalAs<JSType.Promise<JSType.Any>>] Task<object> arg1)
+        {
+            var res = await arg1;
+            return res;
+        }
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.Promise<JSType.BigInt>>]
+        public static async Task<long> AwaitTaskOfInt64([JSMarshalAs<JSType.Promise<JSType.BigInt>>] Task<long> arg1)
+        {
+            var res = await arg1;
+            return res;
+        }
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.Promise<JSType.Number>>]
+        public static async Task<short> AwaitTaskOfShort([JSMarshalAs<JSType.Promise<JSType.Number>>] Task<short> arg1)
+        {
+            var res = await arg1;
+            return res;
+        }
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+        public static async Task<string> AwaitTaskOfString([JSMarshalAs<JSType.Promise<JSType.String>>] Task<string> arg1)
+        {
+            var res = await arg1;
+            return res;
+        }
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.Promise<JSType.Date>>]
+        public static async Task<DateTime> AwaitTaskOfDateTime([JSMarshalAs<JSType.Promise<JSType.Date>>] Task<DateTime> arg1)
         {
             var res = await arg1;
             return res;
@@ -449,6 +642,9 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [return: JSMarshalAs<JSType.Function<JSType.Number, JSType.Number, JSType.Number>>]
         internal static partial Func<int, int, int> backback_FuncIntIntFuncIntInt([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number, JSType.Number>>] Func<int, int, int> fun, [JSMarshalAs<JSType.Number>] int a, [JSMarshalAs<JSType.Number>] int b);
 
+        [JSImport("backbackAsync", "JavaScriptTestHelper")]
+        internal static partial Task<int> backback_FuncIntIntFuncIntIntAsync([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number, JSType.Number>>] Func<int, int, int> fun, [JSMarshalAs<JSType.Number>] int a, [JSMarshalAs<JSType.Number>] int b);
+
         [JSImport("back3", "JavaScriptTestHelper")]
         internal static partial void back3_ActionInt([JSMarshalAs<JSType.Function<JSType.Number>>] Action<int>? action, [JSMarshalAs<JSType.Number>] int a);
 
@@ -465,6 +661,8 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [return: JSMarshalAs<JSType.Number>]
         internal static partial int back3_FunctionIntInt([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>] Func<int, int>? fun, [JSMarshalAs<JSType.Number>] int a);
 
+        [JSImport("back4", "JavaScriptTestHelper")]
+        internal static partial void back4_ActionIntLongDouble([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number, JSType.Number>>] Action<int, long, double>? action, [JSMarshalAs<JSType.Number>] int a, [JSMarshalAs<JSType.Number>] long b, [JSMarshalAs<JSType.Number>] double c);
 
         [JSImport("invoke1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>]
@@ -479,6 +677,24 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
                 return arg1(a);
             };
         }
+
+        [JSImport("invoke1", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>]
+        internal static partial Func<long, long> invoke1_FuncOfLongLong([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>] Func<long, long> value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSExport]
+        [return: JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>]
+        public static Func<long, long> BackFuncOfLongLong([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>] Func<long, long> arg1)
+        {
+            return (long a) =>
+            {
+                return arg1(a);
+            };
+        }
+
+        [JSImport("invokeFuncWithOffset", "JavaScriptTestHelper")]
+        [return: JSMarshalAs<JSType.Number>]
+        internal static partial long invokeFuncOfLongLong([JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>] Func<long, long> fn, [JSMarshalAs<JSType.Number>] long value, [JSMarshalAs<JSType.Number>] int offset);
 
         #endregion
 
@@ -500,6 +716,10 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         [JSImport("invoke1", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Boolean>]
         internal static partial bool invoke1_Boolean([JSMarshalAs<JSType.Boolean>] bool value, [JSMarshalAs<JSType.String>] string name);
+
+        [JSImport("invoke1Async", "JavaScriptTestHelper")]
+        internal static partial Task<bool> invoke1_BooleanAsync(bool value, string name);
+
         [JSExport]
         [return: JSMarshalAs<JSType.Boolean>]
         public static bool EchoBoolean([JSMarshalAs<JSType.Boolean>] bool arg1)
@@ -982,6 +1202,18 @@ namespace System.Runtime.InteropServices.JavaScript.Tests
         {
             return arg1;
         }
+        
+        [JSImport("beforeYield", "JavaScriptTestHelper")]
+        public static partial void BeforeYield();
+
+        [JSImport("isSetTimeoutHit", "JavaScriptTestHelper")]
+        public static partial bool IsSetTimeoutHit();
+
+        [JSImport("isPromiseThenHit", "JavaScriptTestHelper")]
+        public static partial bool IsPromiseThenHit();
+
+        [JSImport("callJavaScriptLibrary", "JavaScriptTestHelper")]
+        public static partial Task<int> callJavaScriptLibrary(int a, int b);
 
         [JSImport("echopromise", "JavaScriptTestHelper")]
         [return: JSMarshalAs<JSType.Promise<JSType.Object>>]

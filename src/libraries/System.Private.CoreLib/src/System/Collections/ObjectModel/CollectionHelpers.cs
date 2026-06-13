@@ -21,8 +21,15 @@ namespace System.Collections.ObjectModel
                 throw new ArgumentException(SR.Arg_NonZeroLowerBound, nameof(array));
             }
 
+#if NET
             ArgumentOutOfRangeException.ThrowIfNegative(index);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(index, array.Length);
+#else
+            if (index < 0 || index > array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+#endif
 
             if (array.Length - index < sourceCount)
             {

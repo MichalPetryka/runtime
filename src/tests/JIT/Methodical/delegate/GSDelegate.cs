@@ -3,6 +3,7 @@
 
 using System;
 using System.Reflection;
+
 using Xunit;
 
 public interface IGetContents<T> {
@@ -19,7 +20,7 @@ public struct MyStruct<T> : IGetContents<T> {
     }
 }
 
-public class Program {
+public partial class Program {
 
     public delegate (string, int, T) MyDelegate<T>(IGetContents<T> arg);
 

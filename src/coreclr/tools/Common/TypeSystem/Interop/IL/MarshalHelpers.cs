@@ -202,8 +202,8 @@ namespace Internal.TypeSystem.Interop
                 if (customModifierType == null)
                     continue;
 
-                if ((customModifierType.Namespace == "System.Runtime.CompilerServices" && customModifierType.Name == "IsCopyConstructed") ||
-                    (customModifierType.Namespace == "Microsoft.VisualC" && customModifierType.Name == "NeedsCopyConstructorModifier"))
+                if ((customModifierType.Namespace == "System.Runtime.CompilerServices"u8 && customModifierType.Name == "IsCopyConstructed"u8) ||
+                    (customModifierType.Namespace == "Microsoft.VisualC"u8 && customModifierType.Name == "NeedsCopyConstructorModifier"u8))
                 {
                     return true;
                 }
@@ -436,7 +436,7 @@ namespace Internal.TypeSystem.Interop
 
                     return MarshallerKind.BlittableStruct;
                 }
-                else if (((MetadataType)type).HasLayout())
+                else if (!((MetadataType)type).IsAutoLayout)
                 {
                     if (nativeType != NativeTypeKind.Default && nativeType != NativeTypeKind.Struct)
                         return MarshallerKind.Invalid;
@@ -642,7 +642,7 @@ namespace Internal.TypeSystem.Interop
                 else
                     return MarshallerKind.Invalid;
             }
-            else if (type is MetadataType mdType && mdType.HasLayout())
+            else if (type is MetadataType mdType && !mdType.IsAutoLayout)
             {
                 if (type.HasInstantiation)
                 {
@@ -946,10 +946,10 @@ namespace Internal.TypeSystem.Interop
             //   objc_msgSendSuper
             //   objc_msgSendSuper_stret
             return metadata.Module.Equals(ObjectiveCLibrary)
-                && metadata.Name.StartsWith(ObjectiveCMsgSend);
+                && metadata.Name.AsSpan().StartsWith(ObjectiveCMsgSend);
         }
 
-        internal static int? GetObjectiveCMessageSendFunction(TargetDetails target, string pinvokeModule, string pinvokeFunction)
+        internal static uint? GetObjectiveCMessageSendFunction(TargetDetails target, string pinvokeModule, string pinvokeFunction)
         {
             if (!target.IsApplePlatform || pinvokeModule != ObjectiveCLibrary)
                 return null;
@@ -957,11 +957,11 @@ namespace Internal.TypeSystem.Interop
 #pragma warning disable CA1416
             return pinvokeFunction switch
             {
-                "objc_msgSend" => (int)ObjectiveCMarshal.MessageSendFunction.MsgSend,
-                "objc_msgSend_fpret" => (int)ObjectiveCMarshal.MessageSendFunction.MsgSendFpret,
-                "objc_msgSend_stret" => (int)ObjectiveCMarshal.MessageSendFunction.MsgSendStret,
-                "objc_msgSendSuper" => (int)ObjectiveCMarshal.MessageSendFunction.MsgSendSuper,
-                "objc_msgSendSuper_stret" => (int)ObjectiveCMarshal.MessageSendFunction.MsgSendSuperStret,
+                "objc_msgSend" => (uint)ObjectiveCMarshal.MessageSendFunction.MsgSend,
+                "objc_msgSend_fpret" => (uint)ObjectiveCMarshal.MessageSendFunction.MsgSendFpret,
+                "objc_msgSend_stret" => (uint)ObjectiveCMarshal.MessageSendFunction.MsgSendStret,
+                "objc_msgSendSuper" => (uint)ObjectiveCMarshal.MessageSendFunction.MsgSendSuper,
+                "objc_msgSendSuper_stret" => (uint)ObjectiveCMarshal.MessageSendFunction.MsgSendSuperStret,
                 _ => null,
             };
 #pragma warning restore CA1416

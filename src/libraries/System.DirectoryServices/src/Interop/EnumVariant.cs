@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Security;
 using System.Text;
 
@@ -58,33 +59,25 @@ namespace System.DirectoryServices
             /// Moves the pointer to the next value In the contained IEnumVariant, and
             /// stores the current value In currentValue.
             /// </devdoc>
-            private void Advance()
+            private unsafe void Advance()
             {
                 _currentValue = s_noMoreValues;
-                IntPtr addr = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(Variant)));
+                ComVariant variant = default;
+                int[] numRead = new int[] { 0 };
+                _enumerator.Next(1, (IntPtr)(&variant), numRead);
+
                 try
                 {
-                    int[] numRead = new int[] { 0 };
-                    global::Interop.OleAut32.VariantInit(addr);
-                    _enumerator.Next(1, addr, numRead);
-
-                    try
+                    if (numRead[0] > 0)
                     {
-                        if (numRead[0] > 0)
-                        {
 #pragma warning disable 612, 618
-                            _currentValue = Marshal.GetObjectForNativeVariant(addr)!;
+                        _currentValue = Marshal.GetObjectForNativeVariant((IntPtr)(&variant))!;
 #pragma warning restore 612, 618
-                        }
-                    }
-                    finally
-                    {
-                        global::Interop.OleAut32.VariantClear(addr);
                     }
                 }
                 finally
                 {
-                    Marshal.FreeCoTaskMem(addr);
+                    variant.Dispose();
                 }
             }
         }
