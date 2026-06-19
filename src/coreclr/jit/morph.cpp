@@ -14848,16 +14848,29 @@ bool Compiler::fgExpandQmarkStmt(BasicBlock* block, Statement* stmt, bool onlyEa
     }
 #endif // DEBUG
 
-    // Retrieve the operands.
-    GenTree* condExpr  = qmark->gtGetOp1();
-    GenTree* trueExpr  = qmark->gtGetOp2()->AsColon()->ThenNode();
-    GenTree* falseExpr = qmark->gtGetOp2()->AsColon()->ElseNode();
-
-    assert(!varTypeIsFloating(condExpr->TypeGet()));
-
-    bool hasTrueExpr  = !trueExpr->OperIs(GT_NOP);
-    bool hasFalseExpr = !falseExpr->OperIs(GT_NOP);
+    GenTreeColon* colon        = qmark->gtGetOp2()->AsColon();
+    bool          hasTrueExpr  = !colon->ThenNode()->OperIs(GT_NOP);
+    bool          hasFalseExpr = !colon->ElseNode()->OperIs(GT_NOP);
     assert(hasTrueExpr || hasFalseExpr); // We expect to have at least one arm of the qmark!
+
+    if (qmark->ThenNodeLikelihood() > qmark->ElseNodeLikelihood()
+    {
+        qmark->gtOp1 = gtReverseCond(qmark->gtGetOp1());
+        qmark->SetThenNodeLikelihood(qmark->ElseNodeLikelihood());
+
+        GenTree* op2 = colon->gtOp2;
+        colon->gtOp2 = colon->gtOp1;
+        colon->gtOp1 = op2;
+        bool temp    = hasTrueExpr;
+        hasTrueExpr  = hasFalseExpr;
+        hasFalseExpr = hasTrueExpr;
+    }
+
+    // Retrieve the operands.
+    GenTree* trueExpr  = colon->ThenNode();
+    GenTree* falseExpr = colon->ElseNode();
+    GenTree* condExpr  = qmark->gtGetOp1();
+    assert(!varTypeIsFloating(condExpr->TypeGet()));
 
     // Create remainder, cond and "else" blocks. After this, the blocks are in this order:
     //     block ... condBlock ... elseBlock ... remainderBlock
@@ -14905,14 +14918,12 @@ bool Compiler::fgExpandQmarkStmt(BasicBlock* block, Statement* stmt, bool onlyEa
     {
         //                       bbj_always
         //                       +---->------+
-        //                 false |           |
-        //     S0 -->-- ~C -->-- T   F -->-- S1
+        //                 true |           |
+        //     S0 -->-- C -->-- T   F -->-- S1
         //              |            |
         //              +--->--------+
-        //              bbj_cond(true)
+        //              bbj_cond(false)
         //
-        // TODO: Remove unnecessary condition reversal
-        qmark->gtOp1 = condExpr = gtReverseCond(condExpr);
 
         thenBlock = fgNewBBafter(BBJ_ALWAYS, condBlock, true);
         thenBlock->SetFlags(propagateFlagsToAll);
@@ -14938,14 +14949,12 @@ bool Compiler::fgExpandQmarkStmt(BasicBlock* block, Statement* stmt, bool onlyEa
     }
     else if (hasTrueExpr)
     {
-        //                 false
-        //     S0 -->-- ~C -->-- T -->-- S1
+        //                true
+        //     S0 -->-- C -->-- T -->-- S1
         //              |                |
         //              +-->-------------+
         //              bbj_cond(true)
         //
-        // TODO: Remove unnecessary condition reversal
-        qmark->gtOp1 = condExpr = gtReverseCond(condExpr);
 
         const unsigned thenLikelihood = qmark->ThenNodeLikelihood();
         const unsigned elseLikelihood = qmark->ElseNodeLikelihood();
