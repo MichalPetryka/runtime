@@ -97,7 +97,7 @@ PALTEST(exception_handling_RaiseException_test1_paltest_raiseexception_test1, "e
 
         bExcept_RaiseException_test1 = TRUE;
     }
-    
+
     PAL_ENDTRY;
 
     if (!bTry_RaiseException_test1)

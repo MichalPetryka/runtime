@@ -5,7 +5,7 @@
 **
 ** Source:  test16.c
 **
-** Purpose:Tests sscanf_s with floats (compact notation, lowercase) 
+** Purpose:Tests sscanf_s with floats (compact notation, lowercase)
 **
 **
 **==========================================================================*/
@@ -30,7 +30,7 @@ PALTEST(c_runtime_sscanf_s_test16_paltest_sscanf_test16, "c_runtime/sscanf_s/tes
     DoFloatTest("-12.01e+2", "%g", -1201.0f);
     DoFloatTest("+12.01e+2", "%g", 1201.0f);
     DoFloatTest("1234567890.0123456789g", "%g", 1234567936);
-    
+
     PAL_Terminate();
     return PASS;
 }

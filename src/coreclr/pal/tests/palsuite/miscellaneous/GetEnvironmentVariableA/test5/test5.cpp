@@ -43,7 +43,7 @@ PALTEST(miscellaneous_GetEnvironmentVariableA_test5_paltest_getenvironmentvariab
     {
         return FAIL;
     }
-  
+
     /* Set the first environment variable */
     bRc = SetEnvironmentVariableA(FirstEnvironmentVariable,
                             FirstEnvironmentValue);
@@ -54,15 +54,15 @@ PALTEST(miscellaneous_GetEnvironmentVariableA_test5_paltest_getenvironmentvariab
             "proper environment variable with error %u.\n", GetLastError());
     }
 
- 
+
     /* Normal case, PATH should fit into this buffer */
-    size = GetEnvironmentVariableA(FirstEnvironmentVariable,        
-                                  pResultBuffer,    
-                                  0);                 
+    size = GetEnvironmentVariableA(FirstEnvironmentVariable,
+                                  pResultBuffer,
+                                  0);
 
     /* To account for the null character at the end of the string */
     size = size + 1;
-    
+
     pResultBuffer = (char*)malloc(sizeof(char)*size);
     if ( pResultBuffer == NULL )
     {
@@ -78,16 +78,16 @@ PALTEST(miscellaneous_GetEnvironmentVariableA_test5_paltest_getenvironmentvariab
     {
 	    free(pResultBuffer);
         Fail("ERROR: GetEnvironmentVariable failed to return a value "
-            "from a proper environment variable with error %u.\n", 
+            "from a proper environment variable with error %u.\n",
             GetLastError());
     }
 
     /* Compare the strings to see that the correct variable was returned */
-    if(strcmp(pResultBuffer,FirstEnvironmentValue) != 0) 
+    if(strcmp(pResultBuffer,FirstEnvironmentValue) != 0)
     {
-        free(pResultBuffer);    
+        free(pResultBuffer);
         Fail("ERROR: The value in the buffer should have been '%s' but "
-             "was really '%s'.\n",FirstEnvironmentValue, pResultBuffer);          
+             "was really '%s'.\n",FirstEnvironmentValue, pResultBuffer);
     }
 
     free(pResultBuffer);
@@ -120,20 +120,20 @@ PALTEST(miscellaneous_GetEnvironmentVariableA_test5_paltest_getenvironmentvariab
     {
 	    free(pResultBuffer);
         Fail("ERROR: GetEnvironmentVariable failed to return a value "
-            "from a proper environment variable with error %u.\n", 
+            "from a proper environment variable with error %u.\n",
             GetLastError());
     }
 
     /* Compare the two strings to confirm that the right value is returned */
-    if(strcmp(pResultBuffer,FirstEnvironmentValue) != 0) 
+    if(strcmp(pResultBuffer,FirstEnvironmentValue) != 0)
     {
-        free(pResultBuffer);    
+        free(pResultBuffer);
         Fail("ERROR: The value in the buffer should have been '%s' but "
-             "was really '%s'.\n",FirstEnvironmentValue,pResultBuffer);          
+             "was really '%s'.\n",FirstEnvironmentValue,pResultBuffer);
     }
-  
+
     free(pResultBuffer);
-    
+
     PAL_Terminate();
     return PASS;
 

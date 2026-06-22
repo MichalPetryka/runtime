@@ -15,7 +15,7 @@
 **
 ** Test to ensure proper operation of the SetEvent()
 ** API by calling it on an event handle that's already set.
-** 
+**
 
 **
 **===========================================================================*/
@@ -30,7 +30,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
     DWORD                   dwRet = 0;
     HANDLE                  hEvent = NULL;
     LPSECURITY_ATTRIBUTES   lpEventAttributes = NULL;
-    BOOL                    bManualReset = TRUE; 
+    BOOL                    bManualReset = TRUE;
     BOOL                    bInitialState = FALSE;
 
 
@@ -42,7 +42,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
 
 
     /* create an event which we can use with SetEvent */
-    hEvent = CreateEvent(   lpEventAttributes, 
+    hEvent = CreateEvent(   lpEventAttributes,
                             bManualReset,
                             bInitialState,
                             NULL );
@@ -52,7 +52,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         /* ERROR */
         Fail( "ERROR:%lu:CreateEvent() call failed\n", GetLastError() );
     }
-    
+
     /* verify that the event isn't signalled yet */
     dwRet = WaitForSingleObject( hEvent, 0 );
     if( dwRet != WAIT_TIMEOUT )
@@ -64,7 +64,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* set the event */
     if( ! SetEvent( hEvent ) )
     {
@@ -73,7 +73,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* verify that the event is signalled */
     dwRet = WaitForSingleObject( hEvent, 0 );
     if( dwRet != WAIT_OBJECT_0 )
@@ -85,7 +85,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* try to set the event again */
     if( ! SetEvent( hEvent ) )
     {
@@ -95,7 +95,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* verify that the event is still signalled */
     dwRet = WaitForSingleObject( hEvent, 0 );
     if( dwRet != WAIT_OBJECT_0 )
@@ -107,7 +107,7 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
 
     /* close the event handle */
     if( ! CloseHandle( hEvent ) )
@@ -115,10 +115,10 @@ PALTEST(threading_SetEvent_test2_paltest_setevent_test2, "threading/SetEvent/tes
         Fail( "ERROR:%lu:CloseHandle() call failed\n", GetLastError() );
     }
 
-    
+
     /* PAL termination */
     PAL_Terminate();
-    
+
     /* return success */
     return PASS;
 }

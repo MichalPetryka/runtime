@@ -5,8 +5,8 @@
 **
 ** Source:  test1.c
 **
-** Purpose: 
-** Concatenate a few strings together, setting different lengths to be 
+** Purpose:
+** Concatenate a few strings together, setting different lengths to be
 ** used for each one.  Check to ensure the pointers which are returned are
 ** correct, and that the final string is what was expected.
 **
@@ -26,7 +26,7 @@ PALTEST(c_runtime_strncat_test1_paltest_strncat_test1, "c_runtime/strncat/test1/
     char *ptr;
     int i;
 
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -62,7 +62,7 @@ PALTEST(c_runtime_strncat_test1_paltest_strncat_test1, "c_runtime/strncat/test1/
     }
     if (strcmp(dest, test) != 0)
     {
-        Fail("ERROR: Expected strncat to give \"%s\", got \"%s\"\n", 
+        Fail("ERROR: Expected strncat to give \"%s\", got \"%s\"\n",
             test, dest);
     }
     if (dest[strlen(test)+1] != 'x')

@@ -5,15 +5,15 @@
 **
 ** Source: test1.c
 **
-** Purpose: Tests that FlushInstructionCache returns the correct value for a 
+** Purpose: Tests that FlushInstructionCache returns the correct value for a
 **          number of different inputs.
 **
 **
 ** Note :
 ** For this function, what constitutes "invalid parameters" will depend entirely
-** on the platform; because of this we can't simply test values on Windows and 
-** then ask for the same results everywhere. Because of this, this test can 
-** ensure that the function succeeds for some "obviously" valid values, but 
+** on the platform; because of this we can't simply test values on Windows and
+** then ask for the same results everywhere. Because of this, this test can
+** ensure that the function succeeds for some "obviously" valid values, but
 ** can't make sure that it fails for invalid values.
 **
 **=========================================================*/
@@ -23,19 +23,19 @@
 void DoTest(void *Buffer, int Size, int Expected)
 {
     int ret;
-    
+
     SetLastError(0);
     ret = FlushInstructionCache(GetCurrentProcess(), Buffer, Size);
     if (!ret && Expected)
     {
         Fail("Expected FlushInstructionCache to return non-zero, got zero!\n"
-            "region: %p, size: %d, GetLastError: %d\n", Buffer, Size, 
+            "region: %p, size: %d, GetLastError: %d\n", Buffer, Size,
             GetLastError());
     }
     else if (ret && !Expected)
     {
         Fail("Expected FlushInstructionCache to return zero, got non-zero!\n"
-            "region: %p, size: %d, GetLastError: %d\n", Buffer, Size, 
+            "region: %p, size: %d, GetLastError: %d\n", Buffer, Size,
             GetLastError());
     }
 

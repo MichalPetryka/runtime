@@ -27,7 +27,7 @@ PALTEST(c_runtime_iswspace_test1_paltest_iswspace_test1, "c_runtime/iswspace/tes
     };
 
     /* create an array of chars that test the range of possible characters */
-    struct testChars testChars1[] =    
+    struct testChars testChars1[] =
     {
             {0x00,0}, /* null */
             {0x09,1}, /* open circle */
@@ -55,17 +55,17 @@ PALTEST(c_runtime_iswspace_test1_paltest_iswspace_test1, "c_runtime/iswspace/tes
         if((ret==0) && (testChars1[i].result != 0))
             {
             Fail("ERROR:  wide character %#X IS considered a space, "
-            "but iswspace did NOT indicate it was one with error %u.\n", 
+            "but iswspace did NOT indicate it was one with error %u.\n",
             testChars1[i].charValue,
             GetLastError());
             }
 
         if((ret!=0) && (testChars1[i].result == 0))
         {
-            Fail("ERROR: wide character %#X is NOT considered a space, " 
-            "but iswspace DID indicate it was a space with error %u.\n", 
+            Fail("ERROR: wide character %#X is NOT considered a space, "
+            "but iswspace DID indicate it was a space with error %u.\n",
             testChars1[i].charValue,
-            GetLastError());               
+            GetLastError());
         }
     }
 

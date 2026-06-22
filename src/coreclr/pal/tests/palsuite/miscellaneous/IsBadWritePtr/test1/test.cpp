@@ -16,7 +16,7 @@
 
 PALTEST(miscellaneous_IsBadWritePtr_test1_paltest_isbadwriteptr_test1, "miscellaneous/IsBadWritePtr/test1/paltest_isbadwriteptr_test1")
 {
-    
+
     void * TestingPointer = NULL;
     BOOL ResultValue = 0;
 
@@ -28,7 +28,7 @@ PALTEST(miscellaneous_IsBadWritePtr_test1_paltest_isbadwriteptr_test1, "miscella
     {
         return FAIL;
     }
-  
+
     TestingPointer = malloc(MEMORY_AMOUNT);
     if ( TestingPointer == NULL )
     {
@@ -40,7 +40,7 @@ PALTEST(miscellaneous_IsBadWritePtr_test1_paltest_isbadwriteptr_test1, "miscella
     /* This should be writeable, return 0 */
     ResultValue = IsBadWritePtr(TestingPointer,MEMORY_AMOUNT);
 
-    if(ResultValue != 0) 
+    if(ResultValue != 0)
     {
 	free(TestingPointer);
 
@@ -49,29 +49,29 @@ PALTEST(miscellaneous_IsBadWritePtr_test1_paltest_isbadwriteptr_test1, "miscella
     }
 
     free(TestingPointer);
-  
+
     /* This should be !writeable, return nonezero */
     TestingPointer = (void*)0x08; /* non writeable address */
     ResultValue = IsBadWritePtr(TestingPointer,sizeof(int));
-    
-    if(ResultValue == 0) 
+
+    if(ResultValue == 0)
     {
         Fail("ERROR: Returned %d when nonezero should have been returned, "
              "checking to see if unwriteable memory  is writeable.\n",
              ResultValue);
     }
-  
+
     /* This should be !writeable, return Nonezero */
     ResultValue = IsBadWritePtr(NULL,MEMORY_AMOUNT);
 
-    if(ResultValue == 0) 
+    if(ResultValue == 0)
     {
         Fail("ERROR: Returned %d when nonezero should have been "
 	     "returned,checking "
              "to see if a NULL pointer is writeable.\n",
              ResultValue);
     }
-    
+
     PAL_Terminate();
     return PASS;
 }

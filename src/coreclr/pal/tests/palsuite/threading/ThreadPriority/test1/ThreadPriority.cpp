@@ -6,7 +6,7 @@
 ** Source: threadpriority.c
 **
 ** Purpose: Test to ensure GetThreadPriority works properly.
-** 
+**
 ** Dependencies: PAL_Initialize
 **               PAL_Terminate
 **               Fail
@@ -14,7 +14,7 @@
 **               WaitForSingleObject
 **               GetLastError
 **               time()
-** 
+**
 
 **
 **===========================================================================*/

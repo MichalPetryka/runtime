@@ -5,7 +5,7 @@
 **
 ** Source:  PAL_EXCEPT_FILTER_EX.c (test 1)
 **
-** Purpose: Tests the PAL implementation of the PAL_EXCEPT_FILTER_EX. 
+** Purpose: Tests the PAL implementation of the PAL_EXCEPT_FILTER_EX.
 **          There are two try blocks in this test. The first forces an
 **          exception error to force hitting the first filter. The second
 **          doesn't to make sure we don't hit the filter. A value is also
@@ -31,7 +31,7 @@ const int nValidator = 12321;
 LONG Filter_01(EXCEPTION_POINTERS* ep, VOID *pnTestInt)
 {
     int nTestInt = *(int *)pnTestInt;
-    
+
     /* let the main know we've hit the filter function */
     bFilter = TRUE;
 
@@ -84,8 +84,8 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_EX_test1_paltest_pal_except_filter_
     /*
     ** test to make sure we get into the exception block
     */
-    
-    PAL_TRY 
+
+    PAL_TRY
     {
         if (bExcept)
         {
@@ -142,7 +142,7 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_EX_test1_paltest_pal_except_filter_
     ** test to make sure we skip the exception block
     */
 
-    PAL_TRY 
+    PAL_TRY
     {
         if (bExcept)
         {
@@ -190,7 +190,7 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_EX_test1_paltest_pal_except_filter_
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

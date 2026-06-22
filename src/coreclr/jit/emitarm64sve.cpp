@@ -93,7 +93,7 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes2[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
         #define   INST2(id, nm, info, fmt, e1, e2                                                   ) e2,
         #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) e2,
         #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) e2,
@@ -109,8 +109,8 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes3[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
         #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) e3,
         #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) e3,
         #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) e3,
@@ -125,9 +125,9 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes4[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
         #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) e4,
         #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) e4,
         #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) e4,
@@ -141,10 +141,10 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes5[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
         #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) e5,
         #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) e5,
         #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) e5,
@@ -157,11 +157,11 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes6[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
         #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) e6,
         #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) e6,
         #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) e6,
@@ -173,12 +173,12 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes7[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
         #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) e7,
         #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) e7,
         #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) e7,
@@ -189,13 +189,13 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes8[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
-        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
+        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               )
         #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) e8,
         #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) e8,
         #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             ) e8,
@@ -205,14 +205,14 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes9[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
-        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) 
-        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
+        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               )
+        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           )
         #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) e9,
         #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             ) e9,
         #define  INST13(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13   ) e9,
@@ -221,15 +221,15 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes10[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
-        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) 
-        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) 
-        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
+        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               )
+        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           )
+        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       )
         #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             ) e10,
         #define  INST13(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13   ) e10,
         #include "instrsarm64sve.h"
@@ -237,15 +237,15 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes11[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
-        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) 
-        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) 
-        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
+        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               )
+        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           )
+        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       )
         #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             ) e11,
         #define  INST13(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13   ) e11,
         #include "instrsarm64sve.h"
@@ -253,32 +253,32 @@ emitter::code_t emitter::emitInsCodeSve(instruction ins, insFormat fmt)
 
     const static code_t insCodes12[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
-        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) 
-        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) 
-        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) 
-        #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
+        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               )
+        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           )
+        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       )
+        #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             )
         #define  INST13(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13   ) e12,
         #include "instrsarm64sve.h"
     };
 
     const static code_t insCodes13[] =
     {
-        #define   INST1(id, nm, info, fmt, e1                                                       ) 
-        #define   INST2(id, nm, info, fmt, e1, e2                                                   ) 
-        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               ) 
-        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           ) 
-        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       ) 
-        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   ) 
-        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               ) 
-        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           ) 
-        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       ) 
-        #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             ) 
+        #define   INST1(id, nm, info, fmt, e1                                                       )
+        #define   INST2(id, nm, info, fmt, e1, e2                                                   )
+        #define   INST3(id, nm, info, fmt, e1, e2, e3                                               )
+        #define   INST4(id, nm, info, fmt, e1, e2, e3, e4                                           )
+        #define   INST5(id, nm, info, fmt, e1, e2, e3, e4, e5                                       )
+        #define   INST6(id, nm, info, fmt, e1, e2, e3, e4, e5, e6                                   )
+        #define   INST7(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7                               )
+        #define   INST8(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8                           )
+        #define   INST9(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9                       )
+        #define  INST11(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11             )
         #define  INST13(id, nm, info, fmt, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13   ) e13,
         #include "instrsarm64sve.h"
     };

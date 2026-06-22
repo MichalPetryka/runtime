@@ -1450,7 +1450,7 @@ public:
         // Called right after GCHeap::Init() for each heap
 
         uint32_t maxCpuCount = GCToOSInterface::GetMaxProcessorCount();
-        // The upper limit of the numa node numbers is maxCpuCount - 1 since in the worst case each processor could be on a different NUMA node. 
+        // The upper limit of the numa node numbers is maxCpuCount - 1 since in the worst case each processor could be on a different NUMA node.
         // We add +1 here to make it easier to calculate the heap number range for the last NUMA node.
         numa_node_to_heap_map = new (nothrow) uint16_t[maxCpuCount + 1];
         if (numa_node_to_heap_map == nullptr)

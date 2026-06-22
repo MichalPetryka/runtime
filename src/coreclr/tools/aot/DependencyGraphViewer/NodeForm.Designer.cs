@@ -45,9 +45,9 @@ namespace DependencyLogViewer
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // nodeTitle
-            // 
+            //
             this.nodeTitle.BackColor = System.Drawing.SystemColors.Info;
             this.nodeTitle.Dock = System.Windows.Forms.DockStyle.Top;
             this.nodeTitle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
@@ -59,31 +59,31 @@ namespace DependencyLogViewer
             this.nodeTitle.Text = "Node Title";
             this.nodeTitle.TextAlign = System.Drawing.ContentAlignment.BottomLeft;
             this.nodeTitle.AutoEllipsis = true;
-            // 
+            //
             // splitContainer1
-            // 
+            //
             this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.splitContainer1.Location = new System.Drawing.Point(0, 75);
             this.splitContainer1.Margin = new System.Windows.Forms.Padding(4);
             this.splitContainer1.Name = "splitContainer1";
             this.splitContainer1.Orientation = System.Windows.Forms.Orientation.Horizontal;
-            // 
+            //
             // splitContainer1.Panel1
-            // 
+            //
             this.splitContainer1.Panel1.Controls.Add(this.dependentsListBox);
             this.splitContainer1.Panel1.Controls.Add(this.exploreDependent);
-            // 
+            //
             // splitContainer1.Panel2
-            // 
+            //
             this.splitContainer1.Panel2.Controls.Add(this.dependeesListBox);
             this.splitContainer1.Panel2.Controls.Add(this.exploreDependee);
             this.splitContainer1.Size = new System.Drawing.Size(1126, 806);
             this.splitContainer1.SplitterDistance = 419;
             this.splitContainer1.SplitterWidth = 6;
             this.splitContainer1.TabIndex = 1;
-            // 
+            //
             // chkSameWindowNav
-            // 
+            //
             this.chkSameWindowNav.AutoSize = true;
             this.chkSameWindowNav.Location = new System.Drawing.Point(890, 0);
             this.chkSameWindowNav.Name = "chkSameWindowNav";
@@ -92,9 +92,9 @@ namespace DependencyLogViewer
             this.chkSameWindowNav.Text = "Same Window Nav";
             this.chkSameWindowNav.UseVisualStyleBackColor = true;
             this.chkSameWindowNav.CheckedChanged += ChkSameWindowNav_CheckedChanged;
-            // 
+            //
             // btnBack
-            // 
+            //
             this.btnBack.Location = new System.Drawing.Point(607, 0);
             this.btnBack.Margin = new System.Windows.Forms.Padding(4);
             this.btnBack.Name = "btnBack";
@@ -103,9 +103,9 @@ namespace DependencyLogViewer
             this.btnBack.Text = "Back";
             this.btnBack.UseVisualStyleBackColor = true;
             this.btnBack.Click += btnBack_Click;
-            // 
+            //
             // btnForward
-            // 
+            //
             this.btnForward.Location = new System.Drawing.Point(750, 0);
             this.btnForward.Margin = new System.Windows.Forms.Padding(4);
             this.btnForward.Name = "btnForward";
@@ -114,9 +114,9 @@ namespace DependencyLogViewer
             this.btnForward.Text = "Forward";
             this.btnForward.UseVisualStyleBackColor = true;
             this.btnForward.Click += btnForward_Click;
-            // 
+            //
             // dependentsListBox
-            // 
+            //
             this.dependentsListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dependentsListBox.FormattingEnabled = true;
             this.dependentsListBox.HorizontalScrollbar = true;
@@ -127,9 +127,9 @@ namespace DependencyLogViewer
             this.dependentsListBox.Size = new System.Drawing.Size(1126, 361);
             this.dependentsListBox.TabIndex = 0;
             this.dependentsListBox.DoubleClick += new System.EventHandler(this.exploreDependent_Click);
-            // 
+            //
             // exploreDependent
-            // 
+            //
             this.exploreDependent.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.exploreDependent.Location = new System.Drawing.Point(0, 361);
             this.exploreDependent.Margin = new System.Windows.Forms.Padding(4);
@@ -139,9 +139,9 @@ namespace DependencyLogViewer
             this.exploreDependent.Text = "Explore Source Node";
             this.exploreDependent.UseVisualStyleBackColor = true;
             this.exploreDependent.Click += new System.EventHandler(this.exploreDependent_Click);
-            // 
+            //
             // dependeesListBox
-            // 
+            //
             this.dependeesListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dependeesListBox.FormattingEnabled = true;
             this.dependeesListBox.HorizontalScrollbar = true;
@@ -152,9 +152,9 @@ namespace DependencyLogViewer
             this.dependeesListBox.Size = new System.Drawing.Size(1126, 329);
             this.dependeesListBox.TabIndex = 0;
             this.dependeesListBox.DoubleClick += new System.EventHandler(this.exploreDependee_Click);
-            // 
+            //
             // exploreDependee
-            // 
+            //
             this.exploreDependee.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.exploreDependee.Location = new System.Drawing.Point(0, 329);
             this.exploreDependee.Margin = new System.Windows.Forms.Padding(4);
@@ -164,9 +164,9 @@ namespace DependencyLogViewer
             this.exploreDependee.Text = "Explore Target Node";
             this.exploreDependee.UseVisualStyleBackColor = true;
             this.exploreDependee.Click += new System.EventHandler(this.exploreDependee_Click);
-            // 
+            //
             // NodeForm
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 30F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1126, 836);

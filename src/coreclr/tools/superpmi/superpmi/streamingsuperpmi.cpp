@@ -36,7 +36,7 @@ static bool AddJitOption(LightWeightMap<DWORD,DWORD>* map, char* newOption)
 
     delete[] key;
     delete[] value;
-    
+
     return true;
 }
 
@@ -139,7 +139,7 @@ int doStreamingSuperPMI(CommandLine::Options& o)
     {
         streamFile = stdin;
     }
-    else 
+    else
     {
         streamFile = fopen(o.streamFile, "r");
     }
@@ -263,11 +263,11 @@ int doStreamingSuperPMI(CommandLine::Options& o)
         }
 
         if (jit == nullptr)
-        {    
+        {
             LogDebug("[streaming] loading jit %s", o.nameOfJit);
             SimpleTimer stInitJit;
             jit = JitInstance::InitJit(o.nameOfJit, o.breakOnAssert, &stInitJit, mc, forceJitOptions, o.jitOptions);
-            
+
             if (jit == nullptr)
             {
                 // InitJit already printed a failure message

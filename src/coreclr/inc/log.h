@@ -111,7 +111,7 @@ bool Logging2On(DWORD facility, DWORD level);
 #define DAC_LOG2(x)      do { if (LoggingEnabled()) { LogSpew2 x; } } while (0)
 #define DAC_LOGALWAYS(x) LogSpewAlways x
 
-#else 
+#else
 
 #define LOG(x)           do { if (LoggingEnabled()) { LogSpew x; } } while (0)
 #define LOG2(x)          do { if (LoggingEnabled()) { LogSpew2 x; } } while (0)

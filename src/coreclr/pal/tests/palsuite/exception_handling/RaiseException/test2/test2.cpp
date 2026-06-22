@@ -5,11 +5,11 @@
 **
 ** Source: test2.c (exception_handling\raiseexception\test2)
 **
-** Purpose: Tests that the correct arguments are passed 
-**          to the filter by RaiseException and tests that 
-**          the number of arguments never exceeds 
+** Purpose: Tests that the correct arguments are passed
+**          to the filter by RaiseException and tests that
+**          the number of arguments never exceeds
 **          EXCEPTION_MAXIMUM_PARAMETERS, even though we
-**          pass a greater number of arguments 
+**          pass a greater number of arguments
 **
 **
 **============================================================*/
@@ -36,7 +36,7 @@ DWORD nArguments_test2_RaiseException_test2 = EXCEPTION_MAXIMUM_PARAMETERS+1;
 LONG Filter_test1_RaiseException_test2(EXCEPTION_POINTERS* ep, VOID *unused)
 {
     int i;
-    
+
     /* let the main know we've hit the filter function */
     bFilter_RaiseException_test2 = TRUE;
 
@@ -46,7 +46,7 @@ LONG Filter_test1_RaiseException_test2(EXCEPTION_POINTERS* ep, VOID *unused)
             " The filter was hit without PAL_TRY being hit.\n");
     }
 
-    
+
     /* was the correct number of arguments passed */
     if (ep->ExceptionRecord->NumberParameters != (DWORD) nArguments_test1_RaiseException_test2)
     {
@@ -60,7 +60,7 @@ LONG Filter_test1_RaiseException_test2(EXCEPTION_POINTERS* ep, VOID *unused)
     /* were the correct arguments passed */
     for( i=0; ((DWORD)i)<nArguments_test1_RaiseException_test2; i++ )
     {
-        if( ep->ExceptionRecord->ExceptionInformation[i] 
+        if( ep->ExceptionRecord->ExceptionInformation[i]
             != lpArguments_test1_RaiseException_test2[i])
         {
             Fail("RaiseException: ERROR -> Argument %d passed to filter"
@@ -98,15 +98,15 @@ LONG Filter_test2_RaiseException_test2(EXCEPTION_POINTERS* ep, VOID* unused)
 PALTEST(exception_handling_RaiseException_test2_paltest_raiseexception_test2, "exception_handling/RaiseException/test2/paltest_raiseexception_test2")
 {
     bExcept_RaiseException_test2 = FALSE;
-    
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;
     }
 
     /********************************************************
-     * Test that the correct arguments are passed 
-     * to the filter by RaiseException 
+     * Test that the correct arguments are passed
+     * to the filter by RaiseException
      */
     PAL_TRY(VOID*, unused, NULL)
     {
@@ -163,9 +163,9 @@ PALTEST(exception_handling_RaiseException_test2_paltest_raiseexception_test2, "e
     bTry_RaiseException_test2 = bExcept_RaiseException_test2 = bFilter_RaiseException_test2 = FALSE;
 
     /********************************************************
-     * Test that the number of arguments never 
+     * Test that the number of arguments never
      * exceeds EXCEPTION_MAXIMUM_PARAMETERS, even though we
-     * pass a greater number of arguments 
+     * pass a greater number of arguments
      */
     PAL_TRY(VOID*, unused, NULL)
     {
@@ -217,7 +217,7 @@ PALTEST(exception_handling_RaiseException_test2_paltest_raiseexception_test2, "e
         Fail("");
     }
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

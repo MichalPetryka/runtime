@@ -41,7 +41,7 @@ PALTEST(c_runtime_strcmp_test1_paltest_strcmp_test1, "c_runtime/strcmp/test1/pal
 
     int i = 0;
     int result = 0;
-    
+
     /*
      *  Initialize the PAL
      */

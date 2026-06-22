@@ -22,54 +22,54 @@ struct testCase
 
 PALTEST(c_runtime_isalpha_test1_paltest_isalpha_test1, "c_runtime/isalpha/test1/paltest_isalpha_test1")
 {
-  
-    int result;  
+
+    int result;
     int i;
-  
-    struct testCase testCases[] = 
+
+    struct testCase testCases[] =
         {
-            {1,  'a'},  
+            {1,  'a'},
             {1, 'z'},
             {1,  'B'},
             {0,  '5'},
-            {0,  '?'},  
+            {0,  '?'},
             {0,  230}
         };
-  
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
     }
 
-  
+
     /* Loop through each case. Check to see if each is alpha or
        not.
     */
-  
+
     for(i = 0; i < sizeof(testCases) / sizeof(struct testCase); i++)
     {
-      
+
         result = isalpha(testCases[i].character);
-     
+
         /* The return value is 'non-zero' for success.  This if condition
-         * will still work if that non-zero isn't just 1 
-         */ 
+         * will still work if that non-zero isn't just 1
+         */
         if ( ((testCases[i].CorrectResult == 1) && (result == 0)) ||
              ( (testCases[i].CorrectResult == 0) && (result != 0) ))
         {
             Fail("ERROR: isalpha returned %i instead of %i for character "
                    "%c.\n",
                    result,
-                   testCases[i].CorrectResult, 
+                   testCases[i].CorrectResult,
                    testCases[i].character);
         }
-    
-    }      
-  
-  
+
+    }
+
+
     PAL_Terminate();
     return PASS;
-} 
+}
 
 
 

@@ -6,14 +6,14 @@
 ** Source: MapViewOfFile.c
 **
 ** Purpose: Negative test the MapViewOfFile API.
-**          Call MapViewOfFile with all access modes, except 
+**          Call MapViewOfFile with all access modes, except
 **          read-only, on a read only map.
 **
 ** Depends: CreateFile,
 **          CreateFileMapping,
 **          CloseHandle,
 **          UnMapViewOfFile.
-**          
+**
 
 **
 **============================================================*/
@@ -43,9 +43,9 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
     hFile = CreateFile( lpFileName,
                         GENERIC_WRITE|GENERIC_READ,
                         FILE_SHARE_READ|FILE_SHARE_WRITE,
-                        NULL, 
+                        NULL,
                         CREATE_ALWAYS,
-                        FILE_ATTRIBUTE_NORMAL, 
+                        FILE_ATTRIBUTE_NORMAL,
                         NULL);
     if (hFile == INVALID_HANDLE_VALUE)
     {
@@ -55,7 +55,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
     }
 
     /* Write to the File handle.
-     */ 
+     */
     err = WriteFile(hFile,
                         buf,
                         strlen(buf),
@@ -67,7 +67,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
         CloseHandle(hFile);
         Fail("ERROR: Unable to flush the buffers\n");
     }
-    
+
     if (err == FALSE)
     {
         Trace("ERROR: %u :unable to write to file handle "
@@ -91,7 +91,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
 
     if(NULL == hFileMapping)
     {
-        Trace("ERROR:%u: Failed to create File Mapping.\n", 
+        Trace("ERROR:%u: Failed to create File Mapping.\n",
               GetLastError());
         CloseHandle(hFile);
         Fail("");
@@ -109,7 +109,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
     if(NULL != lpMapViewAddress)
     {
         Trace("ERROR:%u: Able to create a writeable MapViewOfFile"
-             " to a read-only file.\n", 
+             " to a read-only file.\n",
              GetLastError());
         CloseHandle(hFile);
         CloseHandle(hFileMapping);
@@ -129,7 +129,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
     if(NULL != lpMapViewAddress)
     {
         Trace("ERROR:%u: Able to create an all access MapViewOfFile"
-              " to a read-only file.\n", 
+              " to a read-only file.\n",
               GetLastError());
         CloseHandle(hFile);
         CloseHandle(hFileMapping);
@@ -149,13 +149,13 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test4_paltest_mapviewoffile_test4, "fil
     if(NULL != lpMapViewAddress)
     {
         Trace("ERROR:%u: Able to create a copy access MapViewOfFile "
-              "to a read-only file.\n", 
+              "to a read-only file.\n",
               GetLastError());
         CloseHandle(hFile);
         CloseHandle(hFileMapping);
         Fail("");
     }
-    
+
     /* Clean-up and Teminate. */
     CloseHandle(hFile);
     CloseHandle(hFileMapping);

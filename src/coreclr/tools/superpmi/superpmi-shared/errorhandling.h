@@ -144,7 +144,7 @@ void RunWithErrorExceptionCodeCaptureAndContinue(LambdaTry function, LambdaFinal
 
     lambdaArgs.pTryLambda = &tryStorage;
     lambdaArgs.pFinallyLambda = &finallyStorage;
-    
+
     RunWithErrorExceptionCodeCaptureAndContinueImp(&lambdaArgs,
         [](void* pParam)
         {

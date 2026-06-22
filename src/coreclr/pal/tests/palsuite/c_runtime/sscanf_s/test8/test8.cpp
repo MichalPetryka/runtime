@@ -5,7 +5,7 @@
 **
 ** Source:  test8.c
 **
-** Purpose:Tests sscanf_s with unsigned number 
+** Purpose:Tests sscanf_s with unsigned number
 **
 **
 **==========================================================================*/

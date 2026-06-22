@@ -27,8 +27,8 @@ PALTEST(filemapping_memmgt_VirtualProtect_test4_paltest_virtualprotect_test4, "f
     {
         ExitProcess(FAIL);
     }
-    
-    //Allocate the physical storage in memory or in the paging file on disk 
+
+    //Allocate the physical storage in memory or in the paging file on disk
     lpVirtualAddress = VirtualAlloc(NULL,//determine where to allocate the region
             REGIONSIZE,      //specify the size
             MEM_COMMIT | MEM_RESERVE_EXECUTABLE,      //allocation type

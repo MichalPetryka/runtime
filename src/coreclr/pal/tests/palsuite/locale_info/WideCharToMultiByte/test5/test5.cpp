@@ -14,7 +14,7 @@
 #include <minipal/utf8.h>
 
 PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5, "locale_info/WideCharToMultiByte/test5/paltest_widechartomultibyte_test5")
-{    
+{
     int ret;
     int ret2;
 
@@ -26,7 +26,7 @@ PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5,
     const WCHAR * const unicodeStrings[] =
     {
         // Correct strings
-        
+
         // Empty string
         W(""),
         // 1 byte encoded 1 character long string
@@ -61,7 +61,7 @@ PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5,
         W("\xD800\xDC00\xD800\xDE40\xDAC0\xDFB0\xDBFF\xDFFF"),
 
         // Strings with errors
-        
+
         // Single high surrogate
         W("\xD800"),
         // Single low surrogate
@@ -75,11 +75,11 @@ PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5,
         // Single low surrogate between two characters
         W("\x0041\xDC00\x0042"),
     };
-    
+
     const char * const utf8Strings[] =
     {
         // Correct strings
-        
+
         // Empty string
         "",
         // 1 byte encoded 1 character long string
@@ -112,7 +112,7 @@ PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5,
         "\xC2\x80\xC3\xBF\x43\x44\xC7\x81\xDF\xBF",
         // Surrogates
         "\xF0\x90\x80\x80\xF0\x90\x89\x80\xF3\x80\x8E\xB0\xF4\x8F\xBF\xBF",
-        
+
         // Strings with errors
 
         // Single high surrogate
@@ -139,12 +139,12 @@ PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5,
             Fail("WideCharToMultiByte string %d: returned different string length for empty and real dest buffers!\n"
                 "Got %d for the empty one, %d for real one.\n", i, ret2, ret);
         }
-        
+
         if (strcmp(utf8Buffer, utf8Strings[i]) != 0)
         {
             Fail("WideCharToMultiByte string %d: the resulting string doesn't match the expected one!\n", i);
         }
-        
+
         free(utf8Buffer);
     }
 
@@ -183,7 +183,7 @@ PALTEST(locale_info_WideCharToMultiByte_test5_paltest_widechartomultibyte_test5,
         }
     }
 #endif
-   
+
     PAL_Terminate();
 
     return PASS;

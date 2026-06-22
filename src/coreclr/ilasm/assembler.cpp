@@ -2752,7 +2752,7 @@ void Assembler::EmitGenericParamConstraints(int numTyPars, TyParDescr* pTyPars, 
         delete[] pConstraintsArr[paramIndex];
         delete[] pGPConstraintsArr[paramIndex];
     }
-    
+
     delete[] nConstraintsArr;
     delete[] nConstraintIndexArr;
     delete[] pConstraintsArr;

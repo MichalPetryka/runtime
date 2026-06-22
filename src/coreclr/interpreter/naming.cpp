@@ -59,7 +59,7 @@ void AppendCorInfoType(TArray<char, MallocAllocator>* printer, CorInfoType corIn
     {
         corInfoTypeName = preciseVarTypeMap[corInfoType];
     }
-    
+
     printer->Append(corInfoTypeName, static_cast<int32_t>(strlen(corInfoTypeName)));
 }
 

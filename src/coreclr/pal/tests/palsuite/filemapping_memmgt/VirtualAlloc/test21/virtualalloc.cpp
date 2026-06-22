@@ -24,7 +24,7 @@ PALTEST(filemapping_memmgt_VirtualAlloc_test21_paltest_virtualalloc_test21, "fil
     {
         ExitProcess(FAIL);
     }
-    
+
     ptr = (int *) VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE,
                                PAGE_READWRITE);
     if (ptr == NULL)
@@ -37,7 +37,7 @@ PALTEST(filemapping_memmgt_VirtualAlloc_test21_paltest_virtualalloc_test21, "fil
     {
         Fail("VirtualFree failed!\n");
     }
-    
+
     ptr = (int *) VirtualAlloc(ptr, 4096, MEM_COMMIT, PAGE_READWRITE);
     if (ptr == NULL)
     {

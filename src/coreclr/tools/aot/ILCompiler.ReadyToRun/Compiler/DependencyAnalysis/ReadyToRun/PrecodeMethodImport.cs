@@ -36,7 +36,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         public MethodDesc Method => _method.Method;
 
         public MethodWithGCInfo MethodCodeNode => _localMethod;
-        
+
         public override int ClassCode => 30624770;
 
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)

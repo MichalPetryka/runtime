@@ -9,7 +9,7 @@
 **          Check to ensure that the different ints are handled properly.
 **          Exponents and decimals should be treated as invalid characters,
 **          causing the conversion to quit. Whitespace before the int is valid.
-**          Check would-be octal/hex digits to ensure they're treated no 
+**          Check would-be octal/hex digits to ensure they're treated no
 **          differently than other strings.
 **
 **
@@ -66,11 +66,11 @@ PALTEST(c_runtime__wtoi_test1_paltest_wtoi_test1, "c_runtime/_wtoi/test1/paltest
         if (testCases[i].IntValue != result)
         {
             Fail("ERROR: _wtoi misinterpreted \"%s\" as %i instead of %i.\n",
-                 testCases[i].avalue, 
-                 result, 
+                 testCases[i].avalue,
+                 result,
                  testCases[i].IntValue);
         }
-        
+
     }
 
     PAL_Terminate();

@@ -42,7 +42,7 @@ bool InsertThreadIntoSignalSafeMap(size_t osThread, void* pThread)
             }
 
             memset(pNewSegment, 0, sizeof(ThreadSegment));
-            ThreadSegment* pExpected = NULL;           
+            ThreadSegment* pExpected = NULL;
             if (!__atomic_compare_exchange_n(
                 ppSegment,
                 &pExpected,

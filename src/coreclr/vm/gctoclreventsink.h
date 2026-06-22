@@ -50,10 +50,10 @@ public:
                                     void *values);
 
     void FireGCAllocationTick_V1(uint32_t allocationAmount, uint32_t allocationKind);
-    void FireGCAllocationTick_V4(uint64_t allocationAmount, 
-                                 uint32_t allocationKind, 
-                                 uint32_t heapIndex, 
-                                 void* objectAddress, 
+    void FireGCAllocationTick_V4(uint64_t allocationAmount,
+                                 uint32_t allocationKind,
+                                 uint32_t heapIndex,
+                                 void* objectAddress,
                                  uint64_t objectSize);
     void FirePinObjectAtGCTime(void* object, uint8_t** ppObject);
     void FirePinPlugAtGCTime(uint8_t* plug_start, uint8_t* plug_end, uint8_t* gapBeforeSize);

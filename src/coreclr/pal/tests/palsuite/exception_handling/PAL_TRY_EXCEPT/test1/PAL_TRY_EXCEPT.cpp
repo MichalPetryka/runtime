@@ -5,7 +5,7 @@
 **
 ** Source:  PAL_TRY_EXCEPT.c (test 1)
 **
-** Purpose: Tests the PAL implementation of the PAL_TRY and 
+** Purpose: Tests the PAL implementation of the PAL_TRY and
 **          PAL_EXCEPT functions. An exception is forced to ensure
 **          the exception block is hit.
 **
@@ -32,8 +32,8 @@ PALTEST(exception_handling_PAL_TRY_EXCEPT_test1_paltest_pal_try_except_test1, "e
     /*
     ** test to make sure we get into the exception block
     */
-    
-    PAL_TRY 
+
+    PAL_TRY
     {
         if (bExcept)
         {
@@ -75,7 +75,7 @@ PALTEST(exception_handling_PAL_TRY_EXCEPT_test1_paltest_pal_try_except_test1, "e
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

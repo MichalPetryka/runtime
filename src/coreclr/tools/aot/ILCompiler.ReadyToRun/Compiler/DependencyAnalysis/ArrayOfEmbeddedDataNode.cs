@@ -26,7 +26,7 @@ namespace ILCompiler.DependencyAnalysis
         {
             _sorter = nodeSorter;
         }
-        
+
         public void AddEmbeddedObject(TEmbedded symbol)
         {
             lock (_nestedNodes)

@@ -367,7 +367,7 @@ void PgoManager::ReadPgoData()
     {
         return;
     }
-    
+
     FILE* pgoDataFile = NULL;
 
     if (fopen_lp(&pgoDataFile, fileName,  W("wb")) != 0)

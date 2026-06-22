@@ -5,11 +5,11 @@
 **
 ** Source:  test1.c
 **
-** Purpose: 
+** Purpose:
 ** Check three cases of searching for a string within a string.  First when
 ** the string is contained, check that the pointer returned points to it.
 ** Then when it isn't contained, ensure it returns null.  And when the string
-** we're searching for is empty, it should return a pointer to the string 
+** we're searching for is empty, it should return a pointer to the string
 ** we're searching through.Test #1 for the strstr function
 **
 **

@@ -20,7 +20,7 @@
 //
 struct PerPatchpointInfo
 {
-    PerPatchpointInfo() : 
+    PerPatchpointInfo() :
         m_osrMethodCode(0),
         m_patchpointCount(0),
         m_flags(0)
@@ -31,7 +31,7 @@ struct PerPatchpointInfo
     }
 
     // Flag bits
-    enum 
+    enum
     {
         patchpoint_triggered = 0x1,
         patchpoint_invalid = 0x2
@@ -53,7 +53,7 @@ struct PerPatchpointInfo
 typedef DPTR(PerPatchpointInfo) PTR_PerPatchpointInfo;
 typedef EEPtrPlusIntHashTable JitPatchpointTable;
 
-// OnStackReplacementManager keeps track of mapping from patchpoint id to 
+// OnStackReplacementManager keeps track of mapping from patchpoint id to
 // per patchpoint info.
 //
 // Patchpoint identity is currently the return address of the helper call

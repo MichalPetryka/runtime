@@ -14,7 +14,7 @@
 
 
 /*
- * Notes: wcstoul should depend on the current locale's LC_NUMERIC category, 
+ * Notes: wcstoul should depend on the current locale's LC_NUMERIC category,
  * this is not currently tested.
  */
 
@@ -23,9 +23,9 @@ PALTEST(c_runtime_wcstoul_test6_paltest_wcstoul_test6, "c_runtime/wcstoul/test6/
 {
     WCHAR test1[] = {'0','x','1','2', 0};
     WCHAR test2[] = {'0','1','2',0};
-    WCHAR *end;    
+    WCHAR *end;
     ULONG l;
-        
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -42,7 +42,7 @@ PALTEST(c_runtime_wcstoul_test6_paltest_wcstoul_test6, "c_runtime/wcstoul/test6/
         Fail("ERROR: Expected wcstoul to give an end value of %p, got %p\n",
             test1 + 4, end);
     }
-    
+
     l = wcstoul(test1, &end, 10);
     if (l != 0)
     {
@@ -70,7 +70,7 @@ PALTEST(c_runtime_wcstoul_test6_paltest_wcstoul_test6, "c_runtime/wcstoul/test6/
     {
         Fail("ERROR: Expected wcstoul to return %u, got %u\n", 12, l);
     }
-    
+
     if (end != test2 + 3)
     {
         Fail("ERROR: Expected wcstoul to give an end value of %p, got %p\n",

@@ -5,7 +5,7 @@
 **
 ** Source: test1.c
 **
-** Purpose: Intended to be the child process of a debugger.  Calls 
+** Purpose: Intended to be the child process of a debugger.  Calls
 **          OutputDebugStringW once with a normal string, once with an empty
 **          string
 **

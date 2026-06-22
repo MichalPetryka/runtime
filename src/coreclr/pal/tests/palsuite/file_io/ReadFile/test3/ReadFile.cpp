@@ -73,8 +73,8 @@ BOOL readTest_ReadFile_test3(DWORD dwByteCount, char cResult)
     char* szPtr = szString;
     int i = 0;
 
-    // open the test file 
-    hFile = CreateFile(szReadableFile, 
+    // open the test file
+    hFile = CreateFile(szReadableFile,
         GENERIC_READ,
         FILE_SHARE_READ,
         NULL,
@@ -83,7 +83,7 @@ BOOL readTest_ReadFile_test3(DWORD dwByteCount, char cResult)
         NULL);
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Trace("ReadFile: ERROR -> Unable to open file \"%s\".\n", 
+        Trace("ReadFile: ERROR -> Unable to open file \"%s\".\n",
             szReadableFile);
         return FALSE;
     }
@@ -104,12 +104,12 @@ BOOL readTest_ReadFile_test3(DWORD dwByteCount, char cResult)
         if (cResult == '1')
         {
             Trace("\nbRc = %d\n", bRc);
-            Trace("szString = [%s]  dwByteCount = %d  dwBytesRead = %d\n", 
-                szString, 
-                dwByteCount, 
+            Trace("szString = [%s]  dwByteCount = %d  dwBytesRead = %d\n",
+                szString,
+                dwByteCount,
                 dwBytesRead);
             Trace ("cresult = 1\n");
-            Trace ("getlasterror = %d\n", GetLastError()); 
+            Trace ("getlasterror = %d\n", GetLastError());
             CloseHandle(hFile);
             return FALSE;
         }
@@ -150,8 +150,8 @@ PALTEST(file_io_ReadFile_test3_paltest_readfile_test3, "file_io/ReadFile/test3/p
     }
 
 
-    // create the test file 
-    hFile = CreateFile(szReadableFile, 
+    // create the test file
+    hFile = CreateFile(szReadableFile,
         GENERIC_WRITE,
         FILE_SHARE_WRITE,
         NULL,
@@ -160,12 +160,12 @@ PALTEST(file_io_ReadFile_test3_paltest_readfile_test3, "file_io/ReadFile/test3/p
         NULL);
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Fail("ReadFile: ERROR -> Unable to create file \"%s\".\n", 
+        Fail("ReadFile: ERROR -> Unable to create file \"%s\".\n",
             szReadableFile);
     }
 
-    bRc = WriteFile(hFile, szStringTest, strlen(szStringTest), 
-        &dwBytesWritten, 
+    bRc = WriteFile(hFile, szStringTest, strlen(szStringTest),
+        &dwBytesWritten,
         NULL);
     CloseHandle(hFile);
 

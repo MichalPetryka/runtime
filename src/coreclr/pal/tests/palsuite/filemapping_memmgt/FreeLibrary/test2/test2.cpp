@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 /*=====================================================================
-** 
+**
 ** Source:  test2.c (FreeLibrary)
 **
 ** Purpose: Tests the PAL implementation of the FreeLibrary function.
@@ -18,14 +18,14 @@ PALTEST(filemapping_memmgt_FreeLibrary_test2_paltest_freelibrary_test2, "filemap
 {
     HANDLE hLib;
 
-    /* Initialize the PAL. 
+    /* Initialize the PAL.
      */
     if ((PAL_Initialize(argc, argv)) != 0)
     {
         return (FAIL);
     }
 
-    /* Attempt to pass FreeLibrary an invalid handle. 
+    /* Attempt to pass FreeLibrary an invalid handle.
      */
     hLib = INVALID_HANDLE_VALUE;
     if (FreeLibrary(hLib))
@@ -33,8 +33,8 @@ PALTEST(filemapping_memmgt_FreeLibrary_test2_paltest_freelibrary_test2, "filemap
         Fail("ERROR: Able to free library handle = \"0x%lx\".\n",
               hLib);
     }
-    
-    /* Attempt to pass FreeLibrary a NULL handle. 
+
+    /* Attempt to pass FreeLibrary a NULL handle.
      */
     hLib = NULL;
     if (FreeLibrary(hLib))

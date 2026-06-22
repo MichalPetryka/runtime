@@ -199,7 +199,7 @@ namespace ILCompiler.ObjectWriter.WasmInstructions
         }
     }
 
-    // Represents a group of Wasm instructions (expressions) which 
+    // Represents a group of Wasm instructions (expressions) which
     // form a complete expression ending with the 'end' opcode.
     public class WasmInstructionGroup : IWasmEncodable
     {

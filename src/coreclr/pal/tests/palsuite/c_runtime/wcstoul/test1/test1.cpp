@@ -12,7 +12,7 @@
 #include <palsuite.h>
 
 /*
- * Notes: wcstoul should depend on the current locale's LC_NUMERIC category, 
+ * Notes: wcstoul should depend on the current locale's LC_NUMERIC category,
  * this is not currently tested.
  */
 
@@ -23,7 +23,7 @@ PALTEST(c_runtime_wcstoul_test1_paltest_wcstoul_test1, "c_runtime/wcstoul/test1/
     WCHAR *end;
     ULONG result = 27;
     ULONG l;
-        
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -42,7 +42,7 @@ PALTEST(c_runtime_wcstoul_test1_paltest_wcstoul_test1, "c_runtime/wcstoul/test1/
         Fail("ERROR: Expected wcstoul to give an end value of %p, got %p\n",
             teststr + 3, end);
     }
-    
+
     PAL_Terminate();
     return PASS;
 }

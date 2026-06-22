@@ -29,7 +29,7 @@ PALTEST(c_runtime_sscanf_s_test14_paltest_sscanf_test14, "c_runtime/sscanf_s/tes
     DoFloatTest("+12.01e-2", "%e", 0.1201f);
     DoFloatTest("-12.01e+2", "%e", -1201.0f);
     DoFloatTest("+12.01e+2", "%e", 1201.0f);
-    
+
     PAL_Terminate();
     return PASS;
 }

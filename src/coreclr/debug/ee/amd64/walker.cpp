@@ -1223,7 +1223,7 @@ void NativeWalker::DecodeInstructionForPatchSkip(const BYTE *address, Instructio
     }
 
     Amd64InstrDecode::InstrForm form = Amd64InstrDecode::InstrForm::None;
-    
+
     size_t opCode    = size_t(*address);
     size_t opCodeExt = (opCode << 2) | pp;
 

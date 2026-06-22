@@ -319,7 +319,7 @@ int BulkTypeEventLogger::LogSingleType(MethodTable * pEEType)
                 }
             }
         }
-        
+
         pVal->cTypeParameters = 1;
         pVal->ullSingleTypeParameter = (ULONGLONG) pEEType->GetRelatedParameterType();
     }

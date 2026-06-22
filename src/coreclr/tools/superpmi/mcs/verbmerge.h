@@ -20,7 +20,7 @@ struct FindData
 
     FindData() : d_type(0), cFileName(nullptr)
     {
-    }   
+    }
 
     FindData(unsigned char type, WCHAR *fileName)
     {

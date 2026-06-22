@@ -120,7 +120,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
         public void GetCallRefMap(MethodDesc method, bool isUnboxingStub)
         {
-            (ArgIterator argit, TransitionBlock transitionBlock) = BuildArgIterator(method.Signature, method.Context, 
+            (ArgIterator argit, TransitionBlock transitionBlock) = BuildArgIterator(method.Signature, method.Context,
                 methodRequiresInstArg: method.RequiresInstArg(),
                 isUnboxingStub: isUnboxingStub,
                 methodIsArrayAddressMethod: method.IsArrayAddressMethod(),

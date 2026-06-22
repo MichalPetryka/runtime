@@ -16,7 +16,7 @@
 **          SetFilePointer.
 **          CloseHandle.
 **          DeleteFile.
-**          
+**
 **
 **
 **===================================================================*/
@@ -50,12 +50,12 @@ PALTEST(file_io_WriteFile_test4_paltest_writefile_test4, "file_io/WriteFile/test
     DWORD dwBytesWritten;
 
     if (0 != PAL_Initialize(argc,argv))
-    {   
+    {
         return FAIL;
     }
 
-    /* create the test file */ 
-    hFile = CreateFile(szWritableFile, 
+    /* create the test file */
+    hFile = CreateFile(szWritableFile,
         GENERIC_WRITE,
         FILE_SHARE_WRITE,
         NULL,
@@ -65,7 +65,7 @@ PALTEST(file_io_WriteFile_test4_paltest_writefile_test4, "file_io/WriteFile/test
 
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Fail("WriteFile: ERROR -> Unable to create file \"%s\".\n", 
+        Fail("WriteFile: ERROR -> Unable to create file \"%s\".\n",
             szWritableFile);
     }
 
@@ -88,7 +88,7 @@ PALTEST(file_io_WriteFile_test4_paltest_writefile_test4, "file_io/WriteFile/test
     {   Trace("WriteFile: ERROR -> Call to FlushFile Buffers failed "
               "error %ld \n",GetLastError());
         CleanUp_WriteFile_test4(hFile,szWritableFile);
-        Fail("");        
+        Fail("");
     }
 
     /* check the file size */
@@ -97,7 +97,7 @@ PALTEST(file_io_WriteFile_test4_paltest_writefile_test4, "file_io/WriteFile/test
         Trace("WriteFile: ERROR -> writing %u chars to empty file "
             "caused its size to become %u\n",strlen(szStringTest),
             GetFileSize(hFile, NULL));
-        CleanUp_WriteFile_test4(hFile,szWritableFile);        
+        CleanUp_WriteFile_test4(hFile,szWritableFile);
         Fail("");
     }
 
@@ -119,8 +119,8 @@ PALTEST(file_io_WriteFile_test4_paltest_writefile_test4, "file_io/WriteFile/test
     {
         Trace("WriteFile: ERROR -> Unable to write to file after "
               " moiving the file poiner to 5 error: %ld \n",
-              GetLastError());       
-        CleanUp_WriteFile_test4(hFile,szWritableFile);        
+              GetLastError());
+        CleanUp_WriteFile_test4(hFile,szWritableFile);
         Fail("");
     }
 

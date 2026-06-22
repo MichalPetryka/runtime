@@ -348,7 +348,7 @@ namespace ILCompiler
             }
 
             public bool Contains(MethodDesc md) => _profileData.ContainsKey(md);
- 
+
             private void AssociateMethodProfileDataWithModule(MethodDesc method, MethodProfileData profileData)
             {
                 // If the method is not excluded from processing

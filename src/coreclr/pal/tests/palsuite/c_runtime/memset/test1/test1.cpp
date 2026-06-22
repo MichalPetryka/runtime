@@ -26,7 +26,7 @@ PALTEST(c_runtime_memset_test1_paltest_memset_test1, "c_runtime/memset/test1/pal
     }
 
     retVal = (char *)memset(testA, 'a', 20);
-    if (retVal != testA) 
+    if (retVal != testA)
     {
         Fail("memset should have returned the value of the destination"
              "pointer, but didn't");

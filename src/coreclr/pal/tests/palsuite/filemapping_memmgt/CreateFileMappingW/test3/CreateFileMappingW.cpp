@@ -40,7 +40,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test3_paltest_createfilemappingw_t
                         FILE_SHARE_READ|FILE_SHARE_WRITE,
                         NULL,
                         CREATE_ALWAYS,
-                        FILE_ATTRIBUTE_NORMAL, 
+                        FILE_ATTRIBUTE_NORMAL,
                         NULL);
 
     if (hFile == INVALID_HANDLE_VALUE)
@@ -67,7 +67,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test3_paltest_createfilemappingw_t
 
     if(NULL == hFileMapping)
     {
-        Trace("ERROR:%u: Failed to create File Mapping.\n", 
+        Trace("ERROR:%u: Failed to create File Mapping.\n",
               GetLastError());
         RetVal = FAIL;
         goto CleanUpOne;
@@ -85,20 +85,20 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test3_paltest_createfilemappingw_t
     if(NULL == lpMapViewAddress)
     {
         Trace("ERROR:%u: Failed to call MapViewOfFile "
-              "API to map a view of file!\n", 
+              "API to map a view of file!\n",
               GetLastError());
         RetVal = FAIL;
         goto CleanUpTwo;
     }
-    
+
     /* Write to the Map view.
-     */ 
+     */
     memcpy(lpMapViewAddress, buf, strlen(buf));
 
     /* Read from the Map view.
-     */ 
+     */
     memcpy(ch, (LPCSTR)lpMapViewAddress, MAPPINGSIZE);
-    
+
     /* Copy the MapViewOfFile to buffer, so we can
      * compare with value read from file directly.
      */
@@ -112,7 +112,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test3_paltest_createfilemappingw_t
     }
 
 CleanUpThree:
-        
+
     /* Unmap the view of file.
         */
     if ( UnmapViewOfFile(lpMapViewAddress) == FALSE )
@@ -136,7 +136,7 @@ CleanUpTwo:
     }
 
 CleanUpOne:
-        
+
     /* Close Handle to create file mapping.
         */
     if ( CloseHandle(hFile) == FALSE )
@@ -148,7 +148,7 @@ CleanUpOne:
     }
 
     /* Terminate the PAL.
-     */ 
+     */
     PAL_TerminateEx(RetVal);
     return RetVal;
 }

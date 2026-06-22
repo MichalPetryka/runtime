@@ -36,33 +36,33 @@ PALTEST(miscellaneous_GetEnvironmentVariableW_test3_paltest_getenvironmentvariab
     }
 
     /* This variable doesn't exist, it should return 0 */
-    ReturnValueForNonExisting = 
+    ReturnValueForNonExisting =
         GetEnvironmentVariable(convert("NonExistingVariable"),
                                pSmallBuffer,
                                SMALL_BUFFER_SIZE);
 
-    if(ReturnValueForNonExisting != 0) 
+    if(ReturnValueForNonExisting != 0)
     {
         Fail("ERROR: The return should have been 0, but it was %d.  The "
              "function attempted to get an Environment Variable that doesn't "
              "exist and should return 0 as a result.\n",
              ReturnValueForNonExisting);
     }
-  
-  
+
+
     /* Passing a NULL string should return 0 */
     ReturnValueForNull = GetEnvironmentVariable(NULL,
                                                 pResultBuffer,
                                                 BUFFER_SIZE);
-  
-    if(ReturnValueForNull != 0) 
+
+    if(ReturnValueForNull != 0)
     {
         Fail("ERROR: The return should have been 0, but it was %d.  The "
              "function attempted to get a NULL pointer and should return 0 "
-             "as a result.\n",ReturnValueForNull);   
+             "as a result.\n",ReturnValueForNull);
     }
 
-    
+
     PAL_Terminate();
     return PASS;
 }

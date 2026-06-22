@@ -137,7 +137,7 @@ Label *Method::FindLabel(DWORD PC)
 }
 
 // Method::AddGenericParamConstraint is called when we have a .param constraint directive after a method definition
-// 
+//
 void Method::AddGenericParamConstraint(int index, char * pStrGenericParam, mdToken tkTypeConstraint)
 {
     if (index > 0)

@@ -6,10 +6,10 @@
 ** Source: test3.c
 **
 ** Purpose: Positive test for ExitProcess.
-** 
+**
 ** Dependencies: PAL_Initialize
 **               PAL_Terminate
-** 
+**
 
 **
 **===========================================================================*/
@@ -32,8 +32,8 @@ PALTEST(threading_ExitProcess_test3_paltest_exitprocess_test3, "threading/ExitPr
     /* call ExitProcess() -- should work after PAL_Terminate() */
     ExitProcess( PASS );
 
-    
+
     /* return failure if we reach here -- note no attempt at   */
     /* meaningful output because we've called PAL_Terminte().  */
-    return FAIL; 
+    return FAIL;
 }

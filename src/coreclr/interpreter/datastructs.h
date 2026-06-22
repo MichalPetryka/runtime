@@ -213,7 +213,7 @@ public:
                 break;
             }
         }
-    } 
+    }
 
     void Clear()
     {

@@ -53,12 +53,12 @@ namespace ILCompiler.ObjectWriter
             BinaryPrimitives.WriteUInt32LittleEndian(headerBuffer.Slice(16, 4), header.PeCliHeaderSize);
             BinaryPrimitives.WriteUInt32LittleEndian(headerBuffer.Slice(20, 4), header.PeDebugRva);
             BinaryPrimitives.WriteUInt32LittleEndian(headerBuffer.Slice(24, 4), header.PeDebugSize);
-    
+
             if ((WebcilVersion)header.VersionMajor >= WebcilVersion.Version1)
             {
                 // TableBase is always written as 0 in the file, as the spec requires it to be filled
                 // in by the getWebcilPayload function at runtime.
-                BinaryPrimitives.WriteUInt32LittleEndian(headerBuffer.Slice(28, 4), 0); 
+                BinaryPrimitives.WriteUInt32LittleEndian(headerBuffer.Slice(28, 4), 0);
             }
 
             outputStream.Write(headerBuffer);

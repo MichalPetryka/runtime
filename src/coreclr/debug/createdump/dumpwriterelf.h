@@ -33,7 +33,7 @@
 #define NT_FILE		0x46494c45
 #endif
 
-#ifndef NT_SIGINFO	
+#ifndef NT_SIGINFO
 #define NT_SIGINFO	0x53494749
 #endif
 

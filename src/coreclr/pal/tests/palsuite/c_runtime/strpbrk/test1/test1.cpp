@@ -6,7 +6,7 @@
 ** Source:  test1.c
 **
 ** Purpose:
-** Search a string for characters in a given character set and ensure the 
+** Search a string for characters in a given character set and ensure the
 ** pointer returned points to the first occurrence.  Check to see that the
 ** function returns NULL if the character is not found.
 **
@@ -44,7 +44,7 @@ PALTEST(c_runtime_strpbrk_test1_paltest_strpbrk_test1, "c_runtime/strpbrk/test1/
          "zzz xx"}
     };
 
-    
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;

@@ -271,7 +271,7 @@ BOOL UnlockedInterleavedLoaderHeap::GetMoreCommittedPages(size_t dwMinSize)
         }
 
         size_t dwSizeToReserve = GetStubCodePageSize() * 2;
-    
+
         // Record reserved range in range list, if one is specified
         // Do this AFTER the commit - otherwise we'll have bogus ranges included.
         if (m_pRangeList != NULL)
@@ -283,20 +283,20 @@ BOOL UnlockedInterleavedLoaderHeap::GetMoreCommittedPages(size_t dwMinSize)
                 return FALSE;
             }
         }
-    
+
         m_dwTotalAlloc += dwSizeToReserve;
-    
+
         pNewBlock.SuppressRelease();
         newAllocatedThunks.SuppressRelease();
-    
+
         pNewBlock->dwVirtualSize    = dwSizeToReserve;
         pNewBlock->pVirtualAddress  = newAllocatedThunks;
         pNewBlock->pNext            = m_pFirstBlock;
         pNewBlock->m_fReleaseMemory = TRUE;
-    
+
         // Add to the linked list
         m_pFirstBlock = pNewBlock;
-    
+
         m_pAllocPtr = (BYTE*)newAllocatedThunks;
         m_pPtrToEndOfCommittedRegion = m_pAllocPtr + GetStubCodePageSize();
         m_pEndReservedRegion = m_pAllocPtr + dwSizeToReserve; // For consistency with the non-template path m_pEndReservedRegion is after the end of the data area

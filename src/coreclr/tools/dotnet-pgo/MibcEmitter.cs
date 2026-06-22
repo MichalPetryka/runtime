@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Internal.TypeSystem;
@@ -53,7 +53,7 @@ namespace Microsoft.Diagnostics.Tools.Pgo
             {
                 MethodDesc method = processedMethodData.Method;
 
-                // Format is 
+                // Format is
                 // ldtoken method
                 // variable amount of extra metadata about the method, Extension data is encoded via ldstr "id"
                 // pop

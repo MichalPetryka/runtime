@@ -43,7 +43,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test3_paltest_setenvironmentvariab
     {
         return FAIL;
     }
-  
+
     /* Set the first environment variable */
     bRc = SetEnvironmentVariableA(FirstEnvironmentVariable,
                             FirstEnvironmentValue);
@@ -68,13 +68,13 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test3_paltest_setenvironmentvariab
 
 
    /* Normal case, PATH should fit into this buffer */
-    size = GetEnvironmentVariableA(FirstEnvironmentVariable,        
-                                  pResultBuffer,    
-                                  0);       
+    size = GetEnvironmentVariableA(FirstEnvironmentVariable,
+                                  pResultBuffer,
+                                  0);
 
     /* increase size to account for the null char at the end */
     size = size + 1;
-    
+
     pResultBuffer = (char*)malloc(sizeof(char)*size);
     if ( pResultBuffer == NULL )
     {
@@ -126,16 +126,16 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test3_paltest_setenvironmentvariab
     }
 
     /* Compare the two strings to confirm that the right value is returned */
-    if(strcmp(pResultBuffer,SecondEnvironmentValue) != 0) 
+    if(strcmp(pResultBuffer,SecondEnvironmentValue) != 0)
     {
         Trace("ERROR: The value in the buffer should have been '%s' but "
              "was really '%s'.\n",SecondEnvironmentValue,pResultBuffer);
-        free(pResultBuffer);    
+        free(pResultBuffer);
         Fail("");
     }
-  
+
     free(pResultBuffer);
-    
+
     PAL_Terminate();
     return PASS;
 

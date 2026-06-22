@@ -6,7 +6,7 @@
 ** Source: isprint.c
 **
 ** Purpose: Positive test the isprint API.
-**          Call isprint to test if a character is printable 
+**          Call isprint to test if a character is printable
 **
 **
 **============================================================*/

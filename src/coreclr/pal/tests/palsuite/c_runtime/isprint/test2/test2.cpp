@@ -5,8 +5,8 @@
 **
 ** Source: isprint.c
 **
-** Purpose: Negative test for the isprint API. Call isprint 
-**			to test if out of range characters are 
+** Purpose: Negative test for the isprint API. Call isprint
+**			to test if out of range characters are
 **			not printable.
 **
 **
@@ -38,21 +38,21 @@ PALTEST(c_runtime_isprint_test2_paltest_isprint_test2, "c_runtime/isprint/test2/
         Fail("\nSucceeded when it should have failed because 0xAA "
         "is not in the range of printable characters\n");
     }
-    
+
     /* check carriage return */
     if(0 != isprint(0x0d))
     {
         Fail("\nSucceeded when it should have failed because 0x0d "
         "is not in the range of printable characters\n");
     }
-    
+
     /* check line feed */
     if(0 != isprint(0x0a))
     {
         Fail("\nSucceeded when it should have failed because 0x0a "
         "is not in the range of printable characters\n");
     }
-    
+
     PAL_Terminate();
     return PASS;
 }

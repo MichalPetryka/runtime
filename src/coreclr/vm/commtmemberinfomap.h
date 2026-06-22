@@ -67,7 +67,7 @@ private:
     SegmentNode* m_pCurrent;
     size_t m_cbUsed;
     size_t m_cbSize;
-        
+
     static const size_t DefaultSegmentSize = 4096 - offsetof(SegmentNode, data);
 
 public:

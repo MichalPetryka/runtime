@@ -9,7 +9,7 @@
 **          GetFullPathA will be passed a directory that contains '..'.
 **          To add to this test, we will also call SetCurrentDirectory to
 **          ensure this is handled properly.
-**          The test will create a file with in the parent directory 
+**          The test will create a file with in the parent directory
 **          to verify that the returned directory is valid.
 **
 **
@@ -56,9 +56,9 @@ PALTEST(file_io_GetFullPathNameA_test2_paltest_getfullpathnamea_test2, "file_io/
 
     /* Get the full path to the filename.
      */
-    dwRc = GetFullPathNameA(szFullFileName, 
+    dwRc = GetFullPathNameA(szFullFileName,
                             _MAX_DIR,
-                            szReturnedPath, 
+                            szReturnedPath,
                             &pPathPtr);
     if (dwRc == 0)
     {
@@ -68,7 +68,7 @@ PALTEST(file_io_GetFullPathNameA_test2_paltest_getfullpathnamea_test2, "file_io/
              szFileName);
     }
 
-    /* The returned value should be the parent directory with the 
+    /* The returned value should be the parent directory with the
      * file name appended. */
     hFile = CreateFileA(szReturnedPath,
                         GENERIC_READ,
@@ -80,7 +80,7 @@ PALTEST(file_io_GetFullPathNameA_test2_paltest_getfullpathnamea_test2, "file_io/
 
     if (hFile == INVALID_HANDLE_VALUE)
     {
-        Fail("ERROR :%ld: CreateFileA failed to create \"%s\".\n", 
+        Fail("ERROR :%ld: CreateFileA failed to create \"%s\".\n",
              GetLastError(),
              szReturnedPath);
     }
@@ -94,7 +94,7 @@ PALTEST(file_io_GetFullPathNameA_test2_paltest_getfullpathnamea_test2, "file_io/
         goto terminate;
     }
 
-    /* Verify that the file was created, attempt to create 
+    /* Verify that the file was created, attempt to create
      * the file again. */
     hFile = CreateFileA(szReturnedPath,
                         GENERIC_READ,
@@ -103,7 +103,7 @@ PALTEST(file_io_GetFullPathNameA_test2_paltest_getfullpathnamea_test2, "file_io/
                         CREATE_NEW,
                         FILE_ATTRIBUTE_NORMAL,
                         NULL);
-    if ((hFile != INVALID_HANDLE_VALUE) && 
+    if ((hFile != INVALID_HANDLE_VALUE) &&
         (GetLastError() != ERROR_ALREADY_EXISTS))
     {
         Fail("ERROR :%ld: CreateFileA succeeded to create file "
@@ -119,13 +119,13 @@ PALTEST(file_io_GetFullPathNameA_test2_paltest_getfullpathnamea_test2, "file_io/
     {
         Trace("ERROR : Returned filename \"%s\" is not equal to "
              "supplied filename \"%s\".\n",
-             pPathPtr, 
+             pPathPtr,
              szFileName);
         goto terminate;
     }
 
 terminate:
-    /* Delete the create file. 
+    /* Delete the create file.
      */
     if (DeleteFileA(szReturnedPath) != TRUE)
     {

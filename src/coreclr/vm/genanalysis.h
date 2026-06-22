@@ -43,4 +43,4 @@ public:
     static void EnableGenerationalAwareSession();
 };
 
-#endif 
+#endif

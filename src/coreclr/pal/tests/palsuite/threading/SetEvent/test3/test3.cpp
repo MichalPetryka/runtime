@@ -16,7 +16,7 @@
 ** API by calling it on an event handle that's been
 ** closed. We expect it to return an appropriate error
 ** result.
-** 
+**
 
 **
 **===========================================================================*/
@@ -30,7 +30,7 @@ PALTEST(threading_SetEvent_test3_paltest_setevent_test3, "threading/SetEvent/tes
     /* local variables */
     HANDLE                  hEvent = NULL;
     LPSECURITY_ATTRIBUTES   lpEventAttributes = NULL;
-    BOOL                    bManualReset = TRUE; 
+    BOOL                    bManualReset = TRUE;
     BOOL                    bInitialState = FALSE;
 
 
@@ -42,7 +42,7 @@ PALTEST(threading_SetEvent_test3_paltest_setevent_test3, "threading/SetEvent/tes
 
 
     /* create an event which we can use with SetEvent */
-    hEvent = CreateEvent(   lpEventAttributes, 
+    hEvent = CreateEvent(   lpEventAttributes,
                             bManualReset,
                             bInitialState,
                             NULL );
@@ -65,7 +65,7 @@ PALTEST(threading_SetEvent_test3_paltest_setevent_test3, "threading/SetEvent/tes
         /* ERROR */
         Fail( "FAIL:SetEvent() call succeeded on a closed event handle\n" );
     }
-    
+
     /* verify the result of GetLastError() */
     if( GetLastError() != ERROR_INVALID_HANDLE )
     {
@@ -73,7 +73,7 @@ PALTEST(threading_SetEvent_test3_paltest_setevent_test3, "threading/SetEvent/tes
         Fail( "FAIL:SetEvent() call failed on a closed event handle"
                 "but returned an unexpected error result %lu\n" );
     }
-    
+
 
 
     /* PAL termination */

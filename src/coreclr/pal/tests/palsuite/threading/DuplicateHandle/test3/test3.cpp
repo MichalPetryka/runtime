@@ -6,11 +6,11 @@
 ** Source:    test3.c (DuplicateHandle)
 **
 ** Purpose:   Tests the PAL implementation of the DuplicateHandle function.
-**            This will test duplication of an OpenEvent handle. Test an 
+**            This will test duplication of an OpenEvent handle. Test an
 **            event in a signaled state to wait, and then set the duplicate
 **            to nonsignaled state and perform the wait again. The wait on
 **            the event should fail. Test the duplication of closed and NULL
-**            events, these should fail.  
+**            events, these should fail.
 **
 **
 **===================================================================*/
@@ -28,15 +28,15 @@ PALTEST(threading_DuplicateHandle_test3_paltest_duplicatehandle_test3, "threadin
     {
         return (FAIL);
     }
-    
+
     /*Create an Event, and set it in the signaled state.*/
     hCreateEvent = CreateEventW(0,
-                                TRUE, 
-                                TRUE, 
+                                TRUE,
+                                TRUE,
                                 lpEventName);
     if (hCreateEvent == NULL)
     {
-        Fail("ERROR: %u :unable to create event %s\n", 
+        Fail("ERROR: %u :unable to create event %s\n",
               GetLastError(),
               lpEventName);
     }
@@ -55,12 +55,12 @@ PALTEST(threading_DuplicateHandle_test3_paltest_duplicatehandle_test3, "threadin
     }
 
     /*Create a duplicate Event handle*/
-    if (!(DuplicateHandle(GetCurrentProcess(), 
+    if (!(DuplicateHandle(GetCurrentProcess(),
                           hOpenEvent,
                           GetCurrentProcess(),
                           &hDupEvent,
                           GENERIC_READ|GENERIC_WRITE,
-                          FALSE, 
+                          FALSE,
                           DUPLICATE_SAME_ACCESS)))
     {
         Trace("ERROR: %u :Fail to create the duplicate handle"
@@ -88,7 +88,7 @@ PALTEST(threading_DuplicateHandle_test3_paltest_duplicatehandle_test3, "threadin
     /*Set the Duplicate Event handle to nonsignaled state*/
     if ((ResetEvent(hDupEvent)) == 0)
     {
-        Trace("ERROR: %u: unable to reset hDupEvent=0x%lx\n", 
+        Trace("ERROR: %u: unable to reset hDupEvent=0x%lx\n",
              GetLastError(),
              hDupEvent);
         CloseHandle(hCreateEvent);

@@ -6,7 +6,7 @@
 ** Source: test2.c
 **
 ** Purpose: Tests that GetLocaleInfoW will correctly return the amount of
-**          buffer space required.  Also tests that it correctly handles a 
+**          buffer space required.  Also tests that it correctly handles a
 **          buffer of insufficient space.
 **
 **
@@ -15,7 +15,7 @@
 #include <palsuite.h>
 
 PALTEST(locale_info_GetLocaleInfoW_test2_paltest_getlocaleinfow_test2, "locale_info/GetLocaleInfoW/test2/paltest_getlocaleinfow_test2")
-{    
+{
     WCHAR buffer[256] = { 0 };
     int ret;
 

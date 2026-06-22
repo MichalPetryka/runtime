@@ -384,7 +384,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
         public FuncletKind[] GetFuncletKinds()
         {
-            // EH Clause structure contains 6 uint sized fields 
+            // EH Clause structure contains 6 uint sized fields
             const int ClauseSize = 6 * sizeof(uint);
             const int FlagsFieldOffset = 0 * sizeof(uint);
 

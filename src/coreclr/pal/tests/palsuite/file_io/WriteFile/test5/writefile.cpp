@@ -55,7 +55,7 @@ PALTEST(file_io_WriteFile_test5_paltest_writefile_test5, "file_io/WriteFile/test
     }
 
     /* create the test file         */
-    hFile = CreateFile(szWritableFile, 
+    hFile = CreateFile(szWritableFile,
         GENERIC_WRITE,
         FILE_SHARE_WRITE,
         NULL,
@@ -65,9 +65,9 @@ PALTEST(file_io_WriteFile_test5_paltest_writefile_test5, "file_io/WriteFile/test
 
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Fail("WriteFile: ERROR -> Unable to create file \"%s\".\n", 
+        Fail("WriteFile: ERROR -> Unable to create file \"%s\".\n",
             szWritableFile);
-    }   
+    }
 
     /* write 4000 000 chars to the file.*/
     for (i=0; i<100000;i++)
@@ -91,7 +91,7 @@ PALTEST(file_io_WriteFile_test5_paltest_writefile_test5, "file_io/WriteFile/test
     {
         Trace("WriteFile: ERROR -> Call to FlushFileBuffers failed"
               "error %ld \n",GetLastError());
-        CleanUp_WriteFile_test5(hFile,szWritableFile);        
+        CleanUp_WriteFile_test5(hFile,szWritableFile);
         Fail("");
     }
 
@@ -99,9 +99,9 @@ PALTEST(file_io_WriteFile_test5_paltest_writefile_test5, "file_io/WriteFile/test
     if(GetFileSize(hFile,NULL) != 4000000)
     {
         Trace("WriteFile: ERROR -> file size did not change properly"
-            " after writing 4000 000 chars to it ( size= %u )\n",                   
+            " after writing 4000 000 chars to it ( size= %u )\n",
             GetFileSize(hFile,NULL));
-        CleanUp_WriteFile_test5(hFile,szWritableFile); 
+        CleanUp_WriteFile_test5(hFile,szWritableFile);
         Fail("");
 
     }

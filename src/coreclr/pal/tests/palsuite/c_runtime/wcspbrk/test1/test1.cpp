@@ -6,7 +6,7 @@
 ** Source:  test1.c
 **
 ** Purpose:
-** Tests that wcspbrk returns a pointer to the first element in the first 
+** Tests that wcspbrk returns a pointer to the first element in the first
 ** string that matches a character in the second (or NULL).
 **
 **
@@ -21,7 +21,7 @@ PALTEST(c_runtime_wcspbrk_test1_paltest_wcspbrk_test1, "c_runtime/wcspbrk/test1/
     WCHAR *key2;
     WCHAR key3[] = {0};
     WCHAR *result;
-            
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;

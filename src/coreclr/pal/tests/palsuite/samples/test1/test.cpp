@@ -5,7 +5,7 @@
 **
 ** Source:  test.c
 **
-** Purpose: This test is an example of the basic structure of a PAL test 
+** Purpose: This test is an example of the basic structure of a PAL test
 **          suite test case.
 **
 **

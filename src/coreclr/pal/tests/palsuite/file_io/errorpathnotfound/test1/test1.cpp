@@ -9,13 +9,13 @@
 
 **
 
-** Purpose:   Test the return value of GetLastError() after calling 
+** Purpose:   Test the return value of GetLastError() after calling
 
-**            some file_io functions with an invalid path. 
+**            some file_io functions with an invalid path.
 
-**            
+**
 
-**            Functions covered by this test are: 
+**            Functions covered by this test are:
 
 **            CreateFileA,CreateFileW,
 
@@ -46,7 +46,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
     BOOL bRc = TRUE;
 
-    HANDLE hFile; 
+    HANDLE hFile;
 
 
 
@@ -56,17 +56,17 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
     const char* sDest = "dest.tmp";
 
-    const WCHAR wBadFilePath[] = 
+    const WCHAR wBadFilePath[] =
 
         {'w','b','a','d','/','b','a',
 
         'd','.','t','m','p','\0'};
 
-    const WCHAR wBadFileName[] = 
+    const WCHAR wBadFileName[] =
 
         {'w','B','a','d','.','t','m','p','\0'};
 
-    const WCHAR wDest[] = 
+    const WCHAR wDest[] =
 
         {'w','d','e','s','t','.','t','m','p','\0'};
 
@@ -84,7 +84,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
 
 
-    
+
 
 
 
@@ -94,7 +94,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
     /* test with an invalid file name */
 
-    hFile = CreateFileA(sBadFileName,          
+    hFile = CreateFileA(sBadFileName,
 
         GENERIC_READ,              /* open for reading */
 
@@ -104,15 +104,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         OPEN_EXISTING,             /* existing file only */
 
-        FILE_ATTRIBUTE_NORMAL,     /* normal file */ 
+        FILE_ATTRIBUTE_NORMAL,     /* normal file */
 
         NULL);                     /* no attr. template */
 
 
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
 
-    { 
+    {
 
         if(GetLastError() != ERROR_FILE_NOT_FOUND)
 
@@ -122,15 +122,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
                 "while it should return [%u] for a bad File Name\n",
 
-                GetLastError(),ERROR_FILE_NOT_FOUND);   
+                GetLastError(),ERROR_FILE_NOT_FOUND);
 
             testPass = FALSE;
 
-        }   
+        }
 
 
 
-    } 
+    }
 
     else
 
@@ -138,7 +138,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         Trace("CreateFileA: managed to create a file with an incorrect "
 
-              "filename\n");   
+              "filename\n");
 
         testPass = FALSE;
 
@@ -172,7 +172,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
     /* test with an invalid path */
 
-    hFile = CreateFileA(sBadFilePath,          
+    hFile = CreateFileA(sBadFilePath,
 
         GENERIC_READ,              /* open for reading */
 
@@ -182,15 +182,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         OPEN_EXISTING,             /* existing file only */
 
-        FILE_ATTRIBUTE_NORMAL,     /* normal file */ 
+        FILE_ATTRIBUTE_NORMAL,     /* normal file */
 
         NULL);                     /* no attr. template */
 
 
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
 
-    { 
+    {
 
         if(GetLastError() != ERROR_PATH_NOT_FOUND)
 
@@ -200,15 +200,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
                 "while it should return [%u] for a bad file path name\n",
 
-                GetLastError(), ERROR_PATH_NOT_FOUND);   
+                GetLastError(), ERROR_PATH_NOT_FOUND);
 
             testPass = FALSE;
 
-        }   
+        }
 
 
 
-    } 
+    }
 
     else
 
@@ -216,7 +216,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         Trace("CreateFileA: managed to create a file with an incorrect "
 
-              "filename\n");   
+              "filename\n");
 
         testPass = FALSE;
 
@@ -250,7 +250,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
 
 
-    
+
 
 
 
@@ -260,7 +260,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
     /* test with an invalid file name */
 
-    hFile = CreateFileW(wBadFileName,          
+    hFile = CreateFileW(wBadFileName,
 
         GENERIC_READ,              /* open for reading */
 
@@ -270,15 +270,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         OPEN_EXISTING,             /* existing file only */
 
-        FILE_ATTRIBUTE_NORMAL,     /* normal file */ 
+        FILE_ATTRIBUTE_NORMAL,     /* normal file */
 
         NULL);                     /* no attr. template */
 
 
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
 
-    { 
+    {
 
         if(GetLastError() != ERROR_FILE_NOT_FOUND)
 
@@ -288,15 +288,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
                 "while it should return [%u] for a bad filename\n",
 
-                GetLastError(), ERROR_FILE_NOT_FOUND);   
+                GetLastError(), ERROR_FILE_NOT_FOUND);
 
             testPass = FALSE;
 
-        }   
+        }
 
 
 
-    } 
+    }
 
     else
 
@@ -304,7 +304,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         Trace("CreateFileW: managed to create a file with an incorrect "
 
-              "filename\n");   
+              "filename\n");
 
         testPass = FALSE;
 
@@ -344,7 +344,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
     /* test with an invalid path */
 
-    hFile = CreateFileW(wBadFilePath,          
+    hFile = CreateFileW(wBadFilePath,
 
         GENERIC_READ,              /* open for reading */
 
@@ -354,15 +354,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         OPEN_EXISTING,             /* existing file only */
 
-        FILE_ATTRIBUTE_NORMAL,     /* normal file */ 
+        FILE_ATTRIBUTE_NORMAL,     /* normal file */
 
         NULL);                     /* no attr. template */
 
 
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
 
-    { 
+    {
 
 
 
@@ -374,15 +374,15 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
                 "while it should return [%u] for a bad file path \n",
 
-                GetLastError(), ERROR_FILE_NOT_FOUND);   
+                GetLastError(), ERROR_FILE_NOT_FOUND);
 
             testPass = FALSE;
 
-        }   
+        }
 
 
 
-    } 
+    }
 
     else
 
@@ -390,7 +390,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
         Trace("CreateFileW: managed to create a file with an incorrect "
 
-              "filename\n");   
+              "filename\n");
 
         testPass = FALSE;
 
@@ -424,7 +424,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
 
 
-    
+
 
     /* .............  DeleteFileW..................................*/
 
@@ -604,7 +604,7 @@ PALTEST(file_io_errorpathnotfound_test1_paltest_errorpathnotfound_test1, "file_i
 
 
 
-  
+
 
 
 

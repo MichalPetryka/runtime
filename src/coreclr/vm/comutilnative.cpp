@@ -155,7 +155,7 @@ static BSTR GetExceptionSource(OBJECTREF objException)
         PRECONDITION( IsException(objException->GetMethodTable()) );
     }
     CONTRACTL_END;
-    
+
     BSTR bstrSource;
 
     GCPROTECT_BEGIN(objException)

@@ -444,7 +444,7 @@ private:
         free(mem_limit_filename);
         return result;
     }
-    
+
     static bool GetCGroupMemoryLimitV2(uint64_t *val)
     {
         if (s_memory_cgroup_path == nullptr)
@@ -462,7 +462,7 @@ private:
 
         size_t cgroupPathLength = strlen(s_memory_cgroup_path);
 
-        // Iterate over the directory hierarchy representing the cgroup hierarchy until reaching the 
+        // Iterate over the directory hierarchy representing the cgroup hierarchy until reaching the
         // mount directory. The mount directory doesn't contain the memory.max.
         do
         {

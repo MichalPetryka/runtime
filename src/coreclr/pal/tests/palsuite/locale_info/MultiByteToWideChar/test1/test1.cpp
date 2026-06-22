@@ -20,7 +20,7 @@
  */
 
 PALTEST(locale_info_MultiByteToWideChar_test1_paltest_multibytetowidechar_test1, "locale_info/MultiByteToWideChar/test1/paltest_multibytetowidechar_test1")
-{    
+{
     char mbStr[128];
     WCHAR wideStr[128];
     int ret;

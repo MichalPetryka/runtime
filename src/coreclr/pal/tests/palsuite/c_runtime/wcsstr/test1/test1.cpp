@@ -5,8 +5,8 @@
 **
 ** Source:  test1.c
 **
-** Purpose: 
-** Tests that wcsstr correctly find substrings in wide stings, including 
+** Purpose:
+** Tests that wcsstr correctly find substrings in wide stings, including
 ** returning NULL when the substring can't be found.
 **
 **
@@ -22,7 +22,7 @@ PALTEST(c_runtime_wcsstr_test1_paltest_wcsstr_test1, "c_runtime/wcsstr/test1/pal
     WCHAR key3[] = { 0 };
     WCHAR *key4;
     WCHAR *result;
-        
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;

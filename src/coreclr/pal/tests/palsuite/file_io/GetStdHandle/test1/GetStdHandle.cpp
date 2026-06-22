@@ -104,10 +104,10 @@ PALTEST(file_io_GetStdHandle_test1_paltest_getstdhandle_test1, "file_io/GetStdHa
     }
 
     /* try to write to the closed error handle */
-    bRc = WriteFile(hFile, 
-        szText, 
-        (DWORD)strlen(szText), 
-        &dwBytesWritten, 
+    bRc = WriteFile(hFile,
+        szText,
+        (DWORD)strlen(szText),
+        &dwBytesWritten,
         NULL);
     if (bRc)
     {

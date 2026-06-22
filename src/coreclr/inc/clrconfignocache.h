@@ -57,9 +57,9 @@ public:
     }
 
     static CLRConfigNoCache Get(
-        LPCSTR cfg, 
-        bool noPrefix = false, 
-        char*(*getEnvFptr)(const char*) = nullptr,  
+        LPCSTR cfg,
+        bool noPrefix = false,
+        char*(*getEnvFptr)(const char*) = nullptr,
         bool coreclrFallbackPrefix = false)
     {
         char nameBuffer[64];

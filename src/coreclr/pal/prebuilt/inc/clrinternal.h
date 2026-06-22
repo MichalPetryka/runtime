@@ -36,7 +36,7 @@
 #pragma once
 #endif
 
-/* Forward Declarations */ 
+/* Forward Declarations */
 
 #ifndef __IPrivateManagedExceptionReporting_FWD_DEFINED__
 #define __IPrivateManagedExceptionReporting_FWD_DEFINED__
@@ -51,11 +51,11 @@ typedef interface IPrivateManagedExceptionReporting IPrivateManagedExceptionRepo
 
 #ifdef __cplusplus
 extern "C"{
-#endif 
+#endif
 
 
 /* interface __MIDL_itf_clrinternal_0000_0000 */
-/* [local] */ 
+/* [local] */
 
 EXTERN_GUID(CLR_ID_V4_DESKTOP, 0x267f3989, 0xd786, 0x4b9a, 0x9a, 0xf6, 0xd1, 0x9e, 0x42, 0xd5, 0x57, 0xec);
 EXTERN_GUID(CLR_ID_CORECLR, 0x8CB8E075, 0x0A91, 0x408E, 0x92, 0x28, 0xD6, 0x6E, 0x00, 0xA3, 0xBF, 0xF6 );
@@ -64,7 +64,7 @@ EXTERN_GUID(CLR_ID_ONECORE_CLR, 0xb1ee760d, 0x6c4a, 0x4533, 0xba, 0x41, 0x6f, 0x
 EXTERN_GUID(IID_IPrivateManagedExceptionReporting, 0xad76a023, 0x332d, 0x4298, 0x80, 0x01, 0x07, 0xaa, 0x93, 0x50, 0xdc, 0xa4);
 typedef void *CRITSEC_COOKIE;
 
-typedef /* [public] */ 
+typedef /* [public] */
 enum __MIDL___MIDL_itf_clrinternal_0000_0000_0001
     {
         CRST_DEFAULT	= 0,
@@ -87,45 +87,45 @@ extern RPC_IF_HANDLE __MIDL_itf_clrinternal_0000_0000_v0_0_s_ifspec;
 #define __IPrivateManagedExceptionReporting_INTERFACE_DEFINED__
 
 /* interface IPrivateManagedExceptionReporting */
-/* [object][local][unique][helpstring][uuid] */ 
+/* [object][local][unique][helpstring][uuid] */
 
 
 EXTERN_C const IID IID_IPrivateManagedExceptionReporting;
 
 #if defined(__cplusplus) && !defined(CINTERFACE)
-    
+
     MIDL_INTERFACE("AD76A023-332D-4298-8001-07AA9350DCA4")
     IPrivateManagedExceptionReporting : public IUnknown
     {
     public:
-        virtual HRESULT STDMETHODCALLTYPE GetBucketParametersForCurrentException( 
+        virtual HRESULT STDMETHODCALLTYPE GetBucketParametersForCurrentException(
             /* [out] */ BucketParameters *pParams) = 0;
-        
+
     };
-    
-    
+
+
 #else 	/* C style interface */
 
     typedef struct IPrivateManagedExceptionReportingVtbl
     {
         BEGIN_INTERFACE
-        
-        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )(
             IPrivateManagedExceptionReporting * This,
             /* [in] */ REFIID riid,
-            /* [annotation][iid_is][out] */ 
+            /* [annotation][iid_is][out] */
             _COM_Outptr_  void **ppvObject);
-        
-        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+
+        ULONG ( STDMETHODCALLTYPE *AddRef )(
             IPrivateManagedExceptionReporting * This);
-        
-        ULONG ( STDMETHODCALLTYPE *Release )( 
+
+        ULONG ( STDMETHODCALLTYPE *Release )(
             IPrivateManagedExceptionReporting * This);
-        
-        HRESULT ( STDMETHODCALLTYPE *GetBucketParametersForCurrentException )( 
+
+        HRESULT ( STDMETHODCALLTYPE *GetBucketParametersForCurrentException )(
             IPrivateManagedExceptionReporting * This,
             /* [out] */ BucketParameters *pParams);
-        
+
         END_INTERFACE
     } IPrivateManagedExceptionReportingVtbl;
 
@@ -134,23 +134,23 @@ EXTERN_C const IID IID_IPrivateManagedExceptionReporting;
         CONST_VTBL struct IPrivateManagedExceptionReportingVtbl *lpVtbl;
     };
 
-    
+
 
 #ifdef COBJMACROS
 
 
 #define IPrivateManagedExceptionReporting_QueryInterface(This,riid,ppvObject)	\
-    ( (This)->lpVtbl -> QueryInterface(This,riid,ppvObject) ) 
+    ( (This)->lpVtbl -> QueryInterface(This,riid,ppvObject) )
 
 #define IPrivateManagedExceptionReporting_AddRef(This)	\
-    ( (This)->lpVtbl -> AddRef(This) ) 
+    ( (This)->lpVtbl -> AddRef(This) )
 
 #define IPrivateManagedExceptionReporting_Release(This)	\
-    ( (This)->lpVtbl -> Release(This) ) 
+    ( (This)->lpVtbl -> Release(This) )
 
 
 #define IPrivateManagedExceptionReporting_GetBucketParametersForCurrentException(This,pParams)	\
-    ( (This)->lpVtbl -> GetBucketParametersForCurrentException(This,pParams) ) 
+    ( (This)->lpVtbl -> GetBucketParametersForCurrentException(This,pParams) )
 
 #endif /* COBJMACROS */
 

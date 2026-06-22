@@ -7,7 +7,7 @@
 **
 ** Purpose: Test to make sure the PAL_EXCEPT block is executed
 **          after an exception occurs in the PAL_TRY block
-**          that calls a function that contains 
+**          that calls a function that contains
 **          another PAL_TRY-PAL_EXCEPT block
 **
 **
@@ -20,7 +20,7 @@ BOOL bExcept_pal_except_test3          = FALSE;
 BOOL bTry_function_pal_except_test3    = FALSE;
 BOOL bExcept_function_pal_except_test3 = FALSE;
 
-/* 
+/*
  * Helper function that contains a PAL_TRY-PAL_EXCEPT block
  */
 void Helper()
@@ -56,7 +56,7 @@ PALTEST(exception_handling_pal_except_test3_paltest_pal_except_test3, "exception
         return FAIL;
     }
 
-    PAL_TRY 
+    PAL_TRY
     {
         int* p = 0x00000000;   /* NULL pointer */
 
@@ -113,7 +113,7 @@ PALTEST(exception_handling_pal_except_test3_paltest_pal_except_test3, "exception
         Fail("");
     }
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

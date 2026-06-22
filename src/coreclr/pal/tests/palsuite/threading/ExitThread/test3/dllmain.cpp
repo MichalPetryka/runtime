@@ -7,9 +7,9 @@
 **
 ** Purpose: Test to ensure DllMain() is called with THREAD_DETACH
 **          when a thread in the application calls ExitThread().
-** 
+**
 ** Dependencies: none
-** 
+**
 
 **
 **===========================================================================*/
@@ -29,15 +29,15 @@ BOOL PALAPI DllMain(HINSTANCE hinstDLL, DWORD reason, LPVOID lpvReserved)
         {
             break;
         }
-    
+
         case DLL_PROCESS_DETACH:
         {
             break;
         }
-        
+
         case DLL_THREAD_ATTACH:
             break;
-    
+
         case DLL_THREAD_DETACH:
             /* increment g_detachCount */
             g_detachCount++;

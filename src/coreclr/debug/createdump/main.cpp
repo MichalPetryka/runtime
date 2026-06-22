@@ -30,7 +30,7 @@ PALIMPORT
 VOID
 PALAPI
 PAL_SetCreateDumpCallback(
-    IN PCREATEDUMP_CALLBACK callback) 
+    IN PCREATEDUMP_CALLBACK callback)
 {
 }
 

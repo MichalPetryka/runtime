@@ -491,7 +491,7 @@ private:
     {
         typedef T type;
     };
-    template <typename T> 
+    template <typename T>
     struct TypeMaybeConst<true, T>
     {
         typedef const T type;

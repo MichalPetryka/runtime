@@ -570,12 +570,12 @@ HRESULT EEClass::AddMethod(MethodTable* pMT, mdMethodDef methodDef, MethodDesc**
     // for covariant virtual overrides (base returns Task, derived returns Task<T>).
     // EnC-added methods cannot be METHOD_IMPL overrides, so that case does not apply here.
     // Note: There are multiple corner-case bugs here we are choosing not to address:
-    // 1. The types might not be the well-known Task/ValueTask types from 
-    //    System.Private.CoreLib. We won't know the answer until after 
+    // 1. The types might not be the well-known Task/ValueTask types from
+    //    System.Private.CoreLib. We won't know the answer until after
     //    ClassifyMethodReturnKind returns.
-    // 2. Even if the types are the well-known types that alone doesn't guarantee this 
+    // 2. Even if the types are the well-known types that alone doesn't guarantee this
     //    call won't trigger a GC.
-    // Accepted as Won't Fix given this requires an unlikely combination events during 
+    // Accepted as Won't Fix given this requires an unlikely combination events during
     // an EnC operation while debugging.
     AsyncMethodFlags primaryAsyncFlags = AsyncMethodFlags::None;
     AsyncMethodFlags variantAsyncFlags = AsyncMethodFlags::None;

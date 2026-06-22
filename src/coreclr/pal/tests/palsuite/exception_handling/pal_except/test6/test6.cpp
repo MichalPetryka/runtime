@@ -30,7 +30,7 @@ PALTEST(exception_handling_pal_except_test6_paltest_pal_except_test6, "exception
     }
 
     /* First block */
-    PAL_TRY 
+    PAL_TRY
     {
         int* p = 0x00000000;   /* NULL pointer */
 
@@ -153,7 +153,7 @@ PALTEST(exception_handling_pal_except_test6_paltest_pal_except_test6, "exception
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

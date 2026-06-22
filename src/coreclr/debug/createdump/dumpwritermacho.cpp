@@ -99,7 +99,7 @@ DumpWriter::BuildSegmentLoadCommands()
             LC_SEGMENT_64,                  // uint32_t cmd;
             sizeof(segment_command_64),     // uint32_t cmdsize;
             {0},                            // char segname[16];
-            memoryRegion.StartAddress(),    // uint64_t vmaddr;   
+            memoryRegion.StartAddress(),    // uint64_t vmaddr;
             size,                           // uint64_t vmsize;
             0,                              // uint64_t fileoff;
             size,                           // uint64_t filesize;
@@ -117,7 +117,7 @@ DumpWriter::BuildSegmentLoadCommands()
         LC_SEGMENT_64,                  // uint32_t cmd;
         sizeof(segment_command_64),     // uint32_t cmdsize;
         {0},                            // char segname[16];
-        SpecialThreadInfoAddress,       // uint64_t vmaddr;   
+        SpecialThreadInfoAddress,       // uint64_t vmaddr;
         size,                           // uint64_t vmsize;
         0,                              // uint64_t fileoff;
         size,                           // uint64_t filesize;
@@ -191,7 +191,7 @@ DumpWriter::WriteHeader(uint64_t* pFileOffset)
     }
 
     *pFileOffset = sizeof(mach_header_64) + header.sizeofcmds;
-    
+
     TRACE("Macho header: magic %08x cputype %08x cpusubtype %08x filetype %08x ncmds %08x sizeofcmds %08x flags %08x reserved %08x\n",
         header.magic,
         header.cputype,

@@ -52,7 +52,7 @@ namespace R2RTest
                 {
                     if (_referenceFolders.Count > 0)
                     {
-                        // There's nothing wrong with this per se, but none of our current scenarios need it, so this is 
+                        // There's nothing wrong with this per se, but none of our current scenarios need it, so this is
                         // just a consistency check.
                         throw new ArgumentException($"A mix of files and directories was found in {references}");
                     }

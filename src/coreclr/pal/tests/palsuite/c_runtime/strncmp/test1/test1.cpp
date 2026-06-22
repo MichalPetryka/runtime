@@ -5,8 +5,8 @@
 **
 ** Source:  test1.c
 **
-** Purpose: 
-** Test to ensure all three possible return values are given under the 
+** Purpose:
+** Test to ensure all three possible return values are given under the
 ** appropriate circumstance.  Also, uses different sizes, to only compare
 ** portions of strings, checking to make sure these return the correct value.
 **
@@ -47,7 +47,7 @@ PALTEST(c_runtime_strncmp_test1_paltest_strncmp_test1, "c_runtime/strncmp/test1/
 
     int i=0;
     int iresult=0;
-    
+
     /*
      *  Initialize the PAL
      */

@@ -511,7 +511,7 @@ namespace Microsoft.Diagnostics.Tools.Pgo
                         if (throwIfNotFound)
                         {
                             EcmaType ecmaType = owningMDType.GetTypeDefinition() as EcmaType;
-                            
+
                             throw new Exception($"Unknown MethodID value finding MethodDef {minfo.MethodDetailsTraceData.MethodToken:x} on type {owningMDType} from module {ecmaType.Module.Assembly.GetName().Name}");
                         }
                         return null;

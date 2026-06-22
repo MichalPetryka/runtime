@@ -17,7 +17,7 @@ DEFINE_FIELD       (card_table,                         uint32_t*)
 
 #if defined(ALL_FIELDS) || defined(BACKGROUND_GC)
 DEFINE_FIELD       (mark_array,                         uint32_t*)
-DEFINE_FIELD       (next_sweep_obj,                     uint8_t*)    
+DEFINE_FIELD       (next_sweep_obj,                     uint8_t*)
 DEFINE_FIELD       (background_saved_lowest_address,    uint8_t*)
 DEFINE_FIELD       (background_saved_highest_address,   uint8_t*)
 #if defined(ALL_FIELDS) || !defined(USE_REGIONS)

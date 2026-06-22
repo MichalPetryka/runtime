@@ -19,7 +19,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test8_paltest_createfilemappingw_t
 {
     HANDLE  SWAP_HANDLE     = ((VOID *)(-1));
     WCHAR   lpObjectName[] = {'m','y','O','b','j','e','c','t','\0'};
-    
+
     HANDLE  hFileMap;
 
     /* Initialize the PAL environment.
@@ -44,18 +44,18 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test8_paltest_createfilemappingw_t
 
     if(NULL == hFileMap)
     {
-        Fail("ERROR:%u: Failed to create File Mapping.\n", 
+        Fail("ERROR:%u: Failed to create File Mapping.\n",
               GetLastError());
     }
 
-    
+
     /* Create a COPYWRITE, "swap", un-named file mapping.
      * This test is unverifiable, here is a quote from MSDN:
-     * 
-     * Copy on write access. If you create the map with PAGE_WRITECOPY and 
-     * the view with FILE_MAP_COPY, you will receive a view to file. If you 
+     *
+     * Copy on write access. If you create the map with PAGE_WRITECOPY and
+     * the view with FILE_MAP_COPY, you will receive a view to file. If you
      * write to it, the pages are automatically swappable and the modifications
-     * you make will not go to the original data file. 
+     * you make will not go to the original data file.
      *
      */
     hFileMap = CreateFileMapping(
@@ -68,13 +68,13 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test8_paltest_createfilemappingw_t
 
     if(NULL == hFileMap)
     {
-        Fail("ERROR:%u: Failed to create File Mapping.\n", 
+        Fail("ERROR:%u: Failed to create File Mapping.\n",
               GetLastError());
     }
 
 
     /* Terminate the PAL.
-     */ 
+     */
     PAL_Terminate();
     return PASS;
 }

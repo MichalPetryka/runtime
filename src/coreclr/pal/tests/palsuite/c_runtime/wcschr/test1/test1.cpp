@@ -23,7 +23,7 @@ PALTEST(c_runtime_wcschr_test1_paltest_wcschr_test1, "c_runtime/wcschr/test1/pal
     WCHAR c2 = (WCHAR)'$';
     WCHAR *ptr;
 
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -33,17 +33,17 @@ PALTEST(c_runtime_wcschr_test1_paltest_wcschr_test1, "c_runtime/wcschr/test1/pal
     ptr = wcschr(str, c);
     if (ptr != str + 3)
     {
-        Fail("ERROR: expected wcschr to return pointer to %p, got %p\n", 
+        Fail("ERROR: expected wcschr to return pointer to %p, got %p\n",
             str + 3, ptr);
     }
 
     ptr = wcschr(str, c2);
     if (ptr != NULL)
     {
-        Fail("ERROR: expected wcschr to return pointer to %p, got %p\n", 
+        Fail("ERROR: expected wcschr to return pointer to %p, got %p\n",
             NULL, ptr);
     }
-        
+
     PAL_Terminate();
     return PASS;
 }

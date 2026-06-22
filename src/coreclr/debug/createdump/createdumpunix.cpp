@@ -37,7 +37,7 @@ CreateDump(const CreateDumpOptions& options)
         goto exit;
     }
 
-    // Initialize the crash info 
+    // Initialize the crash info
     if (!crashInfo->Initialize())
     {
         goto exit;
@@ -79,7 +79,7 @@ CreateDump(const CreateDumpOptions& options)
         }
         // Join all adjacent memory regions
         crashInfo->CombineMemoryRegions();
-    
+
         printf_status("Writing %s to file %s\n", GetDumpTypeString(options.DumpType), dumpPath.c_str());
 
         // Write the actual dump file

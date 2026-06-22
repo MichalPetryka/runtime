@@ -6,7 +6,7 @@
 ** Source:  createfilemappingw.c (test 5)
 **
 ** Purpose: Positive test the CreateFileMappingW API.
-**          Test CreateFileMappingW to a "swap" handle with 
+**          Test CreateFileMappingW to a "swap" handle with
 **          access PAGE_READONLY.
 **
 **
@@ -23,7 +23,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test5_paltest_createfilemappingw_t
     WCHAR   lpObjectName[] = {'m','y','O','b','j','e','c','t','\0'};
     int     RetVal = FAIL;
     char    results[2048];
-    
+
     HANDLE hFileMapRO;
     HANDLE hFileMapRW;
     LPVOID lpMapViewRO;
@@ -53,7 +53,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test5_paltest_createfilemappingw_t
 
     if(NULL == hFileMapRW)
     {
-        Fail("ERROR:%u: Failed to create File Mapping.\n", 
+        Fail("ERROR:%u: Failed to create File Mapping.\n",
               GetLastError());
     }
 
@@ -69,7 +69,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test5_paltest_createfilemappingw_t
     if(NULL == lpMapViewRW)
     {
         Trace("ERROR:%u: Failed to call MapViewOfFile "
-              "API to map a view of file!\n", 
+              "API to map a view of file!\n",
               GetLastError());
         RetVal = FAIL;
         goto CleanUpOne;
@@ -86,12 +86,12 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test5_paltest_createfilemappingw_t
 
     if(NULL == hFileMapRO)
     {
-        Trace("ERROR:%u: Failed to create File Mapping.\n", 
+        Trace("ERROR:%u: Failed to create File Mapping.\n",
               GetLastError());
         RetVal = FAIL;
         goto CleanUpTwo;
     }
-    
+
     /* maps a view of a file into the address space of the calling process.
      */
     lpMapViewRO = MapViewOfFile(
@@ -104,14 +104,14 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test5_paltest_createfilemappingw_t
     if(NULL == lpMapViewRO)
     {
         Trace("ERROR:%u: Failed to call MapViewOfFile "
-              "API to map a view of file!\n", 
+              "API to map a view of file!\n",
               GetLastError());
         RetVal = FAIL;
         goto CleanUpThree;
     }
 
     /* Write the test string to the Map view.
-    */    
+    */
     memcpy(lpMapViewRW, testString, strlen(testString));
 
     /* Read from the second Map view.
@@ -136,7 +136,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_test5_paltest_createfilemappingw_t
     RetVal = PASS;
 
 CleanUpFour:
-        
+
     /* Unmap the view of file.
         */
     if ( UnmapViewOfFile(lpMapViewRO) == FALSE )
@@ -148,7 +148,7 @@ CleanUpFour:
     }
 
 CleanUpThree:
-        
+
     /* Close Handle to opend file mapping.
         */
     if ( CloseHandle(hFileMapRO) == FALSE )
@@ -158,7 +158,7 @@ CleanUpThree:
                 hFileMapRO);
         RetVal = FAIL;
     }
-    
+
 
 CleanUpTwo:
     /* Unmap the view of file.
@@ -170,10 +170,10 @@ CleanUpTwo:
                 lpMapViewRW);
         RetVal = FAIL;
     }
-    
+
 
 CleanUpOne:
-        
+
     /* Close Handle to opend file mapping.
      */
     if ( CloseHandle(hFileMapRW) == FALSE )
@@ -186,7 +186,7 @@ CleanUpOne:
 
 
     /* Terminate the PAL.
-     */ 
+     */
     PAL_TerminateEx(RetVal);
     return RetVal;
 }

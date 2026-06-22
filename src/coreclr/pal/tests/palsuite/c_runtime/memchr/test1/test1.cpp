@@ -37,14 +37,14 @@ PALTEST(c_runtime_memchr_test1_paltest_memchr_test1, "c_runtime/memchr/test1/pal
 
     struct testCase testCases[]=
     {
-        {"st","corn cup cat cream coast",'s',23}, 
+        {"st","corn cup cat cream coast",'s',23},
                                    /* single instance of char                 */
-        {"st","corn cup cat cream coast",'s',24}, 
+        {"st","corn cup cat cream coast",'s',24},
                                    /* single inst, inst< exact length         */
         {"q","corn cup cat cream coastq",'q',25},
                                    /* single inst at end, inst=exact length   */
         {"q","corn cup cat cream coastq",'q',26},
-                                   /* single inst at end, inst<length, 
+                                   /* single inst at end, inst<length,
                                                            length>len(string) */
         {"st","corn cup cat cream coast",115,24},
                                    /* single int inst, inst<exact length      */
@@ -52,17 +52,17 @@ PALTEST(c_runtime_memchr_test1_paltest_memchr_test1, "c_runtime/memchr/test1/pal
                                    /* multi-inst, inst=1, exact length        */
         {"corn cup cat cream coast","corn cup cat cream coast",'c',1},
                                    /* multi-inst, inst = length, length=1     */
-        {"is is a test","This is a test",105,14},  
+        {"is is a test","This is a test",105,14},
                                    /* single int inst, exact length           */
-        {"is is a test","This is a test",'i',14},  
+        {"is is a test","This is a test",'i',14},
                                    /* double inst, exact length               */
-        {"a test","This is a test",'a',9}, 
+        {"a test","This is a test",'a',9},
                                    /* single instance instance = length       */
-        {NULL,"This is a test",'b',14}, 
+        {NULL,"This is a test",'b',14},
                                    /* no instance exact length                */
-        {NULL,"This is a test",'a',8},  
+        {NULL,"This is a test",'a',8},
                                    /* single instance - < length              */
-        {NULL,"This is a test",121,14}, 
+        {NULL,"This is a test",121,14},
                                    /* single instance - exact length          */
         {" is a test of the function","This is a test of the function",
          ' ',17}                   /* single inst<length, len(string)>length  */

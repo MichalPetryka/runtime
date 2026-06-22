@@ -45,7 +45,7 @@ private:
         }
         return DispatchCellType::InterfaceAndSlot;
     }
-public: 
+public:
 
     DispatchCellInfo(DispatchToken token, bool hasCache) :
         CellType(CellTypeFromToken(token)),

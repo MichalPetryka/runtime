@@ -10,7 +10,7 @@ namespace ILCompiler.DependencyAnalysis
     class SignatureEmbeddedPointerIndirectionNode : EmbeddedPointerIndirectionNode<Signature>
     {
         private readonly Import _import;
-        
+
         public SignatureEmbeddedPointerIndirectionNode(Import import, Signature signature)
             : base(signature)
         {
@@ -32,7 +32,7 @@ namespace ILCompiler.DependencyAnalysis
             dataBuilder.RequireInitialPointerAlignment();
             dataBuilder.EmitReloc(Target, RelocType.IMAGE_REL_BASED_ADDR32NB);
         }
-    
+
         public override void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
             sb.Append("SignaturePointer_"u8);

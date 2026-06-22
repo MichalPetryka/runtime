@@ -207,6 +207,6 @@ namespace ILCompiler.Reflection.ReadyToRun
             public override int OffsetOfFirstGCRefMapSlot => SizeOfCalleeSavedRegisters;
             public override int OffsetOfArgumentRegisters => OffsetOfFirstGCRefMapSlot;
         }
-        
+
     }
 }

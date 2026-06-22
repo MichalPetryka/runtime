@@ -5,7 +5,7 @@
 **
 ** Source:  pal_except_filter.c (test 1)
 **
-** Purpose: Tests the PAL implementation of the PAL_EXCEPT_FILTER. An 
+** Purpose: Tests the PAL implementation of the PAL_EXCEPT_FILTER. An
 **          exception is forced and a known value is passed to the filter
 **          fuction. The known value as well as booleans are tested to
 **          ensure proper functioning.
@@ -24,7 +24,7 @@ const int nValidator = 12321;
 LONG ExitFilter(EXCEPTION_POINTERS* ep, LPVOID pnTestInt)
 {
     int nTestInt = *(int *)pnTestInt;
-    
+
     /* let the main know we've hit the filter function */
     bFilter = TRUE;
 
@@ -60,8 +60,8 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_test1_paltest_pal_except_filter_tes
     /*
     ** test to make sure we get into the exception block
     */
-    
-    PAL_TRY 
+
+    PAL_TRY
     {
         if (bExcept)
         {
@@ -111,7 +111,7 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_test1_paltest_pal_except_filter_tes
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

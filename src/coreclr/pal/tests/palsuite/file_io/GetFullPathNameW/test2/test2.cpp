@@ -9,7 +9,7 @@
 **          Get the full path for a file name and verify the results.
 **	    This test will use a relative path, containing '..\'. To
 **          add to this test, we will also call SetCurrentDirectory to
-**          ensure this is handled properly.   
+**          ensure this is handled properly.
 **
 **
 **===================================================================*/
@@ -44,7 +44,7 @@ PALTEST(file_io_GetFullPathNameW_test2_paltest_getfullpathnamew_test2, "file_io/
     }
 
     /* Initialize the receiving char buffers.
-     */    
+     */
     memset(szwReturnedPath, 0, sizeof(szwReturnedPath));
     memset(szwFullFileName, 0, sizeof(szwFullFileName));
 
@@ -63,19 +63,19 @@ PALTEST(file_io_GetFullPathNameW_test2_paltest_getfullpathnamew_test2, "file_io/
                             _MAX_DIR,
                             szwReturnedPath,
                             &pPathPtr);
-    
+
     szReturnedPath = convertC(szwReturnedPath);
-   
+
     if (dwRc == 0)
     {
-        Trace("ERROR :%ld: Failed to get path to  \"%s\".\n", 
+        Trace("ERROR :%ld: Failed to get path to  \"%s\".\n",
              GetLastError(),
              szReturnedPath);
         free(szReturnedPath);
         free(szFileName);
         Fail("");
     }
-    
+
     /*
      * The returned value should be the parent directory with the
      * file name appended.
@@ -106,7 +106,7 @@ PALTEST(file_io_GetFullPathNameW_test2_paltest_getfullpathnamew_test2, "file_io/
         goto terminate;
     }
 
-    /* Verify that the file was created, attempt to create 
+    /* Verify that the file was created, attempt to create
      * the file again. */
     hFile = CreateFileW(szwReturnedPath,
                         GENERIC_READ,
@@ -115,7 +115,7 @@ PALTEST(file_io_GetFullPathNameW_test2_paltest_getfullpathnamew_test2, "file_io/
                         CREATE_NEW,
                         FILE_ATTRIBUTE_NORMAL,
                         NULL);
-    if ((hFile != INVALID_HANDLE_VALUE) && 
+    if ((hFile != INVALID_HANDLE_VALUE) &&
         (GetLastError() != ERROR_ALREADY_EXISTS))
     {
         Trace("ERROR :%ld: CreateFileW succeeded to create file "

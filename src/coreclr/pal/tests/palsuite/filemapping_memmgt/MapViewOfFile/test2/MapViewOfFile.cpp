@@ -52,7 +52,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
         FILE_SHARE_READ|FILE_SHARE_WRITE,
         NULL,
                         CREATE_ALWAYS,
-                        FILE_ATTRIBUTE_NORMAL, 
+                        FILE_ATTRIBUTE_NORMAL,
         NULL);
     if (hFile == INVALID_HANDLE_VALUE)
     {
@@ -63,7 +63,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
 
     /* Get the initial size of file, for latter tests.
      */
-    dwInitialSize = GetFileSize (hFile, NULL); 
+    dwInitialSize = GetFileSize (hFile, NULL);
     if ( dwInitialSize == INVALID_FILE_SIZE )
     {
         Fail("ERROR:%u: The created file \"%s\" has an invalid "
@@ -90,7 +90,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
 
     if(NULL == hFileMapping)
         {
-        Trace("ERROR:%u: Failed to create File Mapping.\n", 
+        Trace("ERROR:%u: Failed to create File Mapping.\n",
              GetLastError());
         CloseHandle(hFile);
         Fail("");
@@ -115,10 +115,10 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
         Fail("");
     }
 
-    /* Verify that the size of the file has increased to 
-     * accomidate the MapView. 
+    /* Verify that the size of the file has increased to
+     * accomidate the MapView.
      */
-    dwFinalSize = GetFileSize (hFile, NULL); 
+    dwFinalSize = GetFileSize (hFile, NULL);
     if ( (dwFinalSize <= dwInitialSize) && (dwFinalSize != MAPPINGSIZE))
     {
         CloseHandle(hFile);
@@ -130,11 +130,11 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
     }
 
     /* Write to the MapView and copy the MapViewOfFile
-     * to buffer, so we can compare with value read from 
+     * to buffer, so we can compare with value read from
      * file directly.
      */
     memcpy(lpMapViewAddress, buf, strlen(buf));
-    
+
     /* Read from the File handle.
      */
     bRetVal = ReadFile(hFile,
@@ -157,7 +157,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
     if (memcmp(buf, readString, strlen(readString)) != 0)
     {
         CloseHandle(hFile);
-        CloseHandle(hFileMapping);    
+        CloseHandle(hFileMapping);
         Fail("ERROR: Read string from file \"%s\", is "
              "not equal to string written through MapView "
              "\"%s\".\n",
@@ -187,7 +187,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
         CloseHandle(hFileMapping);
         Fail("");
     }
-    
+
     if(CloseHandle(hFileMapping) == FALSE)
     {
         Fail("ERROR:%u:Failed to call CloseHandle API "
@@ -199,4 +199,4 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test2_paltest_mapviewoffile_test2, "fil
     return PASS;
 }
 
-  
+

@@ -81,7 +81,7 @@ namespace ILCompiler.DependencyAnalysis
                 case SignatureTypeCode.ByReference:
                 // Allthough multi-dimension arrays have additional rank and bounds information
                 // We dont need it in the analyzer phase
-                case SignatureTypeCode.Array: 
+                case SignatureTypeCode.Array:
                     AnalyzeType();
                     break;
                 case SignatureTypeCode.RequiredModifier:
@@ -130,7 +130,7 @@ namespace ILCompiler.DependencyAnalysis
         }
 
         private DependencyList AnalyzeLocalVariablesBlob(SignatureHeader header)
-        { 
+        {
             int varCount = _blobReader.ReadCompressedInteger();
             for (int i = 0; i < varCount; i++)
             {

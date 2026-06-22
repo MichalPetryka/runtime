@@ -8,7 +8,7 @@
 ** Purpose: Positive test the VirtualAlloc API.
 **          Call VirtualAlloc with MEM_COMMIT|MEM_TOP_DOWN allocation type
 **          and PAGE_READONLY access protection
-**  
+**
 
 **
 **============================================================*/
@@ -25,8 +25,8 @@ PALTEST(filemapping_memmgt_VirtualAlloc_test17_paltest_virtualalloc_test17, "fil
     {
         ExitProcess(FAIL);
     }
-    
-    //Allocate the physical storage in memory or in the paging file on disk 
+
+    //Allocate the physical storage in memory or in the paging file on disk
     lpVirtualAddress = VirtualAlloc(NULL,//system determine where to allocate the region
             1024,            //specify the size
             MEM_COMMIT|MEM_TOP_DOWN,      //allocation type

@@ -5,7 +5,7 @@
 **
 ** Source:  test1.c
 **
-** Purpose: Tests that _wcsicmp correctly compares two strings with 
+** Purpose: Tests that _wcsicmp correctly compares two strings with
 **          case insensitivity.
 **
 **

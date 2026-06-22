@@ -161,7 +161,7 @@ class GCConfig
   private: static bool s_##name;                                  \
   private: static bool s_##name##Provided;                        \
   private: static bool s_Updated##name;
-  
+
 #define INT_CONFIG(name, unused_private_key, unused_public_key, unused_default, unused_doc) \
   public: static int64_t Get##name();                            \
   public: static int64_t Get##name(int64_t defaultValue);        \

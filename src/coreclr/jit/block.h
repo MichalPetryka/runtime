@@ -499,13 +499,13 @@ constexpr BasicBlockFlags operator &(BasicBlockFlags a, BasicBlockFlags b)
     return (BasicBlockFlags)((uint64_t)a & (uint64_t)b);
 }
 
-FORCEINLINE 
+FORCEINLINE
 BasicBlockFlags& operator |=(BasicBlockFlags& a, BasicBlockFlags b)
 {
     return a = (BasicBlockFlags)((uint64_t)a | (uint64_t)b);
 }
 
-FORCEINLINE 
+FORCEINLINE
 BasicBlockFlags& operator &=(BasicBlockFlags& a, BasicBlockFlags b)
 {
     return a = (BasicBlockFlags)((uint64_t)a & (uint64_t)b);

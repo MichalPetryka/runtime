@@ -82,7 +82,7 @@ namespace R2RTest
                     }
 
                     // This is not a reliable way of building the publish folder
-                   
+
                     string publishFolder = Path.Combine(appFolder, "artifacts", "Debug", targetFramework, "publish");
                     if (!Directory.Exists(publishFolder))
                     {

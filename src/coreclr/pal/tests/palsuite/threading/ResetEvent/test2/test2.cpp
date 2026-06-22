@@ -14,7 +14,7 @@
 ** Purpose: Test to ensure proper operation of the ResetEvent()
 **          API by calling it on an event handle that's already
 **          unsignalled.
-** 
+**
 
 **
 **===========================================================================*/
@@ -29,7 +29,7 @@ PALTEST(threading_ResetEvent_test2_paltest_resetevent_test2, "threading/ResetEve
     DWORD                   dwRet = 0;
     HANDLE                  hEvent = NULL;
     LPSECURITY_ATTRIBUTES   lpEventAttributes = NULL;
-    BOOL                    bManualReset = TRUE; 
+    BOOL                    bManualReset = TRUE;
     BOOL                    bInitialState = FALSE;
 
 
@@ -41,7 +41,7 @@ PALTEST(threading_ResetEvent_test2_paltest_resetevent_test2, "threading/ResetEve
 
 
     /* create an unsignalled event which we can use with ResetEvent */
-    hEvent = CreateEvent(   lpEventAttributes, 
+    hEvent = CreateEvent(   lpEventAttributes,
                             bManualReset,
                             bInitialState,
                             NULL );
@@ -51,7 +51,7 @@ PALTEST(threading_ResetEvent_test2_paltest_resetevent_test2, "threading/ResetEve
         /* ERROR */
         Fail( "ERROR:%lu:CreateEvent() call failed\n", GetLastError() );
     }
-    
+
     /* verify that the event isn't signalled yet */
     dwRet = WaitForSingleObject( hEvent, 0 );
     if( dwRet != WAIT_TIMEOUT )
@@ -63,7 +63,7 @@ PALTEST(threading_ResetEvent_test2_paltest_resetevent_test2, "threading/ResetEve
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* try to reset the event */
     if( ! ResetEvent( hEvent ) )
     {
@@ -79,10 +79,10 @@ PALTEST(threading_ResetEvent_test2_paltest_resetevent_test2, "threading/ResetEve
         Fail( "ERROR:%lu:CloseHandle() call failed\n", GetLastError() );
     }
 
-    
+
     /* PAL termination */
     PAL_Terminate();
-    
+
     /* return success */
     return PASS;
 }

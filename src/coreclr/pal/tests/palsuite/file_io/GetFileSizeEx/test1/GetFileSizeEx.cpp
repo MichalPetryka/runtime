@@ -19,13 +19,13 @@ void CleanUp_GetFileSizeEx_test1(HANDLE hFile)
     if (CloseHandle(hFile) != TRUE)
     {
         Fail("GetFileSizeEx: ERROR -> Unable to close file \"%s\".\n"
-             " Error is %d\n", 
+             " Error is %d\n",
             szTextFile, GetLastError());
     }
     if (!DeleteFileA(szTextFile))
     {
         Fail("GetFileSizeEx: ERROR -> Unable to delete file \"%s\".\n"
-             " Error is %d\n", 
+             " Error is %d\n",
             szTextFile, GetLastError());
     }
 }
@@ -67,7 +67,7 @@ PALTEST(file_io_GetFileSizeEx_test1_paltest_getfilesizeex_test1, "file_io/GetFil
 
 
     /* create a test file */
-    hFile = CreateFile(szTextFile, 
+    hFile = CreateFile(szTextFile,
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -77,7 +77,7 @@ PALTEST(file_io_GetFileSizeEx_test1_paltest_getfilesizeex_test1, "file_io/GetFil
 
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Fail("GetFileSizeEx: ERROR -> Unable to create file \"%s\".\n", 
+        Fail("GetFileSizeEx: ERROR -> Unable to create file \"%s\".\n",
             szTextFile);
     }
 
@@ -88,16 +88,16 @@ PALTEST(file_io_GetFileSizeEx_test1_paltest_getfilesizeex_test1, "file_io/GetFil
     /* test writing to the file */
     if(WriteFile(hFile, data, strlen(data), &lpNumberOfBytesWritten, NULL)==0)
     {
-        Trace("GetFileSizeEx: ERROR -> Call to WriteFile failed with %ld.\n", 
+        Trace("GetFileSizeEx: ERROR -> Call to WriteFile failed with %ld.\n",
              GetLastError());
         CleanUp_GetFileSizeEx_test1(hFile);
         Fail("");
     }
-    
+
     /* make sure the buffer flushed.*/
     if(FlushFileBuffers(hFile)==0)
     {
-        Trace("GetFileSizeEx: ERROR -> Call to FlushFileBuffers failed with %ld.\n", 
+        Trace("GetFileSizeEx: ERROR -> Call to FlushFileBuffers failed with %ld.\n",
              GetLastError());
         CleanUp_GetFileSizeEx_test1(hFile);
         Fail("");
@@ -109,7 +109,7 @@ PALTEST(file_io_GetFileSizeEx_test1_paltest_getfilesizeex_test1, "file_io/GetFil
     {
         CleanUp_GetFileSizeEx_test1(hFile);
         Fail("GetFileSizeEx: ERROR -> File size did not increase properly after.\n"
-             "writing %d chars\n", strlen(data));        
+             "writing %d chars\n", strlen(data));
     }
 
     CleanUp_GetFileSizeEx_test1(hFile);

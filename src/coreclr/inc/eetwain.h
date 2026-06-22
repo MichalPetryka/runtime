@@ -566,7 +566,7 @@ bool UnwindStackFrame(
 virtual
 void UnwindStackFrame(T_CONTEXT *pContext);
 
-virtual 
+virtual
 void EnsureCallerContextIsValid(PREGDISPLAY pRD, EECodeInfo * pCodeInfo = NULL, unsigned flags = 0);
 
 virtual

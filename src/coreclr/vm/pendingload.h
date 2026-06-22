@@ -148,7 +148,7 @@ public:
     };
 
     // This number chosen by experimentation with a fairly complex ASP.NET application that would naturally allocate
-    // about 40,000 Entry structures on startup. With PendingTypeLoadTableShardCount(31) number of shards and 
+    // about 40,000 Entry structures on startup. With PendingTypeLoadTableShardCount(31) number of shards and
     // PreallocatedEntryCount(2) number of pre-allocated entries in each shard, the number of dynamic allocations of
     // Entry structures was reduced to 11.
     static constexpr int PendingTypeLoadTableShardCount = 31;

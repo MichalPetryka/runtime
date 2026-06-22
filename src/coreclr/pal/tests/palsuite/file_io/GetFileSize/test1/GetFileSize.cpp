@@ -18,12 +18,12 @@ void CleanUp_GetFileSize_test1(HANDLE hFile)
 {
     if (CloseHandle(hFile) != TRUE)
     {
-        Fail("GetFileSize: ERROR -> Unable to close file \"%s\".\n", 
+        Fail("GetFileSize: ERROR -> Unable to close file \"%s\".\n",
             szTextFile);
     }
     if (!DeleteFileA(szTextFile))
     {
-        Fail("GetFileSize: ERROR -> Unable to delete file \"%s\".\n", 
+        Fail("GetFileSize: ERROR -> Unable to delete file \"%s\".\n",
             szTextFile);
     }
 }
@@ -77,7 +77,7 @@ PALTEST(file_io_GetFileSize_test1_paltest_getfilesize_test1, "file_io/GetFileSiz
 
 
     /* create a test file */
-    hFile = CreateFile(szTextFile, 
+    hFile = CreateFile(szTextFile,
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -87,7 +87,7 @@ PALTEST(file_io_GetFileSize_test1_paltest_getfilesize_test1, "file_io/GetFileSiz
 
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Fail("GetFileSize: ERROR -> Unable to create file \"%s\".\n", 
+        Fail("GetFileSize: ERROR -> Unable to create file \"%s\".\n",
             szTextFile);
     }
 
@@ -98,16 +98,16 @@ PALTEST(file_io_GetFileSize_test1_paltest_getfilesize_test1, "file_io/GetFileSiz
     /* test writing to the file */
     if(WriteFile(hFile, data, strlen(data), &lpNumberOfBytesWritten, NULL)==0)
     {
-        Trace("GetFileSize: ERROR -> Call to WriteFile failed with %ld.\n", 
+        Trace("GetFileSize: ERROR -> Call to WriteFile failed with %ld.\n",
              GetLastError());
         CleanUp_GetFileSize_test1(hFile);
         Fail("");
     }
-    
+
     /* make sure the buffer flushed.*/
     if(FlushFileBuffers(hFile)==0)
     {
-        Trace("GetFileSize: ERROR -> Call to FlushFileBuffers failed with %ld.\n", 
+        Trace("GetFileSize: ERROR -> Call to FlushFileBuffers failed with %ld.\n",
              GetLastError());
         CleanUp_GetFileSize_test1(hFile);
         Fail("");
@@ -119,7 +119,7 @@ PALTEST(file_io_GetFileSize_test1_paltest_getfilesize_test1, "file_io/GetFileSiz
     {
         CleanUp_GetFileSize_test1(hFile);
         Fail("GetFileSize: ERROR -> File size did not increase properly after.\n"
-             "writing %d chars\n", strlen(data));        
+             "writing %d chars\n", strlen(data));
     }
 
     CleanUp_GetFileSize_test1(hFile);

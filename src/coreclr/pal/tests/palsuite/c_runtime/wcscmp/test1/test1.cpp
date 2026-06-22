@@ -5,7 +5,7 @@
 **
 ** Source:  test1.c
 **
-** Purpose: Tests that wcscmp correctly compares two strings with 
+** Purpose: Tests that wcscmp correctly compares two strings with
 ** case sensitivity.
 **
 **
@@ -22,7 +22,7 @@ PALTEST(c_runtime_wcscmp_test1_paltest_wcscmp_test1, "c_runtime/wcscmp/test1/pal
     char cstr1[] = "foo";
     char cstr2[] = "foox";
     char cstr3[] = "fOo";
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;

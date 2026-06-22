@@ -56,7 +56,7 @@ INST(bl,            "bl",             0,    0x54000000,0xfc000000,DF_G_B0)
 ////NOTE:  Begin
 ////     the following instructions will be used by emitter::emitInsMayWriteToGCReg().
 ////////////////////////////////////////////////
-//    enum     name     LD/ST   ENCODE    MASK    FMT   
+//    enum     name     LD/ST   ENCODE    MASK    FMT
 //
 ////NOTE: mov must be the first one !!! more info to see emitter::emitInsMayWriteToGCReg().
 ///////////////////////////////////////////////////////////////////////////////////////////

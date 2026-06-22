@@ -85,12 +85,12 @@ void PalGetPDBInfo(HANDLE hOsHandle, GUID * pGuidSignature, _Out_ uint32_t * pdw
         return;
 
     // CodeView RSDS debug information -> PDB 7.00
-    struct CV_INFO_PDB70 
+    struct CV_INFO_PDB70
     {
-        DWORD          magic; 
-        GUID           signature;       // unique identifier 
-        DWORD          age;             // an always-incrementing value 
-        char           path[1];         // zero terminated string with the name of the PDB file 
+        DWORD          magic;
+        GUID           signature;       // unique identifier
+        DWORD          age;             // an always-incrementing value
+        char           path[1];         // zero terminated string with the name of the PDB file
     };
 
     // Temporary storage for a CV_INFO_PDB70 and its size (which could be less than

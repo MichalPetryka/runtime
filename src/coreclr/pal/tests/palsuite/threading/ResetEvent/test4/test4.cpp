@@ -19,7 +19,7 @@
 ** API by calling it on an event handle that's the
 ** result of a DuplicateHandle() call on another event
 ** handle.
-** 
+**
 
 **
 **===========================================================================*/
@@ -35,7 +35,7 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
     HANDLE                  hEvent = NULL;
     HANDLE                  hDupEvent = NULL;
     LPSECURITY_ATTRIBUTES   lpEventAttributes = NULL;
-    BOOL                    bManualReset = TRUE; 
+    BOOL                    bManualReset = TRUE;
     BOOL                    bInitialState = TRUE;
 
 
@@ -47,7 +47,7 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
 
 
     /* create an event which we can use with ResetEvent */
-    hEvent = CreateEvent(   lpEventAttributes, 
+    hEvent = CreateEvent(   lpEventAttributes,
                             bManualReset,
                             bInitialState,
                             NULL );
@@ -57,7 +57,7 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
         /* ERROR */
         Fail( "ERROR:%lu:CreateEvent() call failed\n", GetLastError() );
     }
-    
+
     /* verify that the event is signalled already */
     dwRet = WaitForSingleObject( hEvent, 0 );
     if( dwRet != WAIT_OBJECT_0 )
@@ -69,16 +69,16 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
-    
+
+
     /* duplicate the event handle */
     if( ! (DuplicateHandle(
                             GetCurrentProcess(),
                             hEvent,
-                            GetCurrentProcess(), 
+                            GetCurrentProcess(),
                             &hDupEvent,
                             GENERIC_READ|GENERIC_WRITE, /* ignored in PAL */
-                            FALSE, 
+                            FALSE,
                             DUPLICATE_SAME_ACCESS ) ) )
     {
         Trace("ERROR:%u:DuplicateHandle() call failed\n",
@@ -110,7 +110,7 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
         CloseHandle( hDupEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* verify that the event isn't signalled using the duplicate handle*/
     dwRet = WaitForSingleObject( hDupEvent, 0 );
     if( dwRet != WAIT_TIMEOUT )
@@ -122,7 +122,7 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
     /* check that the event isn't signalled using the original event handle */
     dwRet = WaitForSingleObject( hEvent, 0 );
     if( dwRet != WAIT_TIMEOUT )
@@ -134,7 +134,7 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
         CloseHandle( hEvent );
         Fail( "Test failed\n" );
     }
-    
+
 
     /* close the duplicate event handle */
     if( ! CloseHandle( hDupEvent ) )
@@ -142,8 +142,8 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
         Fail( "ERROR:%lu:CloseHandle() call failed for duplicate handle\n",
                 GetLastError() );
     }
-    
-    
+
+
     /* close the event handle */
     if( ! CloseHandle( hEvent ) )
     {
@@ -151,10 +151,10 @@ PALTEST(threading_ResetEvent_test4_paltest_resetevent_test4, "threading/ResetEve
                 GetLastError() );
     }
 
-    
+
     /* PAL termination */
     PAL_Terminate();
-    
+
     /* return success */
     return PASS;
 }

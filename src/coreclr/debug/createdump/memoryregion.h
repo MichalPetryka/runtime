@@ -8,7 +8,7 @@ extern long g_pageSize;
 #define PAGE_SIZE g_pageSize
 #endif
 
-#undef PAGE_MASK 
+#undef PAGE_MASK
 #define PAGE_MASK (~(PAGE_SIZE-1))
 
 #define CONVERT_FROM_SIGN_EXTENDED(offset) ((ULONG_PTR)(offset))

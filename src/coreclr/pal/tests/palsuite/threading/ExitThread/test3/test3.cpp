@@ -8,7 +8,7 @@
 ** Purpose: Test to ensure ExitThread() results in any loaded dynamic
 **          libraries having their entry point called with a THREAD_DETACH
 **          notification.
-** 
+**
 ** Dependencies: PAL_Initialize
 **               PAL_Terminate
 **               Fail
@@ -22,7 +22,7 @@
 **               GetLastError
 **               strlen
 **               strncpy
-** 
+**
 
 **
 **===========================================================================*/
@@ -53,14 +53,14 @@ DWORD PALAPI ThreadFunc_ExitThread_test3( LPVOID param )
     int i;
     for( i=0; i<100000; i++ )
         ;
-        
+
     ExitThread( 0 );
     return (0);
 }
 
 
 /* main program entry point */
-int __cdecl main( int argc, char **argv ) 
+int __cdecl main( int argc, char **argv )
 
 {
     /* local variables */
@@ -69,7 +69,7 @@ int __cdecl main( int argc, char **argv )
     LPTESTFUNC  pFunc;
     int         detachCount1 = 0;
     int         detachCount2 = 0;
-    
+
     HANDLE      hThread = NULL;
     DWORD       IDThread;
 
@@ -78,14 +78,14 @@ int __cdecl main( int argc, char **argv )
     {
 	    return( FAIL );
     }
-    
+
     /* Load the test library */
     hLib = LoadLibrary( rgchLibraryFile );
     if(hLib == NULL)
     {
         Fail("ERROR: Unable to load library %s\n", rgchLibraryFile );
     }
-    
+
 
     /* Get the address of our test function in the dll */
     pFunc = (LPTESTFUNC)GetProcAddress( hLib, szFunction );
@@ -101,10 +101,10 @@ int __cdecl main( int argc, char **argv )
         }
         Fail( "Exiting\n" );
     }
-    
+
     /* Execute the test function to get the detach count */
     detachCount1 = pFunc();
-    
+
     /* run another dummy thread to cause notification of the library       */
     hThread = CreateThread(    NULL,             /* no security attributes */
                                0,                /* use default stack size */
@@ -126,7 +126,7 @@ int __cdecl main( int argc, char **argv )
         }
         Fail( "Exiting\n" );
     }
-    
+
     /* Resume the suspended thread */
     ResumeThread( hThread );
 
@@ -135,15 +135,15 @@ int __cdecl main( int argc, char **argv )
 
     /* Execute the test function to get the new detach count */
     detachCount2 = pFunc();
-    
-    /* Unload the test library */ 
+
+    /* Unload the test library */
     if( !FreeLibrary( hLib ) )
     {
         Fail( "ERROR:%u: Unable to free library \"%s\"\n",
                 GetLastError(),
                 rgchLibraryFile );
     }
-    
+
     /* validate the result */
     if( detachCount2 != (detachCount1 + 1) )
     {
@@ -151,11 +151,11 @@ int __cdecl main( int argc, char **argv )
                 detachCount2,
                 (detachCount1 + 1) );
     }
-    
-    
+
+
     /* terminate the PAL */
     PAL_Terminate();
-    
+
     /* return success */
-    return PASS; 
+    return PASS;
 }

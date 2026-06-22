@@ -269,7 +269,7 @@ public:
 #ifdef DACCESS_COMPILE
     void EnumMemoryRegions(CLRDataEnumMemoryFlags flags);
 #endif
- 
+
 public:
     static OBJECTREF CreateThrowable(
         PEXCEPTION_RECORD pExceptionRecord,

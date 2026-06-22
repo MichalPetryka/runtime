@@ -7,8 +7,8 @@
 **
 ** Purpose: InterlockedIncrement64() function
 **
-**	The test case spawns MAX_THREADS Threads, and each thread call InterlockedDecrement Function to decrement a 
-**	global counter REPEAT_COUNT Times. The Test case sets the global counter to Zero at the beginning of the test.  
+**	The test case spawns MAX_THREADS Threads, and each thread call InterlockedDecrement Function to decrement a
+**	global counter REPEAT_COUNT Times. The Test case sets the global counter to Zero at the beginning of the test.
 **	The test cases passes if at the end the test the value of the global counter is  MAX_THREADS * REPEAT_COUNT.
 **
 **
@@ -38,7 +38,7 @@ PALTEST(miscellaneous_InterlockedIncrement64_test2_paltest_interlockedincrement6
     {
         return FAIL;
     }
-	
+
 	/*
 	**  Run only on 64 bit platforms
 	*/
@@ -47,16 +47,16 @@ PALTEST(miscellaneous_InterlockedIncrement64_test2_paltest_interlockedincrement6
 		//Create MAX_THREADS threads that will operate on the global counter
 		for (i=0;i<MAX_THREADS;i++)
 		{
-			hThread[i] = CreateThread( 
-				NULL,                        // default security attributes 
-				0,                           // use default stack size  
-				(LPTHREAD_START_ROUTINE) IncrementCounter_InterlockedIncrement64_test2,                  // thread function 
-				NULL,                // argument to thread function 
-				0,                           // use default creation flags 
-				&dwThreadID);                // returns the thread identifier 
-	
-			// Check the return value for success. 
-			if (hThread[i] == NULL) 
+			hThread[i] = CreateThread(
+				NULL,                        // default security attributes
+				0,                           // use default stack size
+				(LPTHREAD_START_ROUTINE) IncrementCounter_InterlockedIncrement64_test2,                  // thread function
+				NULL,                // argument to thread function
+				0,                           // use default creation flags
+				&dwThreadID);                // returns the thread identifier
+
+			// Check the return value for success.
+			if (hThread[i] == NULL)
 				{
 					Fail("ERROR: Was not able to create thread\n"
            					"GetLastError returned %d\n", GetLastError());
@@ -70,21 +70,21 @@ PALTEST(miscellaneous_InterlockedIncrement64_test2_paltest_interlockedincrement6
 			if (WAIT_OBJECT_0 != WaitForSingleObject (hThread[i], INFINITE))
  			{
 	 			Fail ("Main: Wait for Single Object failed.  Failing test.\n"
-				"GetLastError returned %d\n", GetLastError());  
+				"GetLastError returned %d\n", GetLastError());
  			}
 		}
-		
-		/* Compare the value of  global counter with zero.  
+
+		/* Compare the value of  global counter with zero.
 		*/
 		if (TotalOperations!=GlobalCounter_InterlockedIncrement64_test2)
 			{
 				Fail("Test Case Failed: InterlockedDecrement \n");
 			}
 	#endif  //defined(HOST_64BIT)
-	
+
     PAL_Terminate();
-    return PASS; 
-} 
+    return PASS;
+}
 
 void IncrementCounter_InterlockedIncrement64_test2(void)
 {

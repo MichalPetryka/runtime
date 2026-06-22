@@ -218,7 +218,7 @@ DumpDataTarget::Request(
 
 // ICLRRuntimeLocator
 
-HRESULT STDMETHODCALLTYPE 
+HRESULT STDMETHODCALLTYPE
 DumpDataTarget::GetRuntimeBase(
     /* [out] */ CLRDATA_ADDRESS* baseAddress)
 {

@@ -5,7 +5,7 @@
 **
 ** Source: test2.c
 **
-** Purpose: Tests that WideCharToMultiByte respects the length of the wide 
+** Purpose: Tests that WideCharToMultiByte respects the length of the wide
 **          character string.
 **
 **
@@ -15,7 +15,7 @@
 
 
 PALTEST(locale_info_WideCharToMultiByte_test2_paltest_widechartomultibyte_test2, "locale_info/WideCharToMultiByte/test2/paltest_widechartomultibyte_test2")
-{    
+{
     char mbStr[128];
     WCHAR wideStr[128];
     int ret;
@@ -48,24 +48,24 @@ PALTEST(locale_info_WideCharToMultiByte_test2_paltest_widechartomultibyte_test2,
         wideStr[127] = 0;
 
         /* Passing a buffer that is too small */
-        ret = WideCharToMultiByte(codePages[i], 0, wideStr, 10, 
+        ret = WideCharToMultiByte(codePages[i], 0, wideStr, 10,
                                   mbStr, 0, NULL, NULL);
         if (ret != 10)
         {
             Trace("WideCharToMultiByte did not return correct string length!\n"
-                  "Got %d, expected %d for %d with error %u.\n", ret, 10, 
+                  "Got %d, expected %d for %d with error %u.\n", ret, 10,
                   codePages[i], GetLastError());
             bRet = FALSE;
         }
 
         /* Passing a sufficiently large buffer */
         mbStr[10] = 'b';
-        ret = WideCharToMultiByte(codePages[i], 0, wideStr, 10, 
+        ret = WideCharToMultiByte(codePages[i], 0, wideStr, 10,
                                   mbStr, 128, NULL, NULL);
         if (ret != 10)
         {
             Trace("WideCharToMultiByte did not return correct string length!\n"
-                  "Got %d, expected %d for code page %d with error %u.\n", 
+                  "Got %d, expected %d for code page %d with error %u.\n",
                   ret, 10, codePages[i], GetLastError());
             bRet = FALSE;
         }

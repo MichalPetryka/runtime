@@ -17,7 +17,7 @@
 ** closed. We expect it to return an appropriate error
 ** result.
 **
-** 
+**
 
 **
 **===========================================================================*/
@@ -31,7 +31,7 @@ PALTEST(threading_ResetEvent_test3_paltest_resetevent_test3, "threading/ResetEve
     /* local variables */
     HANDLE                  hEvent = NULL;
     LPSECURITY_ATTRIBUTES   lpEventAttributes = NULL;
-    BOOL                    bManualReset = TRUE; 
+    BOOL                    bManualReset = TRUE;
     BOOL                    bInitialState = FALSE;
 
 
@@ -43,7 +43,7 @@ PALTEST(threading_ResetEvent_test3_paltest_resetevent_test3, "threading/ResetEve
 
 
     /* create an event which we can use with ResetEvent */
-    hEvent = CreateEvent(   lpEventAttributes, 
+    hEvent = CreateEvent(   lpEventAttributes,
                             bManualReset,
                             bInitialState,
                             NULL );
@@ -66,7 +66,7 @@ PALTEST(threading_ResetEvent_test3_paltest_resetevent_test3, "threading/ResetEve
         /* ERROR */
         Fail( "FAIL:ResetEvent() call succeeded on a closed event handle\n" );
     }
-    
+
     /* verify the result of GetLastError() */
     if( GetLastError() != ERROR_INVALID_HANDLE )
     {
@@ -74,7 +74,7 @@ PALTEST(threading_ResetEvent_test3_paltest_resetevent_test3, "threading/ResetEve
         Fail( "FAIL:ResetEvent() call failed on a closed event handle "
                 "but returned an unexpected error result %lu\n" );
     }
-    
+
 
 
     /* PAL termination */

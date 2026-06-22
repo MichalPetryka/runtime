@@ -38,12 +38,12 @@ PALTEST(c_runtime_memcmp_test1_paltest_memcmp_test1, "c_runtime/memcmp/test1/pal
         Fail("memcmp compared two buffers with different contents, and"
              " did not order them correctly.\n");
     }
-    
+
     if (memcmp(testA, testB, 0) != 0)
     {
         Fail("memcmp didn't return 0 when comparing buffers of length 0.\n");
     }
-  
+
     PAL_Terminate();
     return PASS;
 }

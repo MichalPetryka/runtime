@@ -5,7 +5,7 @@
 **
 ** Source: test3.c
 **
-** Purpose: Tests that MultiByteToWideChar correctly handles the following 
+** Purpose: Tests that MultiByteToWideChar correctly handles the following
 **          error conditions: insufficient buffer space, invalid code pages,
 **          and invalid flags.
 **
@@ -16,7 +16,7 @@
 
 
 PALTEST(locale_info_MultiByteToWideChar_test3_paltest_multibytetowidechar_test3, "locale_info/MultiByteToWideChar/test3/paltest_multibytetowidechar_test3")
-{    
+{
     char mbStr[128];
     WCHAR wideStr[128];
     int ret;

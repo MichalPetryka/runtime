@@ -5,7 +5,7 @@
 **
 ** Source: test3.c
 **
-** Purpose: Tests that WideCharToMultiByte correctly handles the following 
+** Purpose: Tests that WideCharToMultiByte correctly handles the following
 **          error conditions: insufficient buffer space, invalid code pages,
 **          and invalid flags.
 **
@@ -17,7 +17,7 @@
 
 
 PALTEST(locale_info_WideCharToMultiByte_test3_paltest_widechartomultibyte_test3, "locale_info/WideCharToMultiByte/test3/paltest_widechartomultibyte_test3")
-{    
+{
     char mbStr[128];
     WCHAR wideStr[128];
     int ret;
@@ -40,7 +40,7 @@ PALTEST(locale_info_WideCharToMultiByte_test3_paltest_widechartomultibyte_test3,
     /* Go through all of the code pages */
     for(i=0; i<(sizeof(codePages)/sizeof(int)); i++)
     {
-    
+
         for (k=0; k<128; k++)
         {
             wideStr[k] = 'a';
@@ -50,12 +50,12 @@ PALTEST(locale_info_WideCharToMultiByte_test3_paltest_widechartomultibyte_test3,
         wideStr[127] = 0;
 
         /* try with insufficient buffer space */
-        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1, 
+        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1,
                                   mbStr, 10, NULL, NULL);
         if (ret != 0)
         {
             Trace("WideCharToMultiByte did not return an error!\n"
-                  "Expected return of 0, got %d for code page %d.\n", ret, 
+                  "Expected return of 0, got %d for code page %d.\n", ret,
                   codePages[i]);
             bRet = FALSE;
         }

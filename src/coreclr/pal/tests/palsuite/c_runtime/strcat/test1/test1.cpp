@@ -6,9 +6,9 @@
 ** Source:  test1.c
 **
 ** Purpose:
-** Concatenate three strings into one string.  Each time, check to ensure 
-** the pointer returned was what we expected.  When finished, compare the 
-** newly formed string to what it should be to ensure no characters were 
+** Concatenate three strings into one string.  Each time, check to ensure
+** the pointer returned was what we expected.  When finished, compare the
+** newly formed string to what it should be to ensure no characters were
 ** lost.
 **
 **
@@ -26,7 +26,7 @@ PALTEST(c_runtime_strcat_test1_paltest_strcat_test1, "c_runtime/strcat/test1/pal
     char *str3 = "baz";
     char *ptr;
 
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -55,7 +55,7 @@ PALTEST(c_runtime_strcat_test1_paltest_strcat_test1, "c_runtime/strcat/test1/pal
 
     if (strcmp(dest, test) != 0)
     {
-        Fail("ERROR: Expected strcat to give \"%s\", got \"%s\"\n", 
+        Fail("ERROR: Expected strcat to give \"%s\", got \"%s\"\n",
             test, dest);
     }
 

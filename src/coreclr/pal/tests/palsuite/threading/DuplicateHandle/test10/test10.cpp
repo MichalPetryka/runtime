@@ -168,7 +168,7 @@ PALTEST(threading_DuplicateHandle_test10_paltest_duplicatehandle_test10, "thread
     /* wait until thread has tried to take the mutex */
     while (WR_WAITING == t2_result_DuplicateHandle_test10)
         Sleep(1);
-    
+
     if (WR_TIMED_OUT != t2_result_DuplicateHandle_test10 )
     {
         Trace("PALSUITE ERROR:%u: Able to take mutex %#x while its "
@@ -216,7 +216,7 @@ PALTEST(threading_DuplicateHandle_test10_paltest_duplicatehandle_test10, "thread
     /* wait until thread has taken the semaphore */
     while (WR_WAITING == t2_result_DuplicateHandle_test10)
         Sleep(1);
-    
+
     if (WR_GOT_MUTEX != t2_result_DuplicateHandle_test10 )
     {
         Trace("PALSUITE ERROR:%u: Unable to take semaphore %#x after its"

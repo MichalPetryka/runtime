@@ -405,10 +405,10 @@ HRESULT CallConv::TryGetUnmanagedCallingConventionFromModOptSigStartingAtRetType
             void* pType;
             pWalk += CorSigUncompressPointer(pWalk, &pType);
             TypeHandle type = TypeHandle::FromPtr(pType);
-            
+
             if (!required)
                 continue;
-            
+
             tokenLookupModule = GetScopeHandle(type.GetModule());
             tk = type.GetCl();
         }

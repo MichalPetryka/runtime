@@ -5,9 +5,9 @@
 **
 ** Source:  test1.c
 **
-** Purpose: 
-** Tests to see that wcsncpy correctly copies wide strings, including handling 
-** the count argument correctly (copying no more that count characters, not 
+** Purpose:
+** Tests to see that wcsncpy correctly copies wide strings, including handling
+** the count argument correctly (copying no more that count characters, not
 ** automatically adding a null, and padding if necessary).
 **
 **
@@ -23,7 +23,7 @@ PALTEST(c_runtime_wcsncpy_test1_paltest_wcsncpy_test1, "c_runtime/wcsncpy/test1/
     WCHAR str[] = {'f','o','o','b','a','r',0,'b','a','z',0};
     WCHAR *ret;
     int i;
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -38,7 +38,7 @@ PALTEST(c_runtime_wcsncpy_test1_paltest_wcsncpy_test1, "c_runtime/wcsncpy/test1/
     ret = wcsncpy(dest, str, 3);
     if (ret != dest)
     {
-        Fail("Expected wcsncpy to return %p, got %p!\n", dest, ret);        
+        Fail("Expected wcsncpy to return %p, got %p!\n", dest, ret);
     }
 
     if (wcsncmp(dest, result, 3) != 0)
@@ -54,7 +54,7 @@ PALTEST(c_runtime_wcsncpy_test1_paltest_wcsncpy_test1, "c_runtime/wcsncpy/test1/
     ret = wcsncpy(dest, str, 40);
     if (ret != dest)
     {
-        Fail("Expected wcsncpy to return %p, got %p!\n", dest, ret);        
+        Fail("Expected wcsncpy to return %p, got %p!\n", dest, ret);
     }
 
     if (wcscmp(dest, result) != 0)
@@ -74,7 +74,7 @@ PALTEST(c_runtime_wcsncpy_test1_paltest_wcsncpy_test1, "c_runtime/wcsncpy/test1/
     {
         Fail("wcsncpy overflowed!\n");
     }
-    
+
 
 
     PAL_Terminate();

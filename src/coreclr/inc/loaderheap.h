@@ -199,11 +199,11 @@ public:
 #ifdef DACCESS_COMPILE
 public:
     void EnumMemoryRegions(enum CLRDataEnumMemoryFlags flags);
-    
+
 typedef bool EnumPageRegionsCallback (PTR_VOID pvArgs, PTR_VOID pvAllocationBase, SIZE_T cbReserved);
     void EnumPageRegions (EnumPageRegionsCallback *pCallback, PTR_VOID pvArgs);
 #endif
-    
+
 protected:
     // Linked list of ClrVirtualAlloc'd pages
     PTR_LoaderHeapBlock m_pFirstBlock;
@@ -233,7 +233,7 @@ protected:
     size_t GetBytesAvailCommittedRegion();
 
 #ifndef DACCESS_COMPILE
-    const 
+    const
 #endif
     LoaderHeapImplementationKind m_kind;
 
@@ -244,7 +244,7 @@ protected:
 
     // Points to the end of the committed region in the current block
     PTR_BYTE            m_pPtrToEndOfCommittedRegion;
-    
+
 public:
 #ifdef DACCESS_COMPILE
     UnlockedLoaderHeapBase() {}

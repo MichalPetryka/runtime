@@ -11,7 +11,7 @@
 ** Depends: CreateFileMappingW,
 **          UnmapViewOfFile
 **          CloseHandle.
-**          
+**
 
 **
 **============================================================*/
@@ -64,7 +64,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test6_paltest_mapviewoffile_test6, "fil
     p = (char *)lpMapViewAddress;
     for (i=0; i<MAPPINGSIZE; ++i) {
         /* Confirm that the memory is zero-initialized */
-        if (p[i] != 0) 
+        if (p[i] != 0)
         {
             Fail("MapViewOfFile() of pagefile didn't return 0-filled data "
                  "(Offset %d has value 0x%x)\n", i, p[i]);
@@ -81,4 +81,4 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test6_paltest_mapviewoffile_test6, "fil
     return PASS;
 }
 
-  
+

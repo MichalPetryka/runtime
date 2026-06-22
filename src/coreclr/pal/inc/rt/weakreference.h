@@ -23,12 +23,12 @@ typedef struct HSTRING__{
 
 typedef HSTRING__* HSTRING;
 
-typedef /* [v1_enum] */ 
+typedef /* [v1_enum] */
 enum TrustLevel
     {
         BaseTrust	= 0,
         PartialTrust	= ( BaseTrust + 1 ) ,
-        FullTrust	= ( PartialTrust + 1 ) 
+        FullTrust	= ( PartialTrust + 1 )
     } 	TrustLevel;
 
 // AF86E2E0-B12D-4c6a-9C5A-D7AA65101E90

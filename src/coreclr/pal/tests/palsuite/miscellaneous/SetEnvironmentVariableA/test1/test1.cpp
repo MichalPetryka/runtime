@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-/*============================================================ 
+/*============================================================
 **
 ** Source: test1.c
 **
@@ -25,7 +25,7 @@
 
 PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariablea_test1, "miscellaneous/SetEnvironmentVariableA/test1/paltest_setenvironmentvariablea_test1")
 {
-  
+
     /* Define some buffers needed for the function */
     char* VariableBuffer = "PALTEST";
     char* ValueBuffer = "Testing";
@@ -48,16 +48,16 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariab
       Test #1
       =======
     */
-    
+
     SetResult = SetEnvironmentVariable(VariableBuffer,
-                                       ValueBuffer); 
+                                       ValueBuffer);
 
     /* If result is 0, the SetEnviron function failed */
-    if(SetResult == 0) 
+    if(SetResult == 0)
     {
         Fail("ERROR: SetEnvironmentVariable returned 0, which indicates that "
              "it failed, even though it should have succeeded in setting the "
-             "variable PALTEST.\n");    
+             "variable PALTEST.\n");
     }
 
     memset(NewValue,0,BUF_SIZE);
@@ -69,11 +69,11 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariab
              "indicates that no value was read in from the given variable.");
     }
 
-    /* Make sure that the value put into NewValue was indeed the environment 
-       variable we set. 
+    /* Make sure that the value put into NewValue was indeed the environment
+       variable we set.
     */
- 
-    if(memcmp(NewValue,ValueBuffer,strlen(ValueBuffer)+1) != 0) 
+
+    if(memcmp(NewValue,ValueBuffer,strlen(ValueBuffer)+1) != 0)
     {
         Fail("ERROR:  When retrieving the variable that was just set, a "
              "difference was found. Instead of the value being '%s' it "
@@ -86,20 +86,20 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariab
       Test #2
       =======
     */
-    
+
     /* If we set the same environment variable with a different value, the
        old value should be replaced.
     */
 
     SetResult = SetEnvironmentVariable(VariableBuffer,
                                        SecondValueBuffer);
- 
+
     /* If result is 0, the SetEnviron function failed */
-    if(SetResult == 0) 
+    if(SetResult == 0)
     {
         Fail("ERROR: SetEnvironmentVariable returned 0, which indicates that "
              "it failed, even though it should have succeeded in re-setting "
-             "the variable PALTEST.\n");    
+             "the variable PALTEST.\n");
     }
 
     memset(NewValue,0,BUF_SIZE);
@@ -110,12 +110,12 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariab
         Fail("ERROR: GetEnvironmentVariable returned 0 or less, which "
              "indicates that no value was read in from the given variable.");
     }
-  
-    /* Make sure that the value put into NewValue was indeed the environment 
-       variable we set. 
+
+    /* Make sure that the value put into NewValue was indeed the environment
+       variable we set.
     */
- 
-    if(memcmp(NewValue,SecondValueBuffer,strlen(SecondValueBuffer)+1) != 0) 
+
+    if(memcmp(NewValue,SecondValueBuffer,strlen(SecondValueBuffer)+1) != 0)
     {
         Fail("ERROR:  When retrieving the variable that was just set, a "
              "difference was found. Instead of the value being '%s' it "
@@ -128,24 +128,24 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariab
       Test #3
       =======
     */
-    
+
     /* Finally, set this variable with NULL, which should delete it from the
        current environment.
     */
 
     SetResult = SetEnvironmentVariable(VariableBuffer, NULL);
-    
+
     /* If result is 0, the SetEnviron function failed */
-    if(SetResult == 0) 
+    if(SetResult == 0)
     {
         Fail("ERROR: SetEnvironmentVariable returned 0, which indicates that "
              "it failed, even though it should have succeeded in deleting "
-             "the variable PALTEST.\n");    
+             "the variable PALTEST.\n");
     }
 
     memset(NewValue,0,BUF_SIZE);
-    
-    /* Grab the Environment variable we just set, ensure that it's 
+
+    /* Grab the Environment variable we just set, ensure that it's
        empty now.
     */
     if(GetEnvironmentVariable(VariableBuffer,NewValue,BUF_SIZE) != 0)
@@ -154,7 +154,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test1_paltest_setenvironmentvariab
              "even though the environment variable which was checked should "
              "have been empty.");
     }
-        
+
 
     /*
       Clean Up

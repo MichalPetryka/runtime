@@ -76,7 +76,7 @@ PALTEST(filemapping_memmgt_UnmapViewOfFile_test1_paltest_unmapviewoffile_test1, 
 
     if(NULL == hFileMapping)
         {
-        Trace("ERROR:%u: Failed to create File Mapping.\n", 
+        Trace("ERROR:%u: Failed to create File Mapping.\n",
              GetLastError());
         CloseHandle(hFile);
         Fail("");
@@ -102,13 +102,13 @@ PALTEST(filemapping_memmgt_UnmapViewOfFile_test1_paltest_unmapviewoffile_test1, 
     }
 
     /* Write to the MapView and copy the MapViewOfFile
-     * to buffer, so we can compare with value read from 
+     * to buffer, so we can compare with value read from
      * file directly.
      */
 
     memcpy(lpMapViewAddress, buf, strlen(buf));
     memcpy(ch, (LPCSTR)lpMapViewAddress, MappingSize);
-    
+
     /* Read from the File handle.
      */
     bRetVal = ReadFile(hFile,
@@ -180,4 +180,4 @@ PALTEST(filemapping_memmgt_UnmapViewOfFile_test1_paltest_unmapviewoffile_test1, 
     return PASS;
 }
 
-  
+

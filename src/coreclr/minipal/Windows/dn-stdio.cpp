@@ -37,7 +37,7 @@ HRESULT HRESULTFromErr(int err)
 
     // stdio functions aren't guaranteed to preserve GetLastError.
     // errno/ferror should be used as source of truth.
-    
+
     DWORD win32Err;
 
     switch(err)

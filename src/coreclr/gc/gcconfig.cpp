@@ -48,7 +48,7 @@ void GCConfig::EnumerateConfigurationValues(void* context, ConfigurationValueFun
 {
 #define INT_CONFIG(name, unused_private_key, public_key, unused_default, unused_doc) \
     configurationValueFunc(context, #name, public_key, GCConfigurationType::Int64, static_cast<int64_t>(s_Updated##name));
-    
+
 #define STRING_CONFIG(name, private_key, public_key, unused_doc)                     \
     {                                                                                \
         const char* resultStr = nullptr;                                             \
@@ -83,8 +83,8 @@ void GCConfig::Initialize()
 {
 #define BOOL_CONFIG(name, private_key, public_key, unused_default, unused_doc)                       \
     s_##name##Provided = GCToEEInterface::GetBooleanConfigValue(private_key, public_key, &s_##name); \
-    s_Updated##name = s_##name; 
-    
+    s_Updated##name = s_##name;
+
 #define INT_CONFIG(name, private_key, public_key, unused_default, unused_doc)                    \
     s_##name##Provided = GCToEEInterface::GetIntConfigValue(private_key, public_key, &s_##name); \
     s_Updated##name = s_##name;                                                                  \
@@ -136,11 +136,11 @@ bool ParseGCHeapAffinitizeRanges(const char* cpu_index_ranges, AffinitySet* conf
 {
     bool success = true;
 
-    // Case 1: config_affinity_mask and config_affinity_set are both null. No affinitization. 
+    // Case 1: config_affinity_mask and config_affinity_set are both null. No affinitization.
     // Case 2: config_affinity_mask is not null but config_affinity_set is null. Affinitization is based on config_affinity_mask.
     if (cpu_index_ranges == nullptr)
     {
-        // Case 2.5: If CPU Groups are enabled, however, if the user passes in the config_affinity_mask, it can't apply. 
+        // Case 2.5: If CPU Groups are enabled, however, if the user passes in the config_affinity_mask, it can't apply.
         // Therefore, we return a CLR_E_GC_BAD_AFFINITY_CONFIG_FORMAT error.
         if (config_affinity_mask != 0 && GCToOSInterface::CanEnableGCCPUGroups())
         {
@@ -152,7 +152,7 @@ bool ParseGCHeapAffinitizeRanges(const char* cpu_index_ranges, AffinitySet* conf
 
     // Case 3: config_affinity_mask is null but cpu_index_ranges isn't.
     // To facilitate the case where there are less than 65 cores but the user passes in an affinitized range associated
-    // with the 0th CPU Group, we override the config_affinity_mask with the same contents as the cpu_index_ranges. 
+    // with the 0th CPU Group, we override the config_affinity_mask with the same contents as the cpu_index_ranges.
     else if (config_affinity_mask == 0 && cpu_index_ranges != nullptr)
     {
         // Unix:

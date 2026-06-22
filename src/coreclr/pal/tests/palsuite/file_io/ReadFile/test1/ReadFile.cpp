@@ -6,7 +6,7 @@
 ** Source:  ReadFile.c (test 1)
 **
 ** Purpose: Tests the PAL implementation of the ReadFile function.
-**          This test will attempt to read from a NULL handle and from 
+**          This test will attempt to read from a NULL handle and from
 **          a file without read permissions set.
 **
 **
@@ -51,7 +51,7 @@ PALTEST(file_io_ReadFile_test1_paltest_readfile_test1, "file_io/ReadFile/test1/p
     /* attempt to read from the unreadable file
      * open a file without read permissions
      */
-    hFile = CreateFile(szNonReadableFile, 
+    hFile = CreateFile(szNonReadableFile,
         GENERIC_WRITE,
         FILE_SHARE_WRITE,
         NULL,
@@ -62,7 +62,7 @@ PALTEST(file_io_ReadFile_test1_paltest_readfile_test1, "file_io/ReadFile/test1/p
     if(hFile == INVALID_HANDLE_VALUE)
     {
         dwByteCount = GetLastError();
-        Fail("ReadFile: ERROR -> Unable to create file \"%s\".\n", 
+        Fail("ReadFile: ERROR -> Unable to create file \"%s\".\n",
             szNonReadableFile);
     }
 

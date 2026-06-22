@@ -1004,7 +1004,7 @@ MethodTableBuilder::bmtRTMethod::bmtRTMethod(
       m_methodSig(pMD->IsAsyncVariantMethod()
        ? MethodSignature(pMD->GetModule(),
                          pMD->GetMemberDef(),
-                         pMD->IsAsyncVariantForValueTaskReturningMethod(), 
+                         pMD->IsAsyncVariantForValueTaskReturningMethod(),
                          pMD->GetSignature(),
                          &pOwningType->GetSubstitution())
        : MethodSignature(pMD->GetModule(),
@@ -6051,15 +6051,15 @@ MethodTableBuilder::ProcessMethodImpls()
                                     !MethodSignature::SignaturesEquivalent(declMethod.GetMethodSignature(), it->GetMethodSignature(), FALSE)))
                             {
                                 // There are two scenarios when an async variant may not find a base to override:
-                                // 
+                                //
                                 // 1. We have a Task-returning method that is Task-returning due to generic substitution of the return type.
                                 //    The base method is T-returning and thus does not have an async variant that we can override.
-                                // 
+                                //
                                 // 2. We may have added a void-returning async thunk in anticipation of covariant Task -> Task<T> override.
                                 //    The thunk is added very early based on limited type system information and it is not 100% guaranteed that
                                 //    we actually have Task -> Task<T> situation. (i.e. we may have Object -> Task<T> override or some other case...)
                                 //    When this happens the thunk does not override anything.
-                                // 
+                                //
                                 // It is ok in the above cases to not have a base. It means that the "impl" method should not be called
                                 // polymorphically.
                                 //
@@ -9910,7 +9910,7 @@ MethodTableBuilder::LoadExactInterfaceMap(MethodTable *pMT)
                         // If so, then we should insert the special marker type
                         // Otherwise, we should insert the exact instantiation of the interface
                         // HOWEVER: If the exact instantiation IS a special marker interface, we need to retry with exact interfaces to avoid ambiguity situations
-                        // 
+                        //
                         // NOTE: This is also part of the logic which determines if we need to call SetMayHaveOpenInterfacesInInterfaceMap. The CLR type system has a bug in its structure
                         //       such that if you attempt to instantiate a type over its own type parameter from the open type, we will load the GenericTypeDefinition instead of loading
                         //       a type explicitly instantiated over those type parameters. We re-use the GenericTypeDefinition as the special marker type, which leads to a conflict

@@ -1552,4 +1552,4 @@ public:
 
 #endif // BITONIC_SORT_SCALAR
 
-    
+

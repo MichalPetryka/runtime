@@ -28,7 +28,7 @@ namespace R2RTest
                 }
 
                 return _dotnetCli;
-            } 
+            }
             set
             {
                 _dotnetCli = value;

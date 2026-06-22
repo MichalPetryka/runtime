@@ -18,7 +18,7 @@ PALTEST(miscellaneous_IsBadReadPtr_test1_paltest_isbadreadptr_test1, "miscellane
 {
     LPVOID TestingPointer = NULL;
     BOOL ResultValue = 0;
-  
+
     /*
      * Initialize the PAL and return FAILURE if this fails
      */
@@ -27,28 +27,28 @@ PALTEST(miscellaneous_IsBadReadPtr_test1_paltest_isbadreadptr_test1, "miscellane
     {
         return FAIL;
     }
-  
-    TestingPointer = malloc(MEMORY_AMOUNT); 
+
+    TestingPointer = malloc(MEMORY_AMOUNT);
     if ( TestingPointer == NULL )
     {
         Fail("ERROR: Failed to allocate memory for TestingPointer pointer. "
            "Can't properly exec test case without this.\n");
     }
- 
+
 
     /* This should be readable, and return 0 */
     ResultValue = IsBadReadPtr(TestingPointer,MEMORY_AMOUNT);
-    if(ResultValue != 0) 
+    if(ResultValue != 0)
     {
         free(TestingPointer);
 
         Fail("ERROR: The function returned %d instead of 0, when pointing "
-             "at readable memory.\n",ResultValue);    
+             "at readable memory.\n",ResultValue);
     }
 
     /* If we pass 0, the result should be 0 as well */
     ResultValue = IsBadReadPtr(TestingPointer,0);
-    if(ResultValue != 0) 
+    if(ResultValue != 0)
     {
         free(TestingPointer);
 
@@ -75,7 +75,7 @@ PALTEST(miscellaneous_IsBadReadPtr_test1_paltest_isbadreadptr_test1, "miscellane
         if(!VirtualFree(TestingPointer, 0, MEM_RELEASE))
         {
             Trace("ERROR: Call to VirtualFree failed with error"
-                " code[ %u ]\n",GetLastError());  
+                " code[ %u ]\n",GetLastError());
         }
 
         Fail("ERROR: The function returned %d instead of 1 when checking "
@@ -85,7 +85,7 @@ PALTEST(miscellaneous_IsBadReadPtr_test1_paltest_isbadreadptr_test1, "miscellane
     if(!VirtualFree(TestingPointer,0, MEM_RELEASE))
     {
         Fail("ERROR: Call to VirtualFree failed with error"
-            " code[ %u ]\n",GetLastError());  
+            " code[ %u ]\n",GetLastError());
     }
 
     /* create an unreadable address */
@@ -102,12 +102,12 @@ PALTEST(miscellaneous_IsBadReadPtr_test1_paltest_isbadreadptr_test1, "miscellane
 
     ResultValue = IsBadReadPtr(TestingPointer,16);
 
-    if(ResultValue == 0) /* if access */ 
+    if(ResultValue == 0) /* if access */
     {
         if(!VirtualFree(TestingPointer, 0, MEM_RELEASE))
         {
             Trace("ERROR: Call to VirtualFree failed with error"
-                " code[ %u ]\n",GetLastError());  
+                " code[ %u ]\n",GetLastError());
         }
 
         Fail("ERROR: The function returned %d instead of 1 when checking "
@@ -117,13 +117,13 @@ PALTEST(miscellaneous_IsBadReadPtr_test1_paltest_isbadreadptr_test1, "miscellane
     if(!VirtualFree(TestingPointer,0, MEM_RELEASE))
     {
         Fail("ERROR: Call to VirtualFree failed with error"
-            " code[ %u ]\n",GetLastError());  
+            " code[ %u ]\n",GetLastError());
     }
 
 
     /* This should be unreadable and return 1 */
     ResultValue = IsBadReadPtr(NULL,16);
-    if(ResultValue != 1) 
+    if(ResultValue != 1)
     {
         Fail("ERROR: The function returned %d instead of 1 when checking "
              "to see if NULL was readable.\n",ResultValue);

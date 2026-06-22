@@ -20,8 +20,8 @@ PALTEST(debug_api_DebugBreak_test1_paltest_debugbreak_test1, "debug_api/DebugBre
     {
         return FAIL;
     }
-    
-    PAL_TRY 
+
+    PAL_TRY
     {
         DebugBreak();
         if (!bTry)

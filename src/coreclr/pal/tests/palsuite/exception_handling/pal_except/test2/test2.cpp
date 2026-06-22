@@ -26,7 +26,7 @@ PALTEST(exception_handling_pal_except_test2_paltest_pal_except_test2, "exception
         return FAIL;
     }
 
-    PAL_TRY 
+    PAL_TRY
     {
         int* p = 0x00000000;   /* NULL pointer */
 
@@ -104,7 +104,7 @@ PALTEST(exception_handling_pal_except_test2_paltest_pal_except_test2, "exception
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

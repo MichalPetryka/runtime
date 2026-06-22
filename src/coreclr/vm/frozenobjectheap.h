@@ -7,8 +7,8 @@
 #include "gcinterface.h"
 #include <sarray.h>
 
-// FrozenObjectHeapManager provides a simple API to allocate objects on GC's Frozen Segments, it can be used as 
-// an optimization to put certain types of objects there and rely on them to be effectively pinned so, for instance, 
+// FrozenObjectHeapManager provides a simple API to allocate objects on GC's Frozen Segments, it can be used as
+// an optimization to put certain types of objects there and rely on them to be effectively pinned so, for instance,
 // jit can bake direct addresses of them in codegen and avoid extra indirect loads.
 //
 // Example: a string literal allocated on a normal heap looks like this in JIT for x64:

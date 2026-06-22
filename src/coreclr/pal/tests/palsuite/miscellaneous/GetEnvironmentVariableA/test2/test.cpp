@@ -6,8 +6,8 @@
 ** Source : test.c
 **
 ** Purpose: Test for GetEnvironmentVariable() function
-** Pass a small buffer to GetEnvironmentVariableA to ensure 
-** it returns the size it requires.	
+** Pass a small buffer to GetEnvironmentVariableA to ensure
+** it returns the size it requires.
 **
 **
 **=========================================================*/
@@ -21,9 +21,9 @@ PALTEST(miscellaneous_GetEnvironmentVariableA_test2_paltest_getenvironmentvariab
 
     /* A place to stash the returned values */
     int  ReturnValueForSmallBuffer = 0;
-    
+
     char pSmallBuffer[SMALL_BUFFER_SIZE];
- 
+
     /*
      * Initialize the PAL and return FAILURE if this fails
      */
@@ -32,22 +32,22 @@ PALTEST(miscellaneous_GetEnvironmentVariableA_test2_paltest_getenvironmentvariab
     {
         return FAIL;
     }
-  
-    /* PATH won't fit in this buffer, it should return how many 
-       characters it needs 
+
+    /* PATH won't fit in this buffer, it should return how many
+       characters it needs
     */
-  
-    ReturnValueForSmallBuffer = GetEnvironmentVariable("PATH",       
+
+    ReturnValueForSmallBuffer = GetEnvironmentVariable("PATH",
                                                        pSmallBuffer,
-                                                       SMALL_BUFFER_SIZE);  
-    if(ReturnValueForSmallBuffer <= 0) 
+                                                       SMALL_BUFFER_SIZE);
+    if(ReturnValueForSmallBuffer <= 0)
     {
         Fail("The return value was %d when it should have been greater "
-             "than 0. " 
+             "than 0. "
              "This should return the number of characters needed to contained "
              "the contents of PATH in a buffer.\n",ReturnValueForSmallBuffer);
     }
-  
+
     PAL_Terminate();
     return PASS;
 }

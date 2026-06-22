@@ -902,7 +902,7 @@ private:
     // This is the index of the first such variable.
     int32_t m_continuationArgIndex = -1; // Index of the continuation argument in the m_pVars array for async methods.
     int32_t m_clauseVarsIndex = 0;
-    
+
     int32_t m_synchronizedOrAsyncPostFinallyOffset = -1; // If the method is synchronized/async, this is the offset of the instruction after the finally which does the actual return
 
     bool m_isSynchronized = false;

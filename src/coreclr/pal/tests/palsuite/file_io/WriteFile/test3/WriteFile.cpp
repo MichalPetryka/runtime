@@ -68,8 +68,8 @@ BOOL writeTest_WriteFile_test3(const char* szString)
     char* szPtr = NULL;
     int i = 0;
 
-    // create the test file 
-    hFile = CreateFile(szWritableFile, 
+    // create the test file
+    hFile = CreateFile(szWritableFile,
         GENERIC_WRITE,
         FILE_SHARE_WRITE,
         NULL,
@@ -79,7 +79,7 @@ BOOL writeTest_WriteFile_test3(const char* szString)
 
     if(hFile == INVALID_HANDLE_VALUE)
     {
-        Trace("WriteFile: ERROR -> Unable to create file \"%s\".\n", 
+        Trace("WriteFile: ERROR -> Unable to create file \"%s\".\n",
             szWritableFile);
         return FALSE;
     }
@@ -99,7 +99,7 @@ BOOL writeTest_WriteFile_test3(const char* szString)
 
     if (bAllPassed == FALSE)
     {
-        Trace ("WriteFile: ERROR: Failed to write data.\n"); 
+        Trace ("WriteFile: ERROR: Failed to write data.\n");
         return FALSE;
     }
     else

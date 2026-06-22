@@ -394,7 +394,7 @@ void ETW::LoaderLog::SendModuleEvent(HANDLE pModule, uint32_t dwEventOptions)
             wszBuildId[written++] = hexDigits[c >> 4];
             wszBuildId[written++] = hexDigits[c & 0xF];
         } else {
-            // If buffer not enough to fit, truncate 
+            // If buffer not enough to fit, truncate
             break;
         }
     }
@@ -408,15 +408,15 @@ void ETW::LoaderLog::SendModuleEvent(HANDLE pModule, uint32_t dwEventOptions)
             ULONGLONG(pModule),
             0,                      // AssemblyID
             ETW::LoaderLog::LoaderStructs::NativeModule, // Module Flags
-            0,                      // Reserved1, 
-            wszModuleILFileName,    // ModuleILPath, 
-            wszModuleFileName,      // ModuleNativePath, 
+            0,                      // Reserved1,
+            wszModuleILFileName,    // ModuleILPath,
+            wszModuleFileName,      // ModuleNativePath,
             GetClrInstanceId(),
             &zeroGuid,              // ManagedPdbSignature,
-            0,                      // ManagedPdbAge, 
-            NULL,                   // ManagedPdbBuildPath, 
+            0,                      // ManagedPdbAge,
+            NULL,                   // ManagedPdbBuildPath,
             &nativeGuid,            // NativePdbSignature,
-            dwAge,                  // NativePdbAge, 
+            dwAge,                  // NativePdbAge,
             wszPath,                // NativePdbBuildPath,
             wszBuildId              // NativeBuildId,
             );
@@ -427,16 +427,16 @@ void ETW::LoaderLog::SendModuleEvent(HANDLE pModule, uint32_t dwEventOptions)
             ULONGLONG(pModule),
             0,                      // AssemblyID
             ETW::LoaderLog::LoaderStructs::NativeModule, // Module Flags
-            0,                      // Reserved1, 
-            wszModuleILFileName,    // ModuleILPath, 
-            wszModuleFileName,      // ModuleNativePath, 
+            0,                      // Reserved1,
+            wszModuleILFileName,    // ModuleILPath,
+            wszModuleFileName,      // ModuleNativePath,
             GetClrInstanceId(),
             &zeroGuid,              // ManagedPdbSignature,
-            0,                      // ManagedPdbAge, 
-            NULL,                   // ManagedPdbBuildPath, 
+            0,                      // ManagedPdbAge,
+            NULL,                   // ManagedPdbBuildPath,
             &nativeGuid,            // NativePdbSignature,
-            dwAge,                  // NativePdbAge, 
-            wszPath,                // NativePdbBuildPath, 
+            dwAge,                  // NativePdbAge,
+            wszPath,                // NativePdbBuildPath,
             wszBuildId              // NativeBuildId,
             );
     }

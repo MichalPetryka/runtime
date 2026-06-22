@@ -38,7 +38,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableW_test4_paltest_setenvironmentvariab
     {
         return FAIL;
     }
-  
+
     /* Set the first environment variable */
     bRc = SetEnvironmentVariableW(FirstEnvironmentVariable,
                             FirstEnvironmentValue);
@@ -51,13 +51,13 @@ PALTEST(miscellaneous_SetEnvironmentVariableW_test4_paltest_setenvironmentvariab
     }
 
     /* Normal case, PATH should fit into this buffer */
-    size = GetEnvironmentVariableW(ModifiedEnvironmentVariable,        
-                                  pResultBuffer,    
-                                  0);                 
+    size = GetEnvironmentVariableW(ModifiedEnvironmentVariable,
+                                  pResultBuffer,
+                                  0);
 
     /* To account for the nul character at the end of the string */
     size = size + 1;
-    
+
     pResultBuffer = (WCHAR*)malloc(sizeof(WCHAR)*size);
     if ( pResultBuffer == NULL )
     {
@@ -86,7 +86,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableW_test4_paltest_setenvironmentvariab
     }
 
     free(pResultBuffer);
-  
+
     PAL_Terminate();
     return PASS;
 

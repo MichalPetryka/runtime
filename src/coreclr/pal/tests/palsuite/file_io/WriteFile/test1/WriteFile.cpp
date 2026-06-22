@@ -60,7 +60,7 @@ PALTEST(file_io_WriteFile_test1_paltest_writefile_test1, "file_io/WriteFile/test
     //
 
     // create a file without write permissions
-    hFile = CreateFile(szReadOnlyFile, 
+    hFile = CreateFile(szReadOnlyFile,
         GENERIC_READ,
         FILE_SHARE_READ,
         NULL,
@@ -71,10 +71,10 @@ PALTEST(file_io_WriteFile_test1_paltest_writefile_test1, "file_io/WriteFile/test
     if(hFile == INVALID_HANDLE_VALUE)
     {
         last_error = GetLastError();
-        Fail("WriteFile: ERROR[%ld] -> Unable to create file \"%s\".\n", 
+        Fail("WriteFile: ERROR[%ld] -> Unable to create file \"%s\".\n",
             last_error, szReadOnlyFile);
     }
-    
+
     if ((last_error = chmod(szReadOnlyFile, S_IRUSR | S_IRGRP | S_IROTH)) != 0)
     {
 		Trace("WriteFile: ERROR[%ld] -> Unable to make the file read-only.\n", last_error);
@@ -96,7 +96,7 @@ PALTEST(file_io_WriteFile_test1_paltest_writefile_test1, "file_io/WriteFile/test
     {   last_error = GetLastError();
 		Trace("WriteFile: ERROR[%ld] -> Unable to close file \"%s\".\n", last_error, szReadOnlyFile);
 		do_cleanup_WriteFile_test1();
-        Fail("WriteFile: ERROR -> Unable to close file \"%s\".\n", 
+        Fail("WriteFile: ERROR -> Unable to close file \"%s\".\n",
             szReadOnlyFile);
     }
 

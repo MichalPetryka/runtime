@@ -6,12 +6,12 @@
 ** Source: getcurrentthreadid/test1/threadid.c
 **
 ** Purpose: Test to ensure GetCurrentThreadId returns the threadId of the
-** current thread. 
-** 
+** current thread.
+**
 ** Dependencies: CloseHandle
 **               WaitForSingleObject
 **               CreateThread
-** 
+**
 
 **
 **=========================================================*/
@@ -32,33 +32,33 @@ PALTEST(threading_GetCurrentThreadId_test1_paltest_getcurrentthreadid_test1, "th
 {
     extern DWORD dwThreadIdTF;
     DWORD dwThreadIdCT;
-    HANDLE hThread; 
+    HANDLE hThread;
     DWORD dwThreadParam = 1;
     DWORD dwThreadWait;
-    
+
     if(0 != (PAL_Initialize(argc, argv)))
     {
         return ( FAIL );
     }
-    
+
     hThread = CreateThread(
-        NULL,            
-        0,               
-        ThreadFunction,  
-        &dwThreadParam,  
-        0,               
-        &dwThreadIdCT);  
-    
-    if ( NULL == hThread ) 
+        NULL,
+        0,
+        ThreadFunction,
+        &dwThreadParam,
+        0,
+        &dwThreadIdCT);
+
+    if ( NULL == hThread )
     {
         Fail ( "CreateThread() call failed - returned NULL");
     }
-    else 
+    else
     {
-	dwThreadWait = WaitForSingleObject( hThread, INFINITE );   
-    
+	dwThreadWait = WaitForSingleObject( hThread, INFINITE );
+
         Trace ("dwThreadWait returned %d\n", dwThreadWait );
-    
+
 	if ( dwThreadIdCT == dwThreadIdTF )
 	{
             Trace ( "ThreadId numbers match - GetCurrentThreadId"
@@ -67,7 +67,7 @@ PALTEST(threading_GetCurrentThreadId_test1_paltest_getcurrentthreadid_test1, "th
 	    PAL_Terminate();
             return ( PASS );
 	}
-	else 
+	else
 	{
             Fail ( "ThreadId numbers don't match - "
 		     "GetCurrentThreadId fails dwThreadIdCT = %d "

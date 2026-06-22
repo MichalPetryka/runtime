@@ -33,7 +33,7 @@ EXTERN_GUID(IID_IMetaDataEmit3, 0x1a5abcd7, 0x854e, 0x4f07, 0xac, 0xe4, 0x3f, 0x
 #define INTERFACE IMetaDataEmit3
 DECLARE_INTERFACE_(IMetaDataEmit3, IMetaDataEmit2)
 {
-    
+
     STDMETHOD(GetReferencedTypeSysTables)(  // S_OK or error.
         ULONG64     *refTables,             // [OUT] Bit vector of referenced type system metadata tables.
         ULONG       refTableRows[],         // [OUT] Array of number of rows for each referenced type system table.

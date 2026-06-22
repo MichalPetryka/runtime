@@ -53,7 +53,7 @@ PALTEST(threading_WaitForSingleObject_WFSOSemaphoreTest_paltest_waitforsingleobj
 		    }
 
    //Create Semaphore
-		hSemaphore_WFSOSemaphore = CreateSemaphoreExW( 
+		hSemaphore_WFSOSemaphore = CreateSemaphoreExW(
 			NULL,   // no security attributes
 			cMax,   // initial count
 			cMax,   // maximum count
@@ -110,7 +110,7 @@ for (i=0;i<NUMBER_OF_WORKER_THREADS;i++)
 	    	}
 	}
 
-//Close Semaphore Handle 
+//Close Semaphore Handle
 if (0==CloseHandle(hSemaphore_WFSOSemaphore))
 	    	{
 	    		Trace("Could not close semaphore handle\n");
@@ -130,7 +130,7 @@ void incrementCounter_WFSOSemaphore(void)
 			globalcounter_WFSOSemaphore = 0;
 		}
 
-	globalcounter_WFSOSemaphore++;	
+	globalcounter_WFSOSemaphore++;
 	Trace("Global Counter Value: %d \n", globalcounter_WFSOSemaphore);
 }
 
@@ -142,7 +142,7 @@ DWORD PALAPI WFSOSemaphoreTest(LPVOID params)
 
     // Request ownership of Semaphore
 
-    dwWaitResult = WaitForSingleObject( 
+    dwWaitResult = WaitForSingleObject(
         hSemaphore_WFSOSemaphore,   // handle to semaphore
         0L);          // zero-second time-out interval
 

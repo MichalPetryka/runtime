@@ -24,11 +24,11 @@ struct testCase
 
 PALTEST(c_runtime_toupper_test1_paltest_toupper_test1, "c_runtime/toupper/test1/paltest_toupper_test1")
 {
-  
-    int result;  
+
+    int result;
     int i;
 
-    struct testCase testCases[] = 
+    struct testCase testCases[] =
         {
             {'A', 'a'},   /* Basic cases */
             {'Z', 'z'},
@@ -36,28 +36,28 @@ PALTEST(c_runtime_toupper_test1_paltest_toupper_test1, "c_runtime/toupper/test1/
             {'%',  '%'},  /* Characters without case */
             {157,  157}
         };
-  
+
     if ((PAL_Initialize(argc, argv)) != 0)
     {
         return FAIL;
     }
 
 
-    /* Loop through each case.  Convert each character to upper case 
+    /* Loop through each case.  Convert each character to upper case
        and then compare to ensure that it is the correct value.
     */
     for(i = 0; i < sizeof(testCases) / sizeof(struct testCase); i++)
     {
         /*Convert to upper case*/
         result = toupper(testCases[i].start);
-     
+
         if (testCases[i].upper != result)
         {
             Fail("ERROR: toupper capitalized \"%c\" to %c instead of %c.\n",
                    testCases[i].start, result, testCases[i].upper);
         }
     }
-  
+
     PAL_Terminate();
     return PASS;
-} 
+}

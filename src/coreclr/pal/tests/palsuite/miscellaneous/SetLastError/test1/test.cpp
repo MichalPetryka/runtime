@@ -20,7 +20,7 @@ PALTEST(miscellaneous_SetLastError_test1_paltest_setlasterror_test1, "miscellane
     /* Error value that we can set to test */
     const unsigned int FAKE_ERROR = 5;
     const int NEGATIVE_ERROR = -1;
-  
+
     /*
      * Initialize the PAL and return FAILURE if this fails
      */
@@ -32,25 +32,25 @@ PALTEST(miscellaneous_SetLastError_test1_paltest_setlasterror_test1, "miscellane
 
     /* Set error */
     SetLastError(FAKE_ERROR);
-  
+
     /* Check to make sure it returns the error value we just set */
-    if(GetLastError() != FAKE_ERROR) 
+    if(GetLastError() != FAKE_ERROR)
     {
         Fail("ERROR: The last error should have been '%d' but the error "
              "returned was '%d'\n",FAKE_ERROR,GetLastError());
     }
-  
+
     /* Set the error to a negative */
     SetLastError(NEGATIVE_ERROR);
-  
+
     /* Check to make sure it returns the error value we just set */
-    if((signed)GetLastError() != NEGATIVE_ERROR) 
+    if((signed)GetLastError() != NEGATIVE_ERROR)
     {
         Fail("ERROR: The last error should have been '%d' but the error "
              "returned was '%d'\n",NEGATIVE_ERROR,GetLastError());
     }
-  
-    
+
+
     PAL_Terminate();
     return PASS;
 }

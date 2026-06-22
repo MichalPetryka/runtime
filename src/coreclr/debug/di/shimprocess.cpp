@@ -790,7 +790,7 @@ HRESULT ShimProcess::HandleWin32DebugEvent(const DEBUG_EVENT * pEvent)
         }
     }
 #ifdef OUT_OF_PROCESS_SETTHREADCONTEXT
-    else if (pEvent->dwDebugEventCode == CREATE_THREAD_DEBUG_EVENT || 
+    else if (pEvent->dwDebugEventCode == CREATE_THREAD_DEBUG_EVENT ||
             pEvent->dwDebugEventCode == EXIT_THREAD_DEBUG_EVENT ||
             pEvent->dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT)
     {

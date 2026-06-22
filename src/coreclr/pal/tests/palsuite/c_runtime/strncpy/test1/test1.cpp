@@ -8,7 +8,7 @@
 ** Purpose:
 ** Test to see that you can copy a portion of a string into a new buffer.
 ** Also check that the strncpy function doesn't overflow when it is used.
-** Finally check that if the number of characters given is greater than the 
+** Finally check that if the number of characters given is greater than the
 ** amount to copy, that the destination buffer is padded with NULLs.
 **
 **
@@ -24,7 +24,7 @@ PALTEST(c_runtime_strncpy_test1_paltest_strncpy_test1, "c_runtime/strncpy/test1/
     char *str = "foobar\0baz";
     char *ret;
     int i;
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -39,7 +39,7 @@ PALTEST(c_runtime_strncpy_test1_paltest_strncpy_test1, "c_runtime/strncpy/test1/
     ret = strncpy(dest, str, 3);
     if (ret != dest)
     {
-        Fail("Expected strncpy to return %p, got %p!\n", dest, ret);        
+        Fail("Expected strncpy to return %p, got %p!\n", dest, ret);
     }
 
     if (strncmp(dest, result, 3) != 0)
@@ -55,7 +55,7 @@ PALTEST(c_runtime_strncpy_test1_paltest_strncpy_test1, "c_runtime/strncpy/test1/
     ret = strncpy(dest, str, 40);
     if (ret != dest)
     {
-        Fail("Expected strncpy to return %p, got %p!\n", dest, ret);        
+        Fail("Expected strncpy to return %p, got %p!\n", dest, ret);
     }
 
     if (strcmp(dest, result) != 0)
@@ -75,7 +75,7 @@ PALTEST(c_runtime_strncpy_test1_paltest_strncpy_test1, "c_runtime/strncpy/test1/
     {
         Fail("strncpy overflowed!\n");
     }
-    
+
 
 
     PAL_Terminate();

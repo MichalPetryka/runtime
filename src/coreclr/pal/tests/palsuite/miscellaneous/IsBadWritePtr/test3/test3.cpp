@@ -5,7 +5,7 @@
 **
 ** Source: test3.c
 **
-** Purpose: 
+** Purpose:
 ** Check that IsBadWritePtr returns non-zero on Read-only memory.
 **
 **
@@ -16,21 +16,21 @@
 
 PALTEST(miscellaneous_IsBadWritePtr_test3_paltest_isbadwriteptr_test3, "miscellaneous/IsBadWritePtr/test3/paltest_isbadwriteptr_test3")
 {
-    
+
     LPVOID PageOne;
 
     if(0 != (PAL_Initialize(argc, argv)))
     {
 	return FAIL;
     }
-    
+
     /* Reserve enough space for four pages.  We'll commit this memory
        and set the correct access for each page below.
     */
-    
-    PageOne = VirtualAlloc(NULL, 
-			   minipal_getpagesize(), 
-			   MEM_COMMIT, 
+
+    PageOne = VirtualAlloc(NULL,
+			   minipal_getpagesize(),
+			   MEM_COMMIT,
 			   PAGE_READONLY);
 
     if(PageOne == NULL)

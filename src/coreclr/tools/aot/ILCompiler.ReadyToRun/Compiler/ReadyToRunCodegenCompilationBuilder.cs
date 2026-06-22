@@ -288,7 +288,7 @@ namespace ILCompiler
             IComparer<DependencyNodeCore<NodeFactory>> comparer = new SortableDependencyNode.ObjectNodeComparer(CompilerComparer.Instance);
             DependencyAnalyzerBase<NodeFactory> graph = CreateDependencyGraph(factory, comparer);
 
-            
+
             List<CorJitFlag> corJitFlags = new List<CorJitFlag> { CorJitFlag.CORJIT_FLAG_DEBUG_INFO };
             if (_hotColdSplitting)
             {

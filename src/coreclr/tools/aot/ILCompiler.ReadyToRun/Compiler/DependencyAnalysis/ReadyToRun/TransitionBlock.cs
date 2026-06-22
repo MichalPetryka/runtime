@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Provides an abstraction over platform specific calling conventions (specifically, the calling convention
-// utilized by the JIT on that platform). The caller enumerates each argument of a signature in turn, and is 
+// utilized by the JIT on that platform). The caller enumerates each argument of a signature in turn, and is
 // provided with information mapping that argument into registers and/or stack locations.
 
 using System;
@@ -183,7 +183,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         /// to calling it for the "real" arguments. Pass in a typ of ELEMENT_TYPE_CLASS.
         /// </summary>
         /// <param name="pNumRegistersUsed">
-        /// keeps track of the number of argument registers assigned previously. 
+        /// keeps track of the number of argument registers assigned previously.
         /// The caller should initialize this variable to 0 - then each call will update it.
         /// </param>
         /// <param name="typ">parameter type</param>
@@ -287,7 +287,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
 
         /// <summary>
         /// Check whether an arg is automatically switched to passing by reference.
-        /// Note that this overload does not handle varargs. This method only works for 
+        /// Note that this overload does not handle varargs. This method only works for
         /// valuetypes - true value types, primitives, enums and TypedReference.
         /// The method is only overridden to do something meaningful on X64, ARM64 and WASM.
         /// </summary>
@@ -536,7 +536,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
             // Callee-saved registers, return address
             public override int SizeOfTransitionBlock => SizeOfCalleeSavedRegisters + PointerSize;
             public override int OffsetOfArgumentRegisters => SizeOfTransitionBlock;
-            // CALLDESCR_FPARGREGS is not set for Amd64 on 
+            // CALLDESCR_FPARGREGS is not set for Amd64 on
             public override int OffsetOfFloatArgumentRegisters => 0;
             public override int EnregisteredParamTypeMaxSize => 8;
             public override int EnregisteredReturnTypeIntegerMaxSize => 8;
@@ -749,7 +749,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
                 int stackSlotSize = 8;
                 return ALIGN_UP(parmSize, stackSlotSize);
             }
-            
+
         }
 
         private class Wasm32TransitionBlock : TransitionBlock

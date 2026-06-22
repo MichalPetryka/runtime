@@ -12,7 +12,7 @@
 #include <palsuite.h>
 
 /*
- * Notes: wcstoul should depend on the current locale's LC_NUMERIC category, 
+ * Notes: wcstoul should depend on the current locale's LC_NUMERIC category,
  * this is not currently tested.
  */
 
@@ -20,10 +20,10 @@
 PALTEST(c_runtime_wcstoul_test2_paltest_wcstoul_test2, "c_runtime/wcstoul/test2/paltest_wcstoul_test2")
 {
     WCHAR teststr[] = {'1','2','3','4','5',0};
-    WCHAR *end;    
+    WCHAR *end;
     ULONG result = 12345;
     ULONG l;
-    
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;

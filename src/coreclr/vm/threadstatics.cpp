@@ -251,7 +251,7 @@ void TLSIndexToMethodTableMap::Set(TLSIndex index, PTR_MethodTable pMT, bool isG
     // However, we have had issues with race safety in this codebase, and we fixed them by adding several VolatileStore which we believe are actually critical
     // but this is a scenario which AI indicated should also have a VolatileStore. We've chosen to add the VolatileStore as a defensive measure, as this is very
     // rarely run code.
-    VolatileStore(&pMap[index.GetIndexOffset()], rawValue); 
+    VolatileStore(&pMap[index.GetIndexOffset()], rawValue);
 }
 
 void TLSIndexToMethodTableMap::Clear(TLSIndex index, uint8_t whenCleared)

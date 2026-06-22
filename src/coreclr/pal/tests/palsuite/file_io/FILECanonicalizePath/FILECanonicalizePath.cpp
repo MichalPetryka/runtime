@@ -31,25 +31,25 @@ PALTEST(file_io_FILECanonicalizePath_paltest_filecanonicalizepath_test1, "file_i
 
     // Case 03: // transforms to /
     TestCase("//", "/");
-  
+
     // Case 04: /./ transforms to /
     TestCase("/./", "/");
-    
+
     // Case 05: /<name>/../ transforms to /
     TestCase("/Test/../", "/");
-        
+
     // Case 06: /Test/Foo/.. transforms to /Test
     TestCase("/Test/Foo/..", "/Test");
-        
+
     // Case 07: /Test/.. transforms to /
     TestCase("/Test/..", "/");
-        
+
     // Case 08: /. transforms to /
     TestCase("/.", "/");
-        
+
     // Case 09: /<name/. transforms to /<name>
     TestCase("/Test/.", "/Test");
-    
+
     // Case 10: /<name>/../. transforms to /
     TestCase("/Test/../.", "/");
 

@@ -82,5 +82,5 @@ PerPatchpointInfo* OnStackReplacementManager::GetPerPatchpointInfo(PCODE funcSta
 #endif // !DACCESS_COMPILE
 
 #endif // FEATURE_ON_STACK_REPLACEMENT
- 
+
 

@@ -45,7 +45,7 @@ PALTEST(c_runtime__alloca_test1_paltest_alloca_test1, "c_runtime/_alloca/test1/p
                     " properly allocated\n");
         }
     }
-    
+
     PAL_Terminate();
     return PASS;
 }

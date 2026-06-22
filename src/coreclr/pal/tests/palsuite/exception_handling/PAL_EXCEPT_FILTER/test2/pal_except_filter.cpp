@@ -5,7 +5,7 @@
 **
 ** Source:  pal_except_filter.c (test 2)
 **
-** Purpose: Tests the PAL implementation of the PAL_EXCEPT_FILTER. An 
+** Purpose: Tests the PAL implementation of the PAL_EXCEPT_FILTER. An
 **          exception is forced and the filter returns
 **          EXCEPTION_CONTINUE_EXECUTION to allow execution to continue.
 **
@@ -27,7 +27,7 @@ LONG ExitFilter(EXCEPTION_POINTERS* ep, LPVOID pnTestInt)
 {
     int nTestInt = *(int *)pnTestInt;
     void *Temp;
-    
+
     /* let the main know we've hit the filter function */
     bFilter = TRUE;
 
@@ -56,9 +56,9 @@ LONG ExitFilter(EXCEPTION_POINTERS* ep, LPVOID pnTestInt)
     }
 
     /* attempt to correct the problem by commiting the page at address 'p'  */
-    Temp= VirtualAlloc(p, 1, MEM_COMMIT, PAGE_READWRITE);	
-    if (!Temp) 
-    { 
+    Temp= VirtualAlloc(p, 1, MEM_COMMIT, PAGE_READWRITE);
+    if (!Temp)
+    {
         Fail("EXCEPTION_CONTINUE_EXECUTION: last error = %u - probably "
              "out of memory. Unable to continue, not proof of exception "
              "failure\n",
@@ -83,8 +83,8 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_test2_paltest_pal_except_filter_tes
     /*
     ** test to make sure we get into the exception block
     */
-    
-    PAL_TRY 
+
+    PAL_TRY
     {
         if (bExcept)
         {
@@ -95,7 +95,7 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_test2_paltest_pal_except_filter_tes
 
         /* reserve an address chunk for p to point to */
         p = (char*) VirtualAlloc(0, 1, MEM_RESERVE, PAGE_READONLY);
-        if (!p) 
+        if (!p)
         {
             Fail("EXCEPTION_CONTINUE_EXECUTION: test setup via "
                  "VirtualAlloc failed.\n");
@@ -105,7 +105,7 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_test2_paltest_pal_except_filter_tes
 
         bTry2 = TRUE;
 
- 
+
     }
     PAL_EXCEPT_FILTER(ExitFilter, (LPVOID)&nValidator)
     {
@@ -147,7 +147,7 @@ PALTEST(exception_handling_PAL_EXCEPT_FILTER_test2_paltest_pal_except_filter_tes
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

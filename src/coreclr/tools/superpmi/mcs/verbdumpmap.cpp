@@ -129,7 +129,7 @@ void DumpMap(int index, MethodContext* mc)
         {
             rawFlags |= 1ULL << (EXTRA_JIT_FLAGS::HAS_STATIC_PROFILE);
         }
-        
+
         if (pgoSource == ICorJitInfo::PgoSource::Dynamic)
         {
             rawFlags |= 1ULL << (EXTRA_JIT_FLAGS::HAS_DYNAMIC_PROFILE);

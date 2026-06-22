@@ -5,8 +5,8 @@
 **
 ** Source: test.c (exception_handling\raiseexception\test3)
 **
-** Purpose: Tests that the correct ExceptionCode is passed 
-**          to the filter by RaiseException 
+** Purpose: Tests that the correct ExceptionCode is passed
+**          to the filter by RaiseException
 **
 **
 **============================================================*/
@@ -34,7 +34,7 @@ LONG Filter_test1_RaiseException_test3(EXCEPTION_POINTERS* ep, VOID* unused)
             " The filter was hit without PAL_TRY being hit.\n");
     }
 
-    
+
     /* was the correct exception code passed? */
     if (ep->ExceptionRecord->ExceptionCode != EXCEPTION_ARRAY_BOUNDS_EXCEEDED)
     {
@@ -51,15 +51,15 @@ LONG Filter_test1_RaiseException_test3(EXCEPTION_POINTERS* ep, VOID* unused)
 PALTEST(exception_handling_RaiseException_test3_paltest_raiseexception_test3, "exception_handling/RaiseException/test3/paltest_raiseexception_test3")
 {
     bExcept_RaiseException_test3 = FALSE;
-    
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;
     }
 
     /********************************************************
-     * Test that the correct arguments are passed 
-     * to the filter by RaiseException 
+     * Test that the correct arguments are passed
+     * to the filter by RaiseException
      */
     PAL_TRY(VOID*, unused, NULL)
     {
@@ -108,7 +108,7 @@ PALTEST(exception_handling_RaiseException_test3_paltest_raiseexception_test3, "e
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

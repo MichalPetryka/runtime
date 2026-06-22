@@ -8,7 +8,7 @@
 **          Create environment variables that differ only
 **          in case and verify that they return the appropriate
 **          value in the WIN32 Environment
-** 
+**
 
 **
 ===========================================================*/
@@ -38,7 +38,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test4_paltest_setenvironmentvariab
     {
         return FAIL;
     }
-  
+
     /* Set the first environment variable */
     bRc = SetEnvironmentVariableA(FirstEnvironmentVariable,
                             FirstEnvironmentValue);
@@ -51,13 +51,13 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test4_paltest_setenvironmentvariab
     }
 
     /* Normal case, PATH should fit into this buffer */
-    size = GetEnvironmentVariableA(ModifiedEnvVar,        
-                                  pResultBuffer,    
+    size = GetEnvironmentVariableA(ModifiedEnvVar,
+                                  pResultBuffer,
                                   0);
-    
+
     /* To account for the null character at the end of the string */
     size = size + 1;
-    
+
     pResultBuffer = (char*)malloc(sizeof(char)*size);
     if ( pResultBuffer == NULL )
     {
@@ -78,7 +78,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test4_paltest_setenvironmentvariab
     }
 
     /* Compare the strings to see that the correct variable was returned */
-    if(strcmp(pResultBuffer,FirstEnvironmentValue) != 0) 
+    if(strcmp(pResultBuffer,FirstEnvironmentValue) != 0)
     {
         Trace("ERROR: The value in the buffer should have been '%s' but "
              "was really '%s'.\n",FirstEnvironmentValue, pResultBuffer);
@@ -87,7 +87,7 @@ PALTEST(miscellaneous_SetEnvironmentVariableA_test4_paltest_setenvironmentvariab
     }
 
     free(pResultBuffer);
-  
+
     PAL_Terminate();
     return PASS;
 

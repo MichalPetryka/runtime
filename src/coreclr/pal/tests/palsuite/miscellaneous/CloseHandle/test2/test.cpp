@@ -25,18 +25,18 @@ PALTEST(miscellaneous_CloseHandle_test2_paltest_closehandle_test2, "miscellaneou
     {
         return FAIL;
     }
- 
-    /* If the handle is already closed and you can close it again, 
-     * something is wrong. 
+
+    /* If the handle is already closed and you can close it again,
+     * something is wrong.
      */
-  
-    if(CloseHandle(SomeHandle) != 0) 
+
+    if(CloseHandle(SomeHandle) != 0)
     {
         Fail("ERROR: Called CloseHandle on an already closed Handle "
              "and it still returned as a success.\n");
     }
-  
-    
+
+
     PAL_Terminate();
     return PASS;
 }

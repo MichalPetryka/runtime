@@ -3,7 +3,7 @@
 
 /*============================================================
 **
-** Source: test1.c 
+** Source: test1.c
 **
 ** Purpose: Test for ResumeThread.  Create a suspended Thread.
 ** First, ensure that it is indeed suspended.  Then call resumethread
@@ -23,7 +23,7 @@ DWORD PALAPI ResumeThreadTestThread( LPVOID lpParameter)
     /* Save parameter so we can check and ensure this function ran
        properly.
     */
-    
+
     dwResumeThreadTestParameter = (DWORD)(SIZE_T)lpParameter;
 
     return dwRet;
@@ -35,7 +35,7 @@ BOOL ResumeThreadTest()
     DWORD dwRet = 0;
 
     LPSECURITY_ATTRIBUTES lpThreadAttributes = NULL;
-    DWORD dwStackSize = 0; 
+    DWORD dwStackSize = 0;
     LPTHREAD_START_ROUTINE lpStartAddress =  &ResumeThreadTestThread;
     LPVOID lpParameter = (LPVOID)lpStartAddress;
     DWORD dwCreationFlags = CREATE_SUSPENDED;
@@ -47,10 +47,10 @@ BOOL ResumeThreadTest()
 
     /* Create a thread, with CREATE_SUSPENDED, so we can resume it! */
 
-    hThread = CreateThread( lpThreadAttributes, 
-                            dwStackSize, lpStartAddress, lpParameter, 
-                            dwCreationFlags, &dwThreadId ); 
-    
+    hThread = CreateThread( lpThreadAttributes,
+                            dwStackSize, lpStartAddress, lpParameter,
+                            dwCreationFlags, &dwThreadId );
+
     if (hThread != INVALID_HANDLE_VALUE)
     {
         /* Wait for one second.  This should return WAIT_TIMEOUT */
@@ -75,7 +75,7 @@ BOOL ResumeThreadTest()
                 /* Call ResumeThread and ensure the return value is
                    correct.
                 */
-                
+
                 dwRet = ResumeThread(hThread);
 
                 if (dwRet != 1)
@@ -118,7 +118,7 @@ BOOL ResumeThreadTest()
         Trace("ResumeThreadTest:CreateThread failed (%x)\n",GetLastError());
     }
 
-    return bRet; 
+    return bRet;
 }
 
 PALTEST(threading_ResumeThread_test1_paltest_resumethread_test1, "threading/ResumeThread/test1/paltest_resumethread_test1")
@@ -132,7 +132,7 @@ PALTEST(threading_ResumeThread_test1_paltest_resumethread_test1, "threading/Resu
     if(!ResumeThreadTest())
     {
         Fail("Test Failed\n");
-    }  
+    }
 
     PAL_Terminate();
     return (PASS);

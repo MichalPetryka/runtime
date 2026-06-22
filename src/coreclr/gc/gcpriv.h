@@ -608,7 +608,7 @@ enum hc_record_stage
     hc_record_still_active = 4,
     hc_record_became_active = 5,
     hc_record_became_inactive = 6,
-    hc_record_inactive_waiting = 7, 
+    hc_record_inactive_waiting = 7,
     hc_record_check_cancelled_prep = 8,
 #ifdef BACKGROUND_GC
     hc_record_check_cancelled_bgc = 9,
@@ -3493,8 +3493,8 @@ private:
 
     PER_HEAP_METHOD size_t compute_committed_bytes_per_heap(int oh, size_t& committed_bookkeeping);
 
-    PER_HEAP_ISOLATED_METHOD void compute_committed_bytes(size_t& total_committed, size_t& committed_decommit, size_t& committed_free, 
-                                  size_t& committed_bookkeeping, size_t& new_current_total_committed, size_t& new_current_total_committed_bookkeeping, 
+    PER_HEAP_ISOLATED_METHOD void compute_committed_bytes(size_t& total_committed, size_t& committed_decommit, size_t& committed_free,
+                                  size_t& committed_bookkeeping, size_t& new_current_total_committed, size_t& new_current_total_committed_bookkeeping,
                                   size_t* new_committed_by_oh);
 
     PER_HEAP_METHOD void update_collection_counts ();
@@ -4403,7 +4403,7 @@ private:
         float target_gen2_tcp = 10.0;
 
         // The following 3 constants are used in the computation for the total gen0 budget relative to the stable soh size.
-        // 
+        //
         // By default DATAS computes a multiplier (gen0_growth_soh_ratio) that scales the size. This multiplier follows
         // a power decay curve where the multiplier decreases rapidly as the size increases. We cap it at 10x at the low
         // end and 10% at the high end.
@@ -5006,7 +5006,7 @@ private:
             //
             // There are scenarios where we must change the HC because we cannot change budget to make tcp go the
             // direction we want.
-            // 
+            //
             // When we are in a situation where we have the flexibility to change HC or budget, we should only change HC
             // in the following cases -
             //
@@ -5117,7 +5117,7 @@ private:
         }
 
         // Called at the end of a blocking GC before that GC's sample is recorded.
-        // 
+        //
         // Usually we want to take BCS because it's good for surv rate but if BCS is < BCD, we have room
         // to adjust to affect tcp.
         size_t compute_gen0_budget_per_heap (size_t total_soh_stable_size, float tcp, size_t bcs_per_heap)
@@ -5203,7 +5203,7 @@ private:
             // Recording the gen2 GC indices so we know how far apart they are. Currently unused
             // but we should consider how much value there is if they are very far apart.
             size_t gc_index;
-            uint64_t gc_duration; 
+            uint64_t gc_duration;
             // This is (gc_elapsed_time / time inbetween this and the last gen2 GC)
             float gc_percent;
         };
@@ -5535,7 +5535,7 @@ private:
         size_t gc_index;
         short n_heaps;
         short count_created;
-        // bgc_thread_running was false but bgc_thread was true. 
+        // bgc_thread_running was false but bgc_thread was true.
         short count_created_th_existed;
         short count_creation_failed;
     };
@@ -5554,7 +5554,7 @@ private:
     PER_HEAP_ISOLATED_FIELD_DIAG_ONLY VOLATILE(short) bgc_init_n_heaps;
 
     // Number of times we bailed from check_heap_count because we noticed BGC is in progress even
-    // though it was not in progress when we check before calling it. 
+    // though it was not in progress when we check before calling it.
     PER_HEAP_ISOLATED_FIELD_DIAG_ONLY size_t hc_change_cancelled_count_bgc;
 #endif //BACKGROUND_GC
 #endif //DYNAMIC_HEAP_COUNT
@@ -6274,10 +6274,10 @@ public:
     // at the end of each GC, we increase the age of each region in the relevant region
     // free list(s) by 1. So we can observe if a region stays in the free list over many
     // GCs. We stop at 99. It's initialized to 0 when a region is added to the region's free list.
-    // 
+    //
     // "Relevant" means we only age basic regions during ephemeral GCs and age all regions
     // during gen2 GCs. The only exception is we do age all regions during an ephemeral GC
-    // done at the beginning of a BGC. 
+    // done at the beginning of a BGC.
     #define MAX_AGE_IN_FREE 99
     #define AGE_IN_FREE_TO_DECOMMIT_BASIC 20
     #define AGE_IN_FREE_TO_DECOMMIT_LARGE 5

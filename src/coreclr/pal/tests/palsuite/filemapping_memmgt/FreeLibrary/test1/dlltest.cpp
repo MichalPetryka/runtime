@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 /*=====================================================================
-** 
+**
 ** Source:  dlltest.c (FreeLibrary test dll)
 **
 ** Purpose: This file will be used to create the shared library

@@ -6,7 +6,7 @@
 ** Source:  SetFilePointer.c (test 3)
 **
 ** Purpose: Tests the PAL implementation of the SetFilePointer function.
-**          Test the FILE_CURRENT option 
+**          Test the FILE_CURRENT option
 **
 ** Assumes Successful:
 **          CreateFile

@@ -5,7 +5,7 @@
 **
 ** Source: test1.c
 **
-** Purpose: Test to ensure SwitchToThread works, without 
+** Purpose: Test to ensure SwitchToThread works, without
 **          causing test to hang
 **
 ** Dependencies: PAL_Initialize
@@ -14,7 +14,7 @@
 **               WaitForMultipleObject
 **               CreateThread
 **               GetLastError
-** 
+**
 
 **
 **===========================================================================*/
@@ -36,8 +36,8 @@ PALTEST(threading_SwitchToThread_test1_paltest_switchtothread_test1, "threading/
     DWORD  dwParam;
     HANDLE hThread[THREAD_COUNT];
     DWORD  threadId[THREAD_COUNT];
-    
-    int i = 0;   
+
+    int i = 0;
     int returnCode = 0;
 
     /*PAL initialization */
@@ -57,15 +57,15 @@ PALTEST(threading_SwitchToThread_test1_paltest_switchtothread_test1, "threading/
                                     (LPTHREAD_START_ROUTINE)Run_Thread_switchtothread_test1,/* thread function */
                                     (LPVOID)dwParam,  /* argument to thread function */
                                     0,                      /* use default creation flags  */
-                                    &threadId[i]     /* returns the thread identifier*/                                  
+                                    &threadId[i]     /* returns the thread identifier*/
                                   );
 
         if(hThread[i] == NULL)
         {
             Fail("Create Thread failed for iteration %d GetLastError value is %d\n", i, GetLastError());
         }
-  
-    } 
+
+    }
 
 
     returnCode = WaitForMultipleObjectsEx(THREAD_COUNT, hThread, TRUE, TIMEOUT, FALSE);

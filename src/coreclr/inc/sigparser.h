@@ -593,7 +593,7 @@ class SigParser
                     uint8_t required;
                     if (FAILED(hr = sigTemp.GetByte(&required)))
                         return hr;
-                    
+
                     if (FAILED(hr = sigTemp.GetPointer(&pMT)))
                         return hr;
                 }
@@ -666,7 +666,7 @@ class SigParser
                     uint8_t required;
                     if (FAILED(hr = sigTemp.GetByte(&required)))
                         return hr;
-                    
+
                     if (FAILED(hr = sigTemp.GetPointer(&pMT)))
                         return hr;
                 }

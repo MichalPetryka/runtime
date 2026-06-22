@@ -17,7 +17,7 @@ static void SetTmpDir(CHAR path[])
     DWORD result = SetEnvironmentVariableA("TMPDIR", path);
     if (!result)
     {
-        Fail("ERROR -> SetEnvironmentVariableA failed with result %d and error code %d.\n", 
+        Fail("ERROR -> SetEnvironmentVariableA failed with result %d and error code %d.\n",
              result, GetLastError());
     }
 }
@@ -26,7 +26,7 @@ static void SetAndCompare(CHAR tmpDirPath[], CHAR expected[])
 {
     const DWORD dwBufferLength = _MAX_DIR;
     CHAR  path[dwBufferLength];
-    
+
     SetTmpDir(tmpDirPath);
 
     DWORD dwResultLen = GetTempPathA(dwBufferLength, path);
@@ -87,7 +87,7 @@ PALTEST(file_io_gettemppatha_test1_paltest_gettemppatha_test1, "file_io/gettempp
     if (dwResultLen != 0 || GetLastError() != ERROR_INVALID_PARAMETER)
     {
         Fail("GetTempPath(NULL, ...) returned %d with error code %d but "
-             "should have failed with ERROR_INVALID_PARAMETER (%d).\n", 
+             "should have failed with ERROR_INVALID_PARAMETER (%d).\n",
              dwResultLen, GetLastError(), ERROR_INVALID_PARAMETER);
     }
 

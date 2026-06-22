@@ -4283,8 +4283,8 @@ void gc_heap::balance_heaps (alloc_context* acontext)
 
                     // update the alloc_context_count for the original and new heaps.
                     // NOTE: at this time the alloc_context_count for these heaps could have changed due to racing threads,
-                    //       but we will update the counts based on what we observed, without trying to re-check or 
-                    //       synchronize, as this is just a heuristic to improve our balancing, and doesn't need to 
+                    //       but we will update the counts based on what we observed, without trying to re-check or
+                    //       synchronize, as this is just a heuristic to improve our balancing, and doesn't need to
                     //       be perfectly accurate.
                     org_hp->alloc_context_count = org_hp->alloc_context_count - 1;
                     max_hp->alloc_context_count = max_hp->alloc_context_count + 1;

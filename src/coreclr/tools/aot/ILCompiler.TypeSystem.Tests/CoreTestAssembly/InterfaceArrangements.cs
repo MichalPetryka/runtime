@@ -9,7 +9,7 @@ namespace InterfaceArrangements
     interface I1 { }
 
     interface I2 : I1 { }
-    
+
     interface IGen1<T> { }
 
     class NoInterfaces { }

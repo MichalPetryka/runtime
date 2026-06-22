@@ -29,7 +29,7 @@ PALTEST(miscellaneous_FormatMessageW_test1_paltest_formatmessagew_test1, "miscel
     {
         return FAIL;
     }
- 
+
 
     ReturnResult = FormatMessage(
         FORMAT_MESSAGE_FROM_STRING, /* source and processing options */
@@ -40,16 +40,16 @@ PALTEST(miscellaneous_FormatMessageW_test1_paltest_formatmessagew_test1, "miscel
         1024,                       /* maximum size of message buffer */
         NULL                        /* array of message inserts */
         );
-  
-  
-    if(ReturnResult == 0) 
+
+
+    if(ReturnResult == 0)
     {
         Fail("ERROR: The return value was 0, which indicates failure.  "
              "The function failed when trying to Format a simple string"
-             ", with no formatters in it.");      
+             ", with no formatters in it.");
     }
-  
-    if(memcmp(OutBuffer,TheString,wcslen(OutBuffer)*2+2) != 0) 
+
+    if(memcmp(OutBuffer,TheString,wcslen(OutBuffer)*2+2) != 0)
     {
         Fail("ERROR: The formatted string should be %s but is really %s.",
              convertC(TheString),

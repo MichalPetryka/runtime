@@ -16,7 +16,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         private static readonly int s_corHeaderSize = 0x48;
 
         private EcmaModule _module;
-        
+
         public CopiedCorHeaderNode(EcmaModule sourceModule)
         {
             _module = sourceModule;

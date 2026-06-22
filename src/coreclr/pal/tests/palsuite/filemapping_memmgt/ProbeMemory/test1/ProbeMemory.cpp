@@ -27,7 +27,7 @@ PALTEST(filemapping_memmgt_ProbeMemory_test1_paltest_probememory_test1, "filemap
     {
        return FAIL;
     }
-    
+
     /*allocate the virtual memory*/
     lpProcessAddress = VirtualAlloc(
             NULL,            /*system determine where to allocate the region*/

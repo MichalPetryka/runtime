@@ -292,11 +292,11 @@ PALTEST(file_io_SetFilePointer_test2_paltest_setfilepointer_test2, "file_io/SetF
     bRc = CloseHandle(hFile);
     if (bRc != TRUE)
     {
-        Trace("SetFilePointer: ERROR -> Unable to close file \"%s\".\n", 
+        Trace("SetFilePointer: ERROR -> Unable to close file \"%s\".\n",
             szTextFile);
         if (!DeleteFileA(szTextFile))
         {
-            Trace("SetFilePointer: ERROR -> Unable to delete file \"%s\".\n", 
+            Trace("SetFilePointer: ERROR -> Unable to delete file \"%s\".\n",
                 szTextFile);
         }
         PAL_TerminateEx(FAIL);
@@ -305,7 +305,7 @@ PALTEST(file_io_SetFilePointer_test2_paltest_setfilepointer_test2, "file_io/SetF
 
     if (!DeleteFileA(szTextFile))
     {
-        Fail("SetFilePointer: ERROR -> Unable to delete file \"%s\".\n", 
+        Fail("SetFilePointer: ERROR -> Unable to delete file \"%s\".\n",
             szTextFile);
     }
     PAL_Terminate();

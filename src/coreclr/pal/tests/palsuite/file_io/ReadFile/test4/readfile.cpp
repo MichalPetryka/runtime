@@ -7,7 +7,7 @@
 **
 ** Purpose: Tests the PAL implementation of the ReadFile function.
 **          Creates a file and writes a small string to it, attempt
-**          to read many more characters that exist. The returned 
+**          to read many more characters that exist. The returned
 **          number of chars should be the amount written originally
 **          not the number requested.
 **
@@ -25,7 +25,7 @@ PALTEST(file_io_ReadFile_test4_paltest_readfile_test4, "file_io/ReadFile/test4/p
     int     szRequestSize   = 256;
     char    testFile[]      = "testfile.tmp";
     char    testString[]    = "people stop and stare";
-    DWORD   res             = 0; 
+    DWORD   res             = 0;
 
     /* Initialize the PAL.
      */
@@ -40,7 +40,7 @@ PALTEST(file_io_ReadFile_test4_paltest_readfile_test4, "file_io/ReadFile/test4/p
 
     /* Create a file to test with.
      */
-    hFile = CreateFile(testFile, 
+    hFile = CreateFile(testFile,
                        GENERIC_WRITE|GENERIC_READ,
                        FILE_SHARE_WRITE|FILE_SHARE_READ,
                        NULL,
@@ -56,7 +56,7 @@ PALTEST(file_io_ReadFile_test4_paltest_readfile_test4, "file_io/ReadFile/test4/p
     }
 
     /* Write to the File handle.
-     */ 
+     */
     bRc = WriteFile(hFile,
                     testString,
                     strlen(testString),
@@ -77,7 +77,7 @@ PALTEST(file_io_ReadFile_test4_paltest_readfile_test4, "file_io/ReadFile/test4/p
         }
         Fail("");
     }
-    
+
     /* Set the file pointer to beginning of file.
      */
     res = SetFilePointer(hFile, 0, NULL, FILE_BEGIN);

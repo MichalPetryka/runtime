@@ -21,7 +21,7 @@ struct testCase
 
 PALTEST(c_runtime_wcstod_test1_paltest_wcstod_test1, "c_runtime/wcstod/test1/paltest_wcstod_test1")
 {
-    struct testCase testCases[] = 
+    struct testCase testCases[] =
     {
         {1234,"1234", 4},
         {-1234,"-1234", 5},
@@ -38,9 +38,9 @@ PALTEST(c_runtime_wcstod_test1_paltest_wcstod_test1, "c_runtime/wcstod/test1/pal
 
     WCHAR *wideStr;
     WCHAR *endptr;
-    double result;  
+    double result;
     int i;
-  
+
     if (PAL_Initialize(argc,argv))
     {
         return FAIL;
@@ -50,17 +50,17 @@ PALTEST(c_runtime_wcstod_test1_paltest_wcstod_test1, "c_runtime/wcstod/test1/pal
     {
         wideStr = convert(testCases[i].string);
         result = wcstod(wideStr, &endptr);
-      
+
         if (testCases[i].CorrectResult != result)
         {
             free(wideStr);
             Fail("ERROR: wcstod misinterpreted \"%s\" as %g instead of "
-                   "%g.\n", 
-                   testCases[i].string, 
-                   result, 
+                   "%g.\n",
+                   testCases[i].string,
+                   result,
                    testCases[i].CorrectResult);
         }
-      
+
         if (endptr != wideStr + testCases[i].stopChar)
         {
             free(wideStr);
@@ -70,9 +70,9 @@ PALTEST(c_runtime_wcstod_test1_paltest_wcstod_test1, "c_runtime/wcstod/test1/pal
         }
 
         free(wideStr);
-    }      
-  
-  
+    }
+
+
     PAL_Terminate();
     return PASS;
 }

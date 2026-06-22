@@ -56,16 +56,16 @@ PALTEST(threading_GetCurrentThread_test1_paltest_getcurrentthread_test1, "thread
     else
     {
 	nPriority = 0;
-	
+
 	if (0 == SetThreadPriority(hThread, THREAD_PRIORITY_HIGHEST))
 	{
 	    Fail ("Unable to set thread priority.  Either handle doesn't"
 		    " point to current thread \nor SetThreadPriority "
 		    "function failed.  Failing test.\n");
 	}
-	
+
 	nPriority = GetThreadPriority(hThread);
-	
+
 	if ( THREAD_PRIORITY_ERROR_RETURN == nPriority )
 	{
 	    Fail ("GetThreadPriority function call failed for %s\n"

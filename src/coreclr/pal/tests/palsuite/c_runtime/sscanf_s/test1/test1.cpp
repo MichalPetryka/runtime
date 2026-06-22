@@ -42,9 +42,9 @@ PALTEST(c_runtime_sscanf_s_test1_paltest_sscanf_test1, "c_runtime/sscanf_s/test1
     {
         Fail("ERROR: Got incorrect values in scanning \"%s\" using \"%s\".\n"
             "Expected to get a value of %d with return value of %d, "
-            "got %d with return %d\n", "foo bar baz", "foo bar %n", 8, 0, 
+            "got %d with return %d\n", "foo bar baz", "foo bar %n", 8, 0,
             num, ret);
-           
+
     }
 
     PAL_Terminate();

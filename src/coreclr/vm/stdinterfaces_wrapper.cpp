@@ -253,7 +253,7 @@ HRESULT STDMETHODCALLTYPE Dispatch_GetTypeInfoCount_Wrapper(IDispatch* pDisp, un
         PRECONDITION(CheckPointer(pctinfo, NULL_OK));
     }
     CONTRACTL_END;
-    
+
     return Dispatch_GetTypeInfoCount(pDisp, pctinfo);
 }
 
@@ -308,7 +308,7 @@ HRESULT STDMETHODCALLTYPE InternalDispatchImpl_GetIDsOfNames_Wrapper(IDispatch* 
         PRECONDITION(CheckPointer(rgdispid, NULL_OK));
     }
     CONTRACTL_END;
-    
+
     return InternalDispatchImpl_GetIDsOfNames(pDisp, riid, rgszNames, cNames, lcid, rgdispid);
 }
 
@@ -331,7 +331,7 @@ HRESULT STDMETHODCALLTYPE Dispatch_Invoke_Wrapper(IDispatch* pDisp, DISPID dispi
         PRECONDITION(CheckPointer(puArgErr, NULL_OK));
     }
     CONTRACTL_END;
-    
+
     return Dispatch_Invoke(pDisp, dispidMember, riid, lcid, wFlags, pdispparams, pvarResult, pexcepinfo, puArgErr);
 }
 
@@ -353,7 +353,7 @@ HRESULT STDMETHODCALLTYPE InternalDispatchImpl_Invoke_Wrapper(IDispatch* pDisp, 
         PRECONDITION(CheckPointer(puArgErr, NULL_OK));
     }
     CONTRACTL_END;
-    
+
     return InternalDispatchImpl_Invoke(pDisp, dispidMember, riid, lcid, wFlags, pdispparams, pvarResult, pexcepinfo, puArgErr);
 }
 
@@ -375,7 +375,7 @@ namespace
             PRECONDITION(CheckPointer(ppTI, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ClassInfo_GetClassInfo(pUnk, ppTI);
     }
 
@@ -396,7 +396,7 @@ namespace
             PRECONDITION(CheckPointer(pUnk));
         }
         CONTRACTL_END;
-    
+
         return SupportsErroInfo_IntfSupportsErrorInfo(pUnk, riid);
     }
 
@@ -415,7 +415,7 @@ namespace
             PRECONDITION(CheckPointer(pbstrDescription, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ErrorInfo_GetDescription(pUnk, pbstrDescription);
     }
 
@@ -432,7 +432,7 @@ namespace
             PRECONDITION(CheckPointer(pguid, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ErrorInfo_GetGUID(pUnk, pguid);
     }
 
@@ -449,7 +449,7 @@ namespace
             PRECONDITION(CheckPointer(pdwHelpCtxt, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ErrorInfo_GetHelpContext(pUnk, pdwHelpCtxt);
     }
 
@@ -466,7 +466,7 @@ namespace
             PRECONDITION(CheckPointer(pbstrHelpFile, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ErrorInfo_GetHelpFile(pUnk, pbstrHelpFile);
     }
 
@@ -483,7 +483,7 @@ namespace
             PRECONDITION(CheckPointer(pbstrSource, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ErrorInfo_GetSource(pUnk, pbstrSource);
     }
 
@@ -503,7 +503,7 @@ namespace
             PRECONDITION(CheckPointer(pctinfo, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetTypeInfoCount(pDisp, pctinfo);
     }
 
@@ -520,7 +520,7 @@ namespace
             PRECONDITION(CheckPointer(pptinfo, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetTypeInfo(pDisp, itinfo, lcid, pptinfo);
     }
 
@@ -539,7 +539,7 @@ namespace
             PRECONDITION(CheckPointer(rgdispid, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetIDsOfNames(pDisp, riid, rgszNames, cNames, lcid, rgdispid);
     }
 
@@ -577,7 +577,7 @@ namespace
             PRECONDITION(CheckPointer(pDisp));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_DeleteMemberByDispID(pDisp, id);
     }
 
@@ -610,7 +610,7 @@ namespace
             PRECONDITION(CheckPointer(pbstrName, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetMemberName(pDisp, id, pbstrName);
     }
 
@@ -645,7 +645,7 @@ namespace
             PRECONDITION(CheckPointer(pgrfdex, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetMemberProperties(pDisp, id, grfdexFetch, pgrfdex);
     }
 
@@ -662,7 +662,7 @@ namespace
             PRECONDITION(CheckPointer(ppunk, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetNameSpaceParent(pDisp, ppunk);
     }
 
@@ -679,7 +679,7 @@ namespace
             PRECONDITION(CheckPointer(pid, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_GetNextDispID(pDisp, grfdex, id, pid);
     }
 
@@ -700,7 +700,7 @@ namespace
             PRECONDITION(CheckPointer(pspCaller, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return DispatchEx_InvokeEx(pDisp, id, lcid, wFlags, pdp, pVarRes, pei, pspCaller);
     }
 
@@ -723,7 +723,7 @@ namespace
             PRECONDITION(CheckPointer(pclsid, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return Marshal_GetUnmarshalClass(pMarsh, riid, pv, dwDestContext, pvDestContext, mshlflags, pclsid);
     }
 
@@ -743,7 +743,7 @@ namespace
             PRECONDITION(CheckPointer(pSize, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return Marshal_GetMarshalSizeMax(pMarsh, riid, pv, dwDestContext, pvDestContext, mshlflags, pSize);
     }
 
@@ -762,7 +762,7 @@ namespace
             PRECONDITION(CheckPointer(pvDestContext, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return Marshal_MarshalInterface(pMarsh, pStm, riid, pv, dwDestContext, pvDestContext, mshlflags);
     }
 
@@ -780,7 +780,7 @@ namespace
             PRECONDITION(CheckPointer(ppvObj, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return Marshal_UnmarshalInterface(pMarsh, pStm, riid, ppvObj);
     }
 
@@ -797,7 +797,7 @@ namespace
             PRECONDITION(CheckPointer(pStm, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return Marshal_ReleaseMarshalData(pMarsh, pStm);
     }
 
@@ -813,7 +813,7 @@ namespace
             PRECONDITION(CheckPointer(pMarsh));
         }
         CONTRACTL_END;
-    
+
         return Marshal_DisconnectObject(pMarsh, dwReserved);
     }
 
@@ -833,7 +833,7 @@ namespace
             PRECONDITION(CheckPointer(ppEnum, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ConnectionPointContainer_EnumConnectionPoints(pUnk, ppEnum);
     }
 
@@ -850,7 +850,7 @@ namespace
             PRECONDITION(CheckPointer(ppCP, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ConnectionPointContainer_FindConnectionPoint(pUnk, riid, ppCP);
     }
 
@@ -873,7 +873,7 @@ namespace
             PRECONDITION(CheckPointer(pdwEnabledOptions, NULL_OK));
         }
         CONTRACTL_END;
-    
+
         return ObjectSafety_GetInterfaceSafetyOptions(pUnk, riid, pdwSupportedOptions, pdwEnabledOptions);
     }
 
@@ -890,7 +890,7 @@ namespace
             PRECONDITION(CheckPointer(pUnk));
         }
         CONTRACTL_END;
-    
+
         return ObjectSafety_SetInterfaceSafetyOptions(pUnk, riid, dwOptionSetMask, dwEnabledOptions);
     }
 }

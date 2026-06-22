@@ -23,11 +23,11 @@ struct testCase
 
 PALTEST(c_runtime_tolower_test1_paltest_tolower_test1, "c_runtime/tolower/test1/paltest_tolower_test1")
 {
-  
-    int result;  
+
+    int result;
     int i;
 
-    struct testCase testCases[] = 
+    struct testCase testCases[] =
         {
             {'a',  'A'},  /* Basic cases */
             {'z', 'Z'},
@@ -35,34 +35,34 @@ PALTEST(c_runtime_tolower_test1_paltest_tolower_test1, "c_runtime/tolower/test1/
             {'?',  '?'},  /* Characters without case */
             {230,  230}
         };
-  
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
     }
 
 
-    /* Loop through each case.  Convert each character to lower case 
+    /* Loop through each case.  Convert each character to lower case
        and then compare to ensure that it is the correct value.
     */
-  
+
     for(i = 0; i < sizeof(testCases) / sizeof(struct testCase); i++)
     {
         /*Convert to lower case*/
         result = tolower(testCases[i].start);
-     
+
         if (testCases[i].lower != result)
         {
             Fail("ERROR: tolower lowered \"%i\" to %i instead of %i.\n",
                    testCases[i].start, result, testCases[i].lower);
         }
-    
-    }      
-  
-  
+
+    }
+
+
     PAL_Terminate();
     return PASS;
-} 
+}
 
 
 

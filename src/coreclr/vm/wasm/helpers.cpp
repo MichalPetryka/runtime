@@ -31,7 +31,7 @@ namespace
         transitionBlock.block.m_ReturnAddress = 0;
         transitionBlock.block.m_StackPointer = callersStackPointer;
         void * result = NULL;
-        
+
         ExecuteInterpretedMethodWithArgs_PortableEntryPoint(portableEntrypoint, &transitionBlock.block, 0, (int8_t*)&result);
         return;
     }

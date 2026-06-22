@@ -15,7 +15,7 @@
 #include <palsuite.h>
 
 PALTEST(locale_info_WideCharToMultiByte_test1_paltest_widechartomultibyte_test1, "locale_info/WideCharToMultiByte/test1/paltest_widechartomultibyte_test1")
-{    
+{
     char mbStr[128];
     WCHAR wideStr[128];
     int ret;
@@ -47,23 +47,23 @@ PALTEST(locale_info_WideCharToMultiByte_test1_paltest_widechartomultibyte_test1,
         }
 
         /* Convert with buffer size of 0 */
-        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1, 
+        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1,
                                   mbStr, 0, NULL, NULL);
         if (ret != 128)
         {
             Trace("WideCharToMultiByte did not return correct string length!\n"
-                  "Got %d, expected %d for code page %d with error %u.\n", 
+                  "Got %d, expected %d for code page %d with error %u.\n",
                   ret, 128,codePages[i],GetLastError());
             bRet=FALSE;
         }
 
         /* Make sure the ASCII set (0-127) gets translated correctly */
-        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1, 
+        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1,
                                   mbStr, 128, NULL, NULL);
         if (ret != 128)
         {
             Trace("WideCharToMultiByte did not return correct string length!\n"
-                  "Got %d, expected %d for code page %d with error %u.\n", 
+                  "Got %d, expected %d for code page %d with error %u.\n",
                   ret, 128,codePages[i],GetLastError());
             bRet=FALSE;
         }
@@ -83,12 +83,12 @@ PALTEST(locale_info_WideCharToMultiByte_test1_paltest_widechartomultibyte_test1,
 
         /* try a 0 length string ("") */
         wideStr[0] = '\0';
-        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1, 
+        ret = WideCharToMultiByte(codePages[i], 0, wideStr, -1,
                                   mbStr, 0, NULL, NULL);
         if (ret != 1)
         {
             Trace("WideCharToMultiByte did not return correct string length!\n"
-                  "Got %d, expected %d for code page %d with error %u.\n", 
+                  "Got %d, expected %d for code page %d with error %u.\n",
                   ret, 1,codePages[i],GetLastError());
             bRet=FALSE;
         }

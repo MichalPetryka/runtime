@@ -22,9 +22,9 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         private readonly bool _useInstantiatingStub;
 
         public DelayLoadHelperMethodImport(
-            NodeFactory factory, 
-            ImportSectionNode importSectionNode, 
-            ReadyToRunHelper helper, 
+            NodeFactory factory,
+            ImportSectionNode importSectionNode,
+            ReadyToRunHelper helper,
             MethodWithToken method,
             bool useVirtualCall,
             bool useInstantiatingStub,

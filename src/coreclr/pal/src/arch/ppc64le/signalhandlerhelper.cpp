@@ -21,7 +21,7 @@ Function :
 Parameters :
     POSIX signal handler parameter list ("man sigaction" for details)
     returnPoint - context to which the function returns if the common_signal_handler returns
-    
+
     (no return value)
 --*/
 void ExecuteHandlerOnCustomStack(int code, siginfo_t *siginfo, void *context, size_t customSp, SignalHandlerWorkerReturnPoint* returnPoint)

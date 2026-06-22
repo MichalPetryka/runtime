@@ -14,7 +14,7 @@ RandomForLoaderHeap s_randomForLoaderHeap;
 #ifndef DACCESS_COMPILE
 INDEBUG(DWORD UnlockedLoaderHeapBase::s_dwNumInstancesOfLoaderHeaps = 0;)
 
-UnlockedLoaderHeapBase::UnlockedLoaderHeapBase(LoaderHeapImplementationKind kind) : 
+UnlockedLoaderHeapBase::UnlockedLoaderHeapBase(LoaderHeapImplementationKind kind) :
     m_kind(kind),
     m_dwTotalAlloc(0),
     m_pAllocPtr(NULL),
@@ -358,7 +358,7 @@ LoaderHeapValidationTag *AllocMem_GetTag(LPVOID pBlock, size_t dwRequestedSize)
 size_t UnlockedLoaderHeapBase::GetBytesAvailCommittedRegion()
 {
     LIMITED_METHOD_CONTRACT;
-    
+
     if (m_pAllocPtr < m_pPtrToEndOfCommittedRegion)
     return (size_t)(m_pPtrToEndOfCommittedRegion - m_pAllocPtr);
     else
@@ -393,7 +393,7 @@ void UnlockedLoaderHeapBaseTraversable::EnumMemoryRegions(CLRDataEnumMemoryFlags
 void UnlockedLoaderHeapBaseTraversable::EnumPageRegions (EnumPageRegionsCallback *pCallback, PTR_VOID pvArgs)
 {
     WRAPPER_NO_CONTRACT;
-    
+
     PTR_LoaderHeapBlock block = m_pFirstBlock;
     while (block)
     {
@@ -401,7 +401,7 @@ void UnlockedLoaderHeapBaseTraversable::EnumPageRegions (EnumPageRegionsCallback
         {
             break;
         }
-        
+
         block = block->pNext;
     }
 }

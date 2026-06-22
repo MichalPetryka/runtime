@@ -5,7 +5,7 @@
 **
 ** Source:  test1.c
 **
-** Purpose: Tests that DisableThreadLibraryCalls actually stops thread 
+** Purpose: Tests that DisableThreadLibraryCalls actually stops thread
 **          attach/detach notifications to a library.  Also tests how it
 **          handles an invalid module handle.
 **
@@ -40,8 +40,8 @@ int __cdecl threading_DisableThreadLibraryCalls_test1(int argc, char* argv[])
     }
 
 
-    /* 
-     * Although MSDN says that DisableThreadLibraryCalls will fail if passed 
+    /*
+     * Although MSDN says that DisableThreadLibraryCalls will fail if passed
      * an invalid handle, it actually returns success!
      */
     ret = DisableThreadLibraryCalls(NULL);
@@ -50,10 +50,10 @@ int __cdecl threading_DisableThreadLibraryCalls_test1(int argc, char* argv[])
         Fail("DisableThreadLibraryCalls failed on an invalid module "
             "handle (it actually should pass)!\n");
     }
-    
+
 
     /*
-     * Test once without calling DisableThreadLibraryCalls and make sure we 
+     * Test once without calling DisableThreadLibraryCalls and make sure we
      * get expected results.
      */
     ret = RunTest_DisableThreadLibraryCalls_test1(0);
@@ -61,7 +61,7 @@ int __cdecl threading_DisableThreadLibraryCalls_test1(int argc, char* argv[])
     {
         Fail("Expected to get 2 thread library calls, got %d!\n", ret);
     }
-    
+
 
     /*
      * Test again, this time calling DisableThreadLibraryCalls.
@@ -97,7 +97,7 @@ int RunTest(int DisableThreadCalls)
     LibMod = LoadLibrary(LibName);
     if (LibMod == NULL)
     {
-        Fail("Unable to load test library!\nGetLastError returned %d\n", 
+        Fail("Unable to load test library!\nGetLastError returned %d\n",
             GetLastError());
     }
 
@@ -128,7 +128,7 @@ int RunTest(int DisableThreadCalls)
     WaitRet = WaitForSingleObject(hThread, INFINITE);
     if (WaitRet == WAIT_FAILED)
     {
-        Fail("Unable to wait on thread!\nGetLastError returned %d\n", 
+        Fail("Unable to wait on thread!\nGetLastError returned %d\n",
             GetLastError());
     }
 
@@ -141,6 +141,6 @@ int RunTest(int DisableThreadCalls)
         Fail("Failed freeing library!\nGetLastError returned %d\n",
             GetLastError());
     }
-    
+
     return count;
 }

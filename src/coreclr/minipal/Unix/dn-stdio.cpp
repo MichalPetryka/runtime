@@ -19,7 +19,7 @@ int u16_fopen_s(FILE** stream, const WCHAR* path, const WCHAR* mode)
     char* pathU8 = new char[pathU8Len + 1];
     size_t ret = minipal_convert_utf16_to_utf8((CHAR16_T*)path, pathLen, pathU8, pathU8Len, 0);
     pathU8[ret] = '\0';
-    
+
     size_t modeLen = u16_strlen(mode);
     size_t modeU8Len = minipal_get_length_utf16_to_utf8((CHAR16_T*)mode, modeLen, 0);
     char* modeU8 = new char[modeU8Len + 1];
@@ -87,7 +87,7 @@ HRESULT HRESULTFromErr(int err)
 {
     // maps the common I/O errors
     // based on FILEGetLastErrorFromErrno
-    
+
     int32_t win32Err;
 
     switch(err)

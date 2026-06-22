@@ -13,7 +13,7 @@
 
 /* Simple storage class (similar to StgPool) holding pdbstream data
 ** for portable PDB metadata.
-*/ 
+*/
 class PdbHeap
 {
 public:

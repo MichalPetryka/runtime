@@ -8,8 +8,8 @@
 ** Purpose: \
 ** Search a string for a given character.  Search for a character contained
 ** in the string, and ensure the pointer returned points to it.  Then search
-** for the null character, and ensure the pointer points to that.  Finally 
-** search for a character which is not in the string and ensure that it 
+** for the null character, and ensure the pointer points to that.  Finally
+** search for a character which is not in the string and ensure that it
 ** returns NULL.
 **
 **
@@ -23,7 +23,7 @@ PALTEST(c_runtime_strrchr_test1_paltest_strrchr_test1, "c_runtime/strrchr/test1/
     char *str = "foo bar baz";
     char *ptr;
 
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;

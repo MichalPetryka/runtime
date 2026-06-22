@@ -1513,4 +1513,4 @@ public:
 
 #endif // BITONIC_SORT_NEON
 
-    
+

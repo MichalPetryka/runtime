@@ -24,14 +24,14 @@ PALTEST(filemapping_memmgt_VirtualAlloc_test20_paltest_virtualalloc_test20, "fil
     {
         ExitProcess(FAIL);
     }
-    
+
     ptr = (int *) VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE,
                                PAGE_READWRITE);
     if (ptr == NULL)
     {
         Fail("First VirtualAlloc failed!\n");
     }
-    
+
     *ptr = 123;
 
     ptr = (int *) VirtualAlloc(ptr, 4096, MEM_COMMIT, PAGE_READWRITE);

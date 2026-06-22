@@ -89,7 +89,7 @@ private:
         {
         }
 
-        SimpleNameToExpectedMVIDAndRequiringAssembly(LPCUTF8 simpleName, GUID mvid, bool compositeComponent, LPCUTF8 AssemblyRequirementName) : 
+        SimpleNameToExpectedMVIDAndRequiringAssembly(LPCUTF8 simpleName, GUID mvid, bool compositeComponent, LPCUTF8 AssemblyRequirementName) :
             SimpleName(simpleName),
             Mvid(mvid),
             AssemblyRequirementName(AssemblyRequirementName),

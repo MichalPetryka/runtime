@@ -25,7 +25,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
             public readonly MethodWithGCInfo Method;
 
             public bool IsNull => (MethodIndex < 0);
-            
+
             public EntryPoint(int methodIndex, MethodWithGCInfo method)
             {
                 MethodIndex = methodIndex;

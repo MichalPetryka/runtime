@@ -8,7 +8,7 @@
 #include "gcinfodecoder.h"
 
 // *****************************************************************************
-// WARNING!!!: These values and code are used in the runtime repo and SOS in the 
+// WARNING!!!: These values and code are used in the runtime repo and SOS in the
 // diagnostics repo. Should updated in a backwards and forwards compatible way.
 // See: https://github.com/dotnet/diagnostics/blob/main/src/shared/inc/gcinfodumper.h
 //      https://github.com/dotnet/runtime/blob/main/src/coreclr/inc/gcinfodumper.h

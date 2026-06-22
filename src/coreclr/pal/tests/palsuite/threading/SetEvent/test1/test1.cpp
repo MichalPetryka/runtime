@@ -3,7 +3,7 @@
 
 /*============================================================
 **
-** Source: test1.c 
+** Source: test1.c
 **
 ** Purpose: Test for SetEvent.  Create an Event and then set
 ** this event, checking the return value.  Ensure that it returns
@@ -20,13 +20,13 @@ BOOL SetEventTest()
     DWORD dwRet = 0;
 
     LPSECURITY_ATTRIBUTES lpEventAttributes = 0;
-    BOOL bManualReset = TRUE; 
+    BOOL bManualReset = TRUE;
     BOOL bInitialState = FALSE;
 
     /* Create an event which we can use with SetEvent */
-    HANDLE hEvent = CreateEvent( lpEventAttributes, 
-                                 bManualReset, bInitialState, NULL); 
- 
+    HANDLE hEvent = CreateEvent( lpEventAttributes,
+                                 bManualReset, bInitialState, NULL);
+
     if (hEvent != INVALID_HANDLE_VALUE)
     {
         dwRet = WaitForSingleObject(hEvent,0);
@@ -41,7 +41,7 @@ BOOL SetEventTest()
                the return value.
             */
             bRet = SetEvent(hEvent);
-            
+
             if (!bRet)
             {
                 Trace("SetEventTest:SetEvent failed (%x)\n", GetLastError());
@@ -81,7 +81,7 @@ PALTEST(threading_SetEvent_test1_paltest_setevent_test1, "threading/SetEvent/tes
     {
         return ( FAIL );
     }
-   
+
     if(SetEventTest() == 0)
     {
         Fail ("Test failed\n");

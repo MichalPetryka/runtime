@@ -544,7 +544,7 @@ typedef enum
      * a given object updated to keep pointing at the same location within an object. These handles
      * have an extra pointer which points at an interior pointer into the first object.
      * [cDAC] [GC]: Contract depends on this value
-     * 
+     *
      */
     HNDTYPE_WEAK_INTERIOR_POINTER = 10,
 

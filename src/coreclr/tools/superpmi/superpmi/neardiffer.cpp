@@ -429,7 +429,7 @@ bool NearDiffer::mungeOffsets(
     //
     // Another solution is to have the coredistools disassembler have this logic, but that seems like the wrong
     // place for that logic, and it's hard to update coredistools.
-    // 
+    //
     // The instruction sequence is something like this:
     //     mov     x0, #63408
     //     movk    x0, #23602, lsl #16
@@ -533,7 +533,7 @@ bool NearDiffer::mungeOffsets(
             return true;
         }
     }
-#endif // 0 
+#endif // 0
 
     return false;
 }

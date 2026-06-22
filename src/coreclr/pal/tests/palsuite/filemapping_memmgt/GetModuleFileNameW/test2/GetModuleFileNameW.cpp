@@ -6,7 +6,7 @@
 ** Source:  getmodulefilenamew.c
 **
 ** Purpose: Positive test the GetModuleFileName API.
-**          Call GetModuleFileName to retrieve current process 
+**          Call GetModuleFileName to retrieve current process
 **          full path and file name by passing a NULL module handle
 **          in UNICODE
 **

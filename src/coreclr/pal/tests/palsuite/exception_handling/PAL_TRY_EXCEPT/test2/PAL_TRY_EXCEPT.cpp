@@ -5,7 +5,7 @@
 **
 ** Source:  PAL_TRY_EXCEPT.c (test 2)
 **
-** Purpose: Tests the PAL implementation of the PAL_TRY and 
+** Purpose: Tests the PAL implementation of the PAL_TRY and
 **          PAL_EXCEPT functions. Tests that the EXCEPTION block
 **          is missed if no exceptions happen
 **
@@ -32,7 +32,7 @@ PALTEST(exception_handling_PAL_TRY_EXCEPT_test2_paltest_pal_try_except_test2, "e
     ** Test to make sure we skip the exception block.
     */
 
-    PAL_TRY 
+    PAL_TRY
     {
         bTry = TRUE;    /* indicate we hit the PAL_TRY block */
     }
@@ -61,7 +61,7 @@ PALTEST(exception_handling_PAL_TRY_EXCEPT_test2_paltest_pal_try_except_test2, "e
         Fail("");
     }
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

@@ -5,7 +5,7 @@
 **
 ** Source:  test2.c
 **
-** Purpose:  Create an environment variable with _putenv and then use getenv 
+** Purpose:  Create an environment variable with _putenv and then use getenv
 ** to check it.  This test resets an environment variable.
 **
 **
@@ -20,7 +20,7 @@ const char *value = "AnUnusualValue";
 
 PALTEST(c_runtime__putenv_test2_paltest_putenv_test2, "c_runtime/_putenv/test2/paltest_putenv_test2")
 {
-   
+
     char *variableValue;
 
     if (0 != (PAL_Initialize(argc, argv)))
@@ -36,22 +36,22 @@ PALTEST(c_runtime__putenv_test2_paltest_putenv_test2, "c_runtime/_putenv/test2/p
     }
 
     variableValue = PAL_getenv(variable);
-    
+
     if (variableValue == NULL)
-    { 
+    {
         Fail("ERROR: getenv(%s) call returned NULL\nThe call "
              "should have returned '%s'\n", variable, value);
-    }  
-    else 
+    }
+    else
     {
-        if ( strcmp(variableValue, value) != 0 ) 
+        if ( strcmp(variableValue, value) != 0 )
         {
             Fail("ERROR: _putenv(%s)\nshould have set the variable "
                  "'%s'\n to '%s'.\nA subsequent call to getenv(%s)\n"
                  "returned '%s' instead.\n", _putenvString0,
                  variable, value, variable, variableValue);
         }
-        else 
+        else
         {
             if(_putenv(_putenvString1) == -1)
             {
@@ -63,13 +63,13 @@ PALTEST(c_runtime__putenv_test2_paltest_putenv_test2, "c_runtime/_putenv/test2/p
             variableValue = PAL_getenv(variable);
 
             if (variableValue != NULL)
-            { 
+            {
                 Fail("ERROR: getenv(%s) call did not return NULL.\nThe call "
                      "returned '%s'.\n", variable, value);
             }
         }
     }
-    
+
     PAL_Terminate();
     return PASS;
 }

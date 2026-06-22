@@ -66,7 +66,7 @@ DllTest1()
             Fail("ERROR: PAL_EXCEPT ExceptionInformation[1] != 0x11000\n");
         }
 
-        bExcept = TRUE;                         // Indicate we hit the PAL_EXCEPT block 
+        bExcept = TRUE;                         // Indicate we hit the PAL_EXCEPT block
     }
     PAL_ENDTRY;
 
@@ -80,7 +80,7 @@ DllTest1()
         Trace("ERROR: the code in the PAL_EXCEPT block was not executed.\n");
     }
 
-    // Did we hit all the code blocks? 
+    // Did we hit all the code blocks?
     if(!bTry || !bExcept)
     {
         Fail("DllTest1 FAILED\n");

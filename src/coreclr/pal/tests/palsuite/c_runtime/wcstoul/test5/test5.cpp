@@ -12,7 +12,7 @@
 #include <palsuite.h>
 
 /*
- * Notes: wcstoul should depend on the current locale's LC_NUMERIC category, 
+ * Notes: wcstoul should depend on the current locale's LC_NUMERIC category,
  * this is not currently tested.
  */
 
@@ -20,10 +20,10 @@
 PALTEST(c_runtime_wcstoul_test5_paltest_wcstoul_test5, "c_runtime/wcstoul/test5/paltest_wcstoul_test5")
 {
     WCHAR overstr[] = {'4','2','9','4','9','6','7','2','9','6',0};
-    WCHAR understr[] = {'-','1',0}; 
+    WCHAR understr[] = {'-','1',0};
     WCHAR *end;
     ULONG l;
-    
+
     if (0 != PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -62,7 +62,7 @@ PALTEST(c_runtime_wcstoul_test5_paltest_wcstoul_test5, "c_runtime/wcstoul/test5/
     {
         Fail("ERROR: wcstoul set errno to non-zero (%d)\n", errno);
     }
-   
+
     PAL_Terminate();
     return PASS;
 }

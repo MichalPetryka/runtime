@@ -15,7 +15,7 @@
 PALTEST(samples_test2_paltest_samples_test2, "samples/test2/paltest_samples_test2")
 {
     int exampleInt = 9;
-    
+
     /* Initialize the PAL.
      */
     if(0 != PAL_Initialize(argc, argv))

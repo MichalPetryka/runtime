@@ -5,7 +5,7 @@
 **
 ** Source:  pal_try_leave_finally.c
 **
-** Purpose: Tests the PAL implementation of the PAL_TRY, PAL_LEAVE  
+** Purpose: Tests the PAL implementation of the PAL_TRY, PAL_LEAVE
 **          and PAL_FINALLY functions.
 **
 **
@@ -28,7 +28,7 @@ PALTEST(exception_handling_PAL_TRY_LEAVE_FINALLY_test1_paltest_pal_try_leave_fin
     }
 
 
-    PAL_TRY 
+    PAL_TRY
     {
         bTry = TRUE;    /* indicate we hit the PAL_TRY block */
 
@@ -70,7 +70,7 @@ PALTEST(exception_handling_PAL_TRY_LEAVE_FINALLY_test1_paltest_pal_try_leave_fin
     }
 
 
-    PAL_Terminate();  
+    PAL_Terminate();
     return PASS;
 
 }

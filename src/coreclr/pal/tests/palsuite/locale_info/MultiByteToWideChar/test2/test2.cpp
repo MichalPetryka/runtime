@@ -5,7 +5,7 @@
 **
 ** Source: test2.c
 **
-** Purpose: Tests that MultiByteToWideChar respects the length of the wide 
+** Purpose: Tests that MultiByteToWideChar respects the length of the wide
 **          character string.
 
 **
@@ -19,7 +19,7 @@
  */
 
 PALTEST(locale_info_MultiByteToWideChar_test2_paltest_multibytetowidechar_test2, "locale_info/MultiByteToWideChar/test2/paltest_multibytetowidechar_test2")
-{    
+{
     char mbStr[128];
     WCHAR wideStr[128];
     int ret;

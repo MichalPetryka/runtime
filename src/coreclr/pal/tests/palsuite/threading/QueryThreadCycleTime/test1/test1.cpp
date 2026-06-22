@@ -3,7 +3,7 @@
 
 /*============================================================
 **
-** Source:  
+** Source:
 **
 ** Source : test1.c
 **
@@ -22,7 +22,7 @@ PALTEST(threading_QueryThreadCycleTime_test1_paltest_querythreadcycletime_test1,
     if (TRUE){
         ret = PASS;
         goto EXIT;
-    }   
+    }
     {
     LONG64 Actual, Expected, Delta = 850000000;
     Actual = 0;
@@ -45,7 +45,7 @@ PALTEST(threading_QueryThreadCycleTime_test1_paltest_querythreadcycletime_test1,
     for (i = 0; i < 2000; i++){
         ULONG64 FirstCount, SecondCount;
         LONG64 Init;
-        
+
         Sleep(1);
 
         /* Grab a FirstCount, then loop for a bit to make the clock increase */
@@ -53,7 +53,7 @@ PALTEST(threading_QueryThreadCycleTime_test1_paltest_querythreadcycletime_test1,
         {
             Fail("ERROR: QueryThreadCycleTime returned failure.\n");
         }
-        
+
         LONG64 x;
         /* Init is in milliseconds, so we will convert later */
         Init = minipal_lowres_ticks();

@@ -5,8 +5,8 @@
 **
 ** Source:  test1.c
 **
-** Purpose: 
-** Check the length of a string and the length of a 0 character string to 
+** Purpose:
+** Check the length of a string and the length of a 0 character string to
 ** see that this function returns the correct values for each.
 **
 **

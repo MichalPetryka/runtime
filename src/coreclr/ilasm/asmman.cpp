@@ -436,7 +436,7 @@ void    AsmMan::EndAssembly()
 
                     // Read the file into the buffer.
                     size_t dwBytesRead;
-                    
+
                     if ((dwBytesRead = fread(m_sStrongName.m_pbPublicKey, 1, m_sStrongName.m_cbPublicKey, fp)) < m_sStrongName.m_cbPublicKey) {
                         HRESULT hr = HRESULTFromErr(ferror(fp));
                         MAKE_UTF8PTR_FROMWIDE(keySourceNameUtf8, ((Assembler*)m_pAssembler)->m_wzKeySourceName);

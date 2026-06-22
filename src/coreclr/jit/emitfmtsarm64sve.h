@@ -171,14 +171,14 @@ IF_DEF(SVE_BF_2A,   IS_NONE, NONE) // SVE_BF_2A  ........xx.xxiii ......nnnnnddd
 IF_DEF(SVE_BG_3A,   IS_NONE, NONE) // SVE_BG_3A  ........xx.mmmmm ......nnnnnddddd  -- SVE bitwise shift by wide elements (unpredicated)
 IF_DEF(SVE_BH_3A,   IS_NONE, NONE) // SVE_BH_3A  .........x.mmmmm ....hhnnnnnddddd  -- SVE address generation
 IF_DEF(SVE_BH_3B,   IS_NONE, NONE) // SVE_BH_3B  ...........mmmmm ....hhnnnnnddddd  -- SVE address generation
-IF_DEF(SVE_BH_3B_A, IS_NONE, NONE) // SVE_BH_3B_A  ...........mmmmm ....hhnnnnnddddd  -- 
+IF_DEF(SVE_BH_3B_A, IS_NONE, NONE) // SVE_BH_3B_A  ...........mmmmm ....hhnnnnnddddd  --
 IF_DEF(SVE_BI_2A,   IS_NONE, NONE) // SVE_BI_2A  ................ ......nnnnnddddd  -- SVE constructive prefix (unpredicated)
 IF_DEF(SVE_BJ_2A,   IS_NONE, NONE) // SVE_BJ_2A  ........xx...... ......nnnnnddddd  -- SVE floating-point exponential accelerator
 IF_DEF(SVE_BL_1A,   IS_NONE, NONE) // SVE_BL_1A  ............iiii ......pppppddddd  -- SVE element count
 IF_DEF(SVE_BM_1A,   IS_NONE, NONE) // SVE_BM_1A  ............iiii ......pppppddddd  -- SVE inc/dec register by element count
 IF_DEF(SVE_BN_1A,   IS_NONE, NONE) // SVE_BN_1A  ............iiii ......pppppddddd  -- SVE inc/dec vector by element count
 IF_DEF(SVE_BO_1A,   IS_NONE, NONE) // SVE_BO_1A  ...........Xiiii ......pppppddddd  -- SVE saturating inc/dec register by element count
-IF_DEF(SVE_BO_1A_A, IS_NONE, NONE) // SVE_BO_1A_A  ...........Xiiii ......pppppddddd  -- 
+IF_DEF(SVE_BO_1A_A, IS_NONE, NONE) // SVE_BO_1A_A  ...........Xiiii ......pppppddddd  --
 IF_DEF(SVE_BP_1A,   IS_NONE, NONE) // SVE_BP_1A  ............iiii ......pppppddddd  -- SVE saturating inc/dec vector by element count
 IF_DEF(SVE_BQ_2A,   IS_NONE, NONE) // SVE_BQ_2A  ...........iiiii ...iiinnnnnddddd  -- SVE extract vector (immediate offset, destructive)
 IF_DEF(SVE_BQ_2B,   IS_NONE, NONE) // SVE_BQ_2B  ...........iiiii ...iiimmmmmddddd  -- SVE extract vector (immediate offset, destructive)
@@ -187,14 +187,14 @@ IF_DEF(SVE_BS_1A,   IS_NONE, NONE) // SVE_BS_1A  ..............ii iiiiiiiiiiiddd
 IF_DEF(SVE_BT_1A,   IS_NONE, NONE) // SVE_BT_1A  ..............ii iiiiiiiiiiiddddd  -- SVE broadcast bitmask immediate
 IF_DEF(SVE_BU_2A,   IS_NONE, NONE) // SVE_BU_2A  ........xx..gggg ...iiiiiiiiddddd  -- SVE copy floating-point immediate (predicated)
 IF_DEF(SVE_BV_2A,   IS_NONE, NONE) // SVE_BV_2A  ........xx..gggg ..hiiiiiiiiddddd  -- SVE copy integer immediate (predicated)
-IF_DEF(SVE_BV_2A_A, IS_NONE, NONE) // SVE_BV_2A_A  ........xx..gggg ..hiiiiiiiiddddd  -- 
+IF_DEF(SVE_BV_2A_A, IS_NONE, NONE) // SVE_BV_2A_A  ........xx..gggg ..hiiiiiiiiddddd  --
 IF_DEF(SVE_BV_2B,   IS_NONE, NONE) // SVE_BV_2B  ........xx..gggg ...........ddddd  -- SVE copy integer immediate (predicated)
-IF_DEF(SVE_BV_2A_J, IS_NONE, NONE) // SVE_BV_2A_J  ........xx..gggg ..hiiiiiiiiddddd  -- 
+IF_DEF(SVE_BV_2A_J, IS_NONE, NONE) // SVE_BV_2A_J  ........xx..gggg ..hiiiiiiiiddddd  --
 IF_DEF(SVE_BW_2A,   IS_NONE, NONE) // SVE_BW_2A  ........ii.xxxxx ......nnnnnddddd  -- SVE broadcast indexed element
 IF_DEF(SVE_BX_2A,   IS_NONE, NONE) // SVE_BX_2A  ...........ixxxx ......nnnnnddddd  -- sve_int_perm_dupq_i
 IF_DEF(SVE_BY_2A,   IS_NONE, NONE) // SVE_BY_2A  ............iiii ......mmmmmddddd  -- sve_int_perm_extq
 IF_DEF(SVE_BZ_3A,   IS_NONE, NONE) // SVE_BZ_3A  ........xx.mmmmm ......nnnnnddddd  -- SVE table lookup (three sources)
-IF_DEF(SVE_BZ_3A_A, IS_NONE, NONE) // SVE_BZ_3A_A  ........xx.mmmmm ......nnnnnddddd  -- 
+IF_DEF(SVE_BZ_3A_A, IS_NONE, NONE) // SVE_BZ_3A_A  ........xx.mmmmm ......nnnnnddddd  --
 IF_DEF(SVE_CB_2A,   IS_NONE, NONE) // SVE_CB_2A  ........xx...... ......nnnnnddddd  -- SVE broadcast general register
 IF_DEF(SVE_CC_2A,   IS_NONE, NONE) // SVE_CC_2A  ........xx...... ......mmmmmddddd  -- SVE insert SIMD&FP scalar register
 IF_DEF(SVE_CD_2A,   IS_NONE, NONE) // SVE_CD_2A  ........xx...... ......mmmmmddddd  -- SVE insert general register
@@ -225,13 +225,13 @@ IF_DEF(SVE_CV_3A,   IS_NONE, NONE) // SVE_CV_3A  ........xx...... ...VVVnnnnnddd
 IF_DEF(SVE_CV_3B,   IS_NONE, NONE) // SVE_CV_3B  ........xx...... ...VVVmmmmmddddd  -- SVE vector splice (destructive)
 IF_DEF(SVE_CW_4A,   IS_NONE, NONE) // SVE_CW_4A  ........xx.mmmmm ..VVVVnnnnnddddd  -- SVE select vector elements (predicated)
 IF_DEF(SVE_CX_4A,   IS_NONE, NONE) // SVE_CX_4A  ........xx.mmmmm ...gggnnnnn.DDDD  -- SVE integer compare vectors
-IF_DEF(SVE_CX_4A_A, IS_NONE, NONE) // SVE_CX_4A_A  ........xx.mmmmm ...gggnnnnn.DDDD  -- 
+IF_DEF(SVE_CX_4A_A, IS_NONE, NONE) // SVE_CX_4A_A  ........xx.mmmmm ...gggnnnnn.DDDD  --
 IF_DEF(SVE_CY_3A,   IS_NONE, NONE) // SVE_CY_3A  ........xx.iiiii ...gggnnnnn.DDDD  -- SVE integer compare with unsigned immediate
 IF_DEF(SVE_CY_3B,   IS_NONE, NONE) // SVE_CY_3B  ........xx.iiiii ii.gggnnnnn.DDDD  -- SVE integer compare with unsigned immediate
 IF_DEF(SVE_CZ_4A,   IS_NONE, NONE) // SVE_CZ_4A  ............MMMM ..gggg.NNNN.DDDD  -- SVE predicate logical operations
-IF_DEF(SVE_CZ_4A_K, IS_NONE, NONE) // SVE_CZ_4A_K  ............MMMM ..gggg.NNNN.DDDD  -- 
-IF_DEF(SVE_CZ_4A_L, IS_NONE, NONE) // SVE_CZ_4A_L  ............MMMM ..gggg.NNNN.DDDD  -- 
-IF_DEF(SVE_CZ_4A_A, IS_NONE, NONE) // SVE_CZ_4A_A  ............MMMM ..gggg.NNNN.DDDD  -- 
+IF_DEF(SVE_CZ_4A_K, IS_NONE, NONE) // SVE_CZ_4A_K  ............MMMM ..gggg.NNNN.DDDD  --
+IF_DEF(SVE_CZ_4A_L, IS_NONE, NONE) // SVE_CZ_4A_L  ............MMMM ..gggg.NNNN.DDDD  --
+IF_DEF(SVE_CZ_4A_A, IS_NONE, NONE) // SVE_CZ_4A_A  ............MMMM ..gggg.NNNN.DDDD  --
 IF_DEF(SVE_DA_4A,   IS_NONE, NONE) // SVE_DA_4A  ............MMMM ..gggg.NNNN.DDDD  -- SVE propagate break from previous partition
 IF_DEF(SVE_DB_3A,   IS_NONE, NONE) // SVE_DB_3A  ................ ..gggg.NNNNMDDDD  -- SVE partition break condition
 IF_DEF(SVE_DB_3B,   IS_NONE, NONE) // SVE_DB_3B  ................ ..gggg.NNNN.DDDD  -- SVE partition break condition
@@ -248,7 +248,7 @@ IF_DEF(SVE_DL_2A,   IS_NONE, NONE) // SVE_DL_2A  ........xx...... .....l.NNNNddd
 IF_DEF(SVE_DM_2A,   IS_NONE, NONE) // SVE_DM_2A  ........xx...... .......MMMMddddd  -- SVE inc/dec register by predicate count
 IF_DEF(SVE_DN_2A,   IS_NONE, NONE) // SVE_DN_2A  ........xx...... .......MMMMddddd  -- SVE inc/dec vector by predicate count
 IF_DEF(SVE_DO_2A,   IS_NONE, NONE) // SVE_DO_2A  ........xx...... .....X.MMMMddddd  -- SVE saturating inc/dec register by predicate count
-IF_DEF(SVE_DO_2A_A, IS_NONE, NONE) // SVE_DO_2A_A  ........xx...... .....X.MMMMddddd  -- 
+IF_DEF(SVE_DO_2A_A, IS_NONE, NONE) // SVE_DO_2A_A  ........xx...... .....X.MMMMddddd  --
 IF_DEF(SVE_DP_2A,   IS_NONE, NONE) // SVE_DP_2A  ........xx...... .......MMMMddddd  -- SVE saturating inc/dec vector by predicate count
 IF_DEF(SVE_DQ_0A,   IS_NONE, NONE) // SVE_DQ_0A  ................ ................  -- SVE FFR initialise
 IF_DEF(SVE_DR_1A,   IS_NONE, NONE) // SVE_DR_1A  ................ .......NNNN.....  -- SVE FFR write from predicate
@@ -332,7 +332,7 @@ IF_DEF(SVE_GG_3A,   IS_NONE, NONE) // SVE_GG_3A  ........ii.mmmmm ......nnnnnddd
 IF_DEF(SVE_GG_3B,   IS_NONE, NONE) // SVE_GG_3B  ........ii.mmmmm ...i..nnnnnddddd  -- SVE2 lookup table with 2-bit indices and 16-bit element size
 IF_DEF(SVE_GH_3A,   IS_NONE, NONE) // SVE_GH_3A  ........i..mmmmm ......nnnnnddddd  -- SVE2 lookup table with 4-bit indices and 16-bit element size
 IF_DEF(SVE_GH_3B,   IS_NONE, NONE) // SVE_GH_3B  ........ii.mmmmm ......nnnnnddddd  -- SVE2 lookup table with 4-bit indices and 16-bit element size
-IF_DEF(SVE_GH_3B_B, IS_NONE, NONE) // SVE_GH_3B_B  ........ii.mmmmm ......nnnnnddddd  -- 
+IF_DEF(SVE_GH_3B_B, IS_NONE, NONE) // SVE_GH_3B_B  ........ii.mmmmm ......nnnnnddddd  --
 IF_DEF(SVE_GI_4A,   IS_NONE, NONE) // SVE_GI_4A  ........xx.mmmmm ...gggnnnnnddddd  -- SVE2 histogram generation (vector)
 IF_DEF(SVE_GJ_3A,   IS_NONE, NONE) // SVE_GJ_3A  ...........mmmmm ......nnnnnddddd  -- SVE2 crypto constructive binary operations
 IF_DEF(SVE_GK_2A,   IS_NONE, NONE) // SVE_GK_2A  ................ ......mmmmmddddd  -- SVE2 crypto destructive binary operations
@@ -355,15 +355,15 @@ IF_DEF(SVE_GX_3B,   IS_NONE, NONE) // SVE_GX_3B  ...........immmm ......nnnnnddd
 IF_DEF(SVE_GX_3C,   IS_NONE, NONE) // SVE_GX_3C  .........i.iimmm ......nnnnnddddd  -- SVE floating-point multiply (indexed)
 IF_DEF(SVE_GY_3A,   IS_NONE, NONE) // SVE_GY_3A  ...........iimmm ....i.nnnnnddddd  -- SVE BFloat16 floating-point dot product (indexed)
 IF_DEF(SVE_GY_3B,   IS_NONE, NONE) // SVE_GY_3B  ...........iimmm ......nnnnnddddd  -- SVE BFloat16 floating-point dot product (indexed)
-IF_DEF(SVE_GY_3B_D, IS_NONE, NONE) // SVE_GY_3B_D  ...........iimmm ......nnnnnddddd  -- 
+IF_DEF(SVE_GY_3B_D, IS_NONE, NONE) // SVE_GY_3B_D  ...........iimmm ......nnnnnddddd  --
 IF_DEF(SVE_GZ_3A,   IS_NONE, NONE) // SVE_GZ_3A  ...........iimmm ....i.nnnnnddddd  -- SVE floating-point multiply-add long (indexed)
 IF_DEF(SVE_HA_3A,   IS_NONE, NONE) // SVE_HA_3A  ...........mmmmm ......nnnnnddddd  -- SVE BFloat16 floating-point dot product
-IF_DEF(SVE_HA_3A_E, IS_NONE, NONE) // SVE_HA_3A_E  ...........mmmmm ......nnnnnddddd  -- 
-IF_DEF(SVE_HA_3A_F, IS_NONE, NONE) // SVE_HA_3A_F  ...........mmmmm ......nnnnnddddd  -- 
+IF_DEF(SVE_HA_3A_E, IS_NONE, NONE) // SVE_HA_3A_E  ...........mmmmm ......nnnnnddddd  --
+IF_DEF(SVE_HA_3A_F, IS_NONE, NONE) // SVE_HA_3A_F  ...........mmmmm ......nnnnnddddd  --
 IF_DEF(SVE_HB_3A,   IS_NONE, NONE) // SVE_HB_3A  ...........mmmmm ......nnnnnddddd  -- SVE floating-point multiply-add long
 IF_DEF(SVE_HC_3A,   IS_NONE, NONE) // SVE_HC_3A  ...........iimmm ....iinnnnnddddd  -- SVE2 FP8 multiply-add long long (indexed)
 IF_DEF(SVE_HD_3A,   IS_NONE, NONE) // SVE_HD_3A  ...........mmmmm ......nnnnnddddd  -- SVE floating point matrix multiply accumulate
-IF_DEF(SVE_HD_3A_A, IS_NONE, NONE) // SVE_HD_3A_A  ...........mmmmm ......nnnnnddddd  -- 
+IF_DEF(SVE_HD_3A_A, IS_NONE, NONE) // SVE_HD_3A_A  ...........mmmmm ......nnnnnddddd  --
 IF_DEF(SVE_HE_3A,   IS_NONE, NONE) // SVE_HE_3A  ........xx...... ...gggnnnnnddddd  -- SVE floating-point recursive reduction
 IF_DEF(SVE_HF_2A,   IS_NONE, NONE) // SVE_HF_2A  ........xx...... ......nnnnnddddd  -- SVE floating-point reciprocal estimate (unpredicated)
 IF_DEF(SVE_HG_2A,   IS_NONE, NONE) // SVE_HG_2A  ................ ......nnnn.ddddd  -- SVE2 FP8 downconverts
@@ -376,8 +376,8 @@ IF_DEF(SVE_HL_3B,   IS_NONE, NONE) // SVE_HL_3B  ................ ...gggmmmmmddd
 IF_DEF(SVE_HM_2A,   IS_NONE, NONE) // SVE_HM_2A  ........xx...... ...ggg....iddddd  -- SVE floating-point arithmetic with immediate (predicated)
 IF_DEF(SVE_HN_2A,   IS_NONE, NONE) // SVE_HN_2A  ........xx...iii ......mmmmmddddd  -- SVE floating-point trig multiply-add coefficient
 IF_DEF(SVE_HO_3A,   IS_NONE, NONE) // SVE_HO_3A  ................ ...gggnnnnnddddd  -- SVE floating-point convert precision
-IF_DEF(SVE_HO_3B,   IS_NONE, NONE) // SVE_HO_3B  ................ ...gggnnnnnddddd  -- 
-IF_DEF(SVE_HO_3C,   IS_NONE, NONE) // SVE_HO_3C  ................ ...gggnnnnnddddd  -- 
+IF_DEF(SVE_HO_3B,   IS_NONE, NONE) // SVE_HO_3B  ................ ...gggnnnnnddddd  --
+IF_DEF(SVE_HO_3C,   IS_NONE, NONE) // SVE_HO_3C  ................ ...gggnnnnnddddd  --
 IF_DEF(SVE_HP_3A,   IS_NONE, NONE) // SVE_HP_3A  .............xx. ...gggnnnnnddddd  -- SVE floating-point convert to integer
 IF_DEF(SVE_HP_3B,   IS_NONE, NONE) // SVE_HP_3B  .............xx. ...gggnnnnnddddd  -- SVE floating-point convert to integer
 IF_DEF(SVE_HQ_3A,   IS_NONE, NONE) // SVE_HQ_3A  ........xx...... ...gggnnnnnddddd  -- SVE floating-point round to integral value
@@ -388,59 +388,59 @@ IF_DEF(SVE_HU_4A,   IS_NONE, NONE) // SVE_HU_4A  ........xx.mmmmm ...gggnnnnnddd
 IF_DEF(SVE_HU_4B,   IS_NONE, NONE) // SVE_HU_4B  ...........mmmmm ...gggnnnnnddddd  -- SVE floating-point multiply-accumulate writing addend
 IF_DEF(SVE_HV_4A,   IS_NONE, NONE) // SVE_HV_4A  ........xx.aaaaa ...gggmmmmmddddd  -- SVE floating-point multiply-accumulate writing multiplicand
 IF_DEF(SVE_HW_4A,   IS_NONE, NONE) // SVE_HW_4A  .........h.mmmmm ...gggnnnnnttttt  -- SVE 32-bit gather load (scalar plus 32-bit unscaled offsets)
-IF_DEF(SVE_HW_4A_A, IS_NONE, NONE) // SVE_HW_4A_A  .........h.mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_HW_4A_A, IS_NONE, NONE) // SVE_HW_4A_A  .........h.mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_HW_4B,   IS_NONE, NONE) // SVE_HW_4B  ...........mmmmm ...gggnnnnnttttt  -- SVE 32-bit gather load (scalar plus 32-bit unscaled offsets)
-IF_DEF(SVE_HW_4A_B, IS_NONE, NONE) // SVE_HW_4A_B  .........h.mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_HW_4A_C, IS_NONE, NONE) // SVE_HW_4A_C  .........h.mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_HW_4B_D, IS_NONE, NONE) // SVE_HW_4B_D  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_HW_4A_B, IS_NONE, NONE) // SVE_HW_4A_B  .........h.mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_HW_4A_C, IS_NONE, NONE) // SVE_HW_4A_C  .........h.mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_HW_4B_D, IS_NONE, NONE) // SVE_HW_4B_D  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_HX_3A,   IS_NONE, NONE) // SVE_HX_3A  ...........iiiii ...gggnnnnnttttt  -- SVE 32-bit gather load (vector plus immediate)
-IF_DEF(SVE_HX_3A_B, IS_NONE, NONE) // SVE_HX_3A_B  ...........iiiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_HX_3A_E, IS_NONE, NONE) // SVE_HX_3A_E  ...........iiiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_HX_3A_B, IS_NONE, NONE) // SVE_HX_3A_B  ...........iiiii ...gggnnnnnttttt  --
+IF_DEF(SVE_HX_3A_E, IS_NONE, NONE) // SVE_HX_3A_E  ...........iiiii ...gggnnnnnttttt  --
 IF_DEF(SVE_HY_3A,   IS_NONE, NONE) // SVE_HY_3A  .........h.mmmmm ...gggnnnnn.oooo  -- SVE 32-bit gather prefetch (scalar plus 32-bit scaled offsets)
-IF_DEF(SVE_HY_3A_A, IS_NONE, NONE) // SVE_HY_3A_A  .........h.mmmmm ...gggnnnnn.oooo  -- 
+IF_DEF(SVE_HY_3A_A, IS_NONE, NONE) // SVE_HY_3A_A  .........h.mmmmm ...gggnnnnn.oooo  --
 IF_DEF(SVE_HY_3B,   IS_NONE, NONE) // SVE_HY_3B  ...........mmmmm ...gggnnnnn.oooo  -- SVE 32-bit gather prefetch (scalar plus 32-bit scaled offsets)
 IF_DEF(SVE_HZ_2A,   IS_NONE, NONE) // SVE_HZ_2A  ...........iiiii ...gggnnnnn.oooo  -- SVE 32-bit gather prefetch (vector plus immediate)
-IF_DEF(SVE_HZ_2A_B, IS_NONE, NONE) // SVE_HZ_2A_B  ...........iiiii ...gggnnnnn.oooo  -- 
+IF_DEF(SVE_HZ_2A_B, IS_NONE, NONE) // SVE_HZ_2A_B  ...........iiiii ...gggnnnnn.oooo  --
 IF_DEF(SVE_IA_2A,   IS_NONE, NONE) // SVE_IA_2A  ..........iiiiii ...gggnnnnn.oooo  -- SVE contiguous prefetch (scalar plus immediate)
 IF_DEF(SVE_IB_3A,   IS_NONE, NONE) // SVE_IB_3A  ...........mmmmm ...gggnnnnn.oooo  -- SVE contiguous prefetch (scalar plus scalar)
 IF_DEF(SVE_IC_3A,   IS_NONE, NONE) // SVE_IC_3A  ..........iiiiii ...gggnnnnnttttt  -- SVE load and broadcast element
-IF_DEF(SVE_IC_3A_A, IS_NONE, NONE) // SVE_IC_3A_A  ..........iiiiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IC_3A_B, IS_NONE, NONE) // SVE_IC_3A_B  ..........iiiiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IC_3A_C, IS_NONE, NONE) // SVE_IC_3A_C  ..........iiiiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IC_3A_A, IS_NONE, NONE) // SVE_IC_3A_A  ..........iiiiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IC_3A_B, IS_NONE, NONE) // SVE_IC_3A_B  ..........iiiiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IC_3A_C, IS_NONE, NONE) // SVE_IC_3A_C  ..........iiiiii ...gggnnnnnttttt  --
 IF_DEF(SVE_ID_2A,   IS_NONE, NONE) // SVE_ID_2A  ..........iiiiii ...iiinnnnn.TTTT  -- SVE load predicate register
 IF_DEF(SVE_IE_2A,   IS_NONE, NONE) // SVE_IE_2A  ..........iiiiii ...iiinnnnnttttt  -- SVE load vector register
 IF_DEF(SVE_IF_4A,   IS_NONE, NONE) // SVE_IF_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE2 32-bit gather non-temporal load (vector plus scalar)
-IF_DEF(SVE_IF_4A_A, IS_NONE, NONE) // SVE_IF_4A_A  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IF_4A_A, IS_NONE, NONE) // SVE_IF_4A_A  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_IG_4A,   IS_NONE, NONE) // SVE_IG_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE contiguous first-fault load (scalar plus scalar)
-IF_DEF(SVE_IG_4A_C, IS_NONE, NONE) // SVE_IG_4A_C  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IG_4A_D, IS_NONE, NONE) // SVE_IG_4A_D  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IG_4A_E, IS_NONE, NONE) // SVE_IG_4A_E  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IG_4A_F, IS_NONE, NONE) // SVE_IG_4A_F  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IG_4A_G, IS_NONE, NONE) // SVE_IG_4A_G  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IG_4A_C, IS_NONE, NONE) // SVE_IG_4A_C  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IG_4A_D, IS_NONE, NONE) // SVE_IG_4A_D  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IG_4A_E, IS_NONE, NONE) // SVE_IG_4A_E  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IG_4A_F, IS_NONE, NONE) // SVE_IG_4A_F  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IG_4A_G, IS_NONE, NONE) // SVE_IG_4A_G  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_IH_3A,   IS_NONE, NONE) // SVE_IH_3A  ............iiii ...gggnnnnnttttt  -- SVE contiguous load (quadwords, scalar plus immediate)
-IF_DEF(SVE_IH_3A_F, IS_NONE, NONE) // SVE_IH_3A_F  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IH_3A_G, IS_NONE, NONE) // SVE_IH_3A_G  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IH_3A_A, IS_NONE, NONE) // SVE_IH_3A_A  ............iiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IH_3A_F, IS_NONE, NONE) // SVE_IH_3A_F  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IH_3A_G, IS_NONE, NONE) // SVE_IH_3A_G  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IH_3A_A, IS_NONE, NONE) // SVE_IH_3A_A  ............iiii ...gggnnnnnttttt  --
 IF_DEF(SVE_II_4A,   IS_NONE, NONE) // SVE_II_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE contiguous load (quadwords, scalar plus scalar)
-IF_DEF(SVE_II_4A_H, IS_NONE, NONE) // SVE_II_4A_H  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_II_4A_I, IS_NONE, NONE) // SVE_II_4A_I  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_II_4A_B, IS_NONE, NONE) // SVE_II_4A_B  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_II_4A_H, IS_NONE, NONE) // SVE_II_4A_H  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_II_4A_I, IS_NONE, NONE) // SVE_II_4A_I  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_II_4A_B, IS_NONE, NONE) // SVE_II_4A_B  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_IJ_3A,   IS_NONE, NONE) // SVE_IJ_3A  ............iiii ...gggnnnnnttttt  -- SVE contiguous load (scalar plus immediate)
-IF_DEF(SVE_IJ_3A_C, IS_NONE, NONE) // SVE_IJ_3A_C  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IJ_3A_D, IS_NONE, NONE) // SVE_IJ_3A_D  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IJ_3A_E, IS_NONE, NONE) // SVE_IJ_3A_E  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IJ_3A_F, IS_NONE, NONE) // SVE_IJ_3A_F  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IJ_3A_G, IS_NONE, NONE) // SVE_IJ_3A_G  ............iiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IJ_3A_C, IS_NONE, NONE) // SVE_IJ_3A_C  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IJ_3A_D, IS_NONE, NONE) // SVE_IJ_3A_D  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IJ_3A_E, IS_NONE, NONE) // SVE_IJ_3A_E  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IJ_3A_F, IS_NONE, NONE) // SVE_IJ_3A_F  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IJ_3A_G, IS_NONE, NONE) // SVE_IJ_3A_G  ............iiii ...gggnnnnnttttt  --
 IF_DEF(SVE_IK_4A,   IS_NONE, NONE) // SVE_IK_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE contiguous load (scalar plus scalar)
-IF_DEF(SVE_IK_4A_F, IS_NONE, NONE) // SVE_IK_4A_F  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IK_4A_G, IS_NONE, NONE) // SVE_IK_4A_G  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IK_4A_H, IS_NONE, NONE) // SVE_IK_4A_H  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IK_4A_I, IS_NONE, NONE) // SVE_IK_4A_I  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IK_4A_E, IS_NONE, NONE) // SVE_IK_4A_E  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IK_4A_F, IS_NONE, NONE) // SVE_IK_4A_F  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IK_4A_G, IS_NONE, NONE) // SVE_IK_4A_G  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IK_4A_H, IS_NONE, NONE) // SVE_IK_4A_H  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IK_4A_I, IS_NONE, NONE) // SVE_IK_4A_I  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IK_4A_E, IS_NONE, NONE) // SVE_IK_4A_E  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_IL_3A,   IS_NONE, NONE) // SVE_IL_3A  ............iiii ...gggnnnnnttttt  -- SVE contiguous non-fault load (scalar plus immediate)
-IF_DEF(SVE_IL_3A_A, IS_NONE, NONE) // SVE_IL_3A_A  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IL_3A_B, IS_NONE, NONE) // SVE_IL_3A_B  ............iiii ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IL_3A_C, IS_NONE, NONE) // SVE_IL_3A_C  ............iiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IL_3A_A, IS_NONE, NONE) // SVE_IL_3A_A  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IL_3A_B, IS_NONE, NONE) // SVE_IL_3A_B  ............iiii ...gggnnnnnttttt  --
+IF_DEF(SVE_IL_3A_C, IS_NONE, NONE) // SVE_IL_3A_C  ............iiii ...gggnnnnnttttt  --
 IF_DEF(SVE_IM_3A,   IS_NONE, NONE) // SVE_IM_3A  ............iiii ...gggnnnnnttttt  -- SVE contiguous non-temporal load (scalar plus immediate)
 IF_DEF(SVE_IN_4A,   IS_NONE, NONE) // SVE_IN_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE contiguous non-temporal load (scalar plus scalar)
 IF_DEF(SVE_IO_3A,   IS_NONE, NONE) // SVE_IO_3A  ............iiii ...gggnnnnnttttt  -- SVE load and broadcast quadword (scalar plus immediate)
@@ -450,46 +450,46 @@ IF_DEF(SVE_IR_4A,   IS_NONE, NONE) // SVE_IR_4A  ...........mmmmm ...gggnnnnnttt
 IF_DEF(SVE_IS_3A,   IS_NONE, NONE) // SVE_IS_3A  ............iiii ...gggnnnnnttttt  -- SVE load multiple structures (scalar plus immediate)
 IF_DEF(SVE_IT_4A,   IS_NONE, NONE) // SVE_IT_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE load multiple structures (scalar plus scalar)
 IF_DEF(SVE_IU_4A,   IS_NONE, NONE) // SVE_IU_4A  .........h.mmmmm ...gggnnnnnttttt  -- SVE 64-bit gather load (scalar plus 32-bit unpacked scaled offsets)
-IF_DEF(SVE_IU_4A_A, IS_NONE, NONE) // SVE_IU_4A_A  .........h.mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IU_4A_A, IS_NONE, NONE) // SVE_IU_4A_A  .........h.mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_IU_4B,   IS_NONE, NONE) // SVE_IU_4B  ...........mmmmm ...gggnnnnnttttt  -- SVE 64-bit gather load (scalar plus 32-bit unpacked scaled offsets)
-IF_DEF(SVE_IU_4B_B, IS_NONE, NONE) // SVE_IU_4B_B  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IU_4A_C, IS_NONE, NONE) // SVE_IU_4A_C  .........h.mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_IU_4B_D, IS_NONE, NONE) // SVE_IU_4B_D  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IU_4B_B, IS_NONE, NONE) // SVE_IU_4B_B  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IU_4A_C, IS_NONE, NONE) // SVE_IU_4A_C  .........h.mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_IU_4B_D, IS_NONE, NONE) // SVE_IU_4B_D  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_IV_3A,   IS_NONE, NONE) // SVE_IV_3A  ...........iiiii ...gggnnnnnttttt  -- SVE 64-bit gather load (vector plus immediate)
 IF_DEF(SVE_IW_4A,   IS_NONE, NONE) // SVE_IW_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE2 128-bit gather load (vector plus scalar)
 IF_DEF(SVE_IX_4A,   IS_NONE, NONE) // SVE_IX_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE2 64-bit gather non-temporal load (vector plus scalar)
 IF_DEF(SVE_IY_4A,   IS_NONE, NONE) // SVE_IY_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE2 128-bit scatter store (vector plus scalar)
 IF_DEF(SVE_IZ_4A,   IS_NONE, NONE) // SVE_IZ_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE2 32-bit scatter non-temporal store (vector plus scalar)
-IF_DEF(SVE_IZ_4A_A, IS_NONE, NONE) // SVE_IZ_4A_A  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_IZ_4A_A, IS_NONE, NONE) // SVE_IZ_4A_A  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_JA_4A,   IS_NONE, NONE) // SVE_JA_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE2 64-bit scatter non-temporal store (vector plus scalar)
 IF_DEF(SVE_JB_4A,   IS_NONE, NONE) // SVE_JB_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE contiguous non-temporal store (scalar plus scalar)
 IF_DEF(SVE_JC_4A,   IS_NONE, NONE) // SVE_JC_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE store multiple structures (scalar plus scalar)
 IF_DEF(SVE_JD_4A,   IS_NONE, NONE) // SVE_JD_4A  .........xxmmmmm ...gggnnnnnttttt  -- SVE contiguous store (scalar plus scalar)
 IF_DEF(SVE_JD_4B,   IS_NONE, NONE) // SVE_JD_4B  ..........xmmmmm ...gggnnnnnttttt  -- SVE contiguous store (scalar plus scalar)
 IF_DEF(SVE_JD_4C,   IS_NONE, NONE) // SVE_JD_4C  ...........mmmmm ...gggnnnnnttttt  -- SVE contiguous store (scalar plus scalar)
-IF_DEF(SVE_JD_4C_A, IS_NONE, NONE) // SVE_JD_4C_A  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_JD_4C_A, IS_NONE, NONE) // SVE_JD_4C_A  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_JE_3A,   IS_NONE, NONE) // SVE_JE_3A  ............iiii ...gggnnnnnttttt  -- SVE store multiple structures (quadwords, scalar plus immediate)
 IF_DEF(SVE_JF_4A,   IS_NONE, NONE) // SVE_JF_4A  ...........mmmmm ...gggnnnnnttttt  -- SVE store multiple structures (quadwords, scalar plus scalar)
 IF_DEF(SVE_JG_2A,   IS_NONE, NONE) // SVE_JG_2A  ..........iiiiii ...iiinnnnn.TTTT  -- SVE store predicate register
 IF_DEF(SVE_JH_2A,   IS_NONE, NONE) // SVE_JH_2A  ..........iiiiii ...iiinnnnnttttt  -- SVE store vector register
 IF_DEF(SVE_JI_3A,   IS_NONE, NONE) // SVE_JI_3A  ...........iiiii ...gggnnnnnttttt  -- SVE 32-bit scatter store (vector plus immediate)
-IF_DEF(SVE_JI_3A_A, IS_NONE, NONE) // SVE_JI_3A_A  ...........iiiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_JI_3A_A, IS_NONE, NONE) // SVE_JI_3A_A  ...........iiiii ...gggnnnnnttttt  --
 IF_DEF(SVE_JJ_4A,   IS_NONE, NONE) // SVE_JJ_4A  ...........mmmmm .h.gggnnnnnttttt  -- SVE 64-bit scatter store (scalar plus 64-bit scaled offsets)
-IF_DEF(SVE_JJ_4A_B, IS_NONE, NONE) // SVE_JJ_4A_B  ...........mmmmm .h.gggnnnnnttttt  -- 
-IF_DEF(SVE_JJ_4A_C, IS_NONE, NONE) // SVE_JJ_4A_C  ...........mmmmm .h.gggnnnnnttttt  -- 
-IF_DEF(SVE_JJ_4A_D, IS_NONE, NONE) // SVE_JJ_4A_D  ...........mmmmm .h.gggnnnnnttttt  -- 
+IF_DEF(SVE_JJ_4A_B, IS_NONE, NONE) // SVE_JJ_4A_B  ...........mmmmm .h.gggnnnnnttttt  --
+IF_DEF(SVE_JJ_4A_C, IS_NONE, NONE) // SVE_JJ_4A_C  ...........mmmmm .h.gggnnnnnttttt  --
+IF_DEF(SVE_JJ_4A_D, IS_NONE, NONE) // SVE_JJ_4A_D  ...........mmmmm .h.gggnnnnnttttt  --
 IF_DEF(SVE_JJ_4B,   IS_NONE, NONE) // SVE_JJ_4B  ...........mmmmm ...gggnnnnnttttt  -- SVE 64-bit scatter store (scalar plus 64-bit scaled offsets)
-IF_DEF(SVE_JJ_4B_E, IS_NONE, NONE) // SVE_JJ_4B_E  ...........mmmmm ...gggnnnnnttttt  -- 
-IF_DEF(SVE_JJ_4B_C, IS_NONE, NONE) // SVE_JJ_4B_C  ...........mmmmm ...gggnnnnnttttt  -- 
+IF_DEF(SVE_JJ_4B_E, IS_NONE, NONE) // SVE_JJ_4B_E  ...........mmmmm ...gggnnnnnttttt  --
+IF_DEF(SVE_JJ_4B_C, IS_NONE, NONE) // SVE_JJ_4B_C  ...........mmmmm ...gggnnnnnttttt  --
 IF_DEF(SVE_JK_4A,   IS_NONE, NONE) // SVE_JK_4A  ...........mmmmm .h.gggnnnnnttttt  -- SVE 64-bit scatter store (scalar plus 64-bit unscaled offsets)
-IF_DEF(SVE_JK_4A_B, IS_NONE, NONE) // SVE_JK_4A_B  ...........mmmmm .h.gggnnnnnttttt  -- 
+IF_DEF(SVE_JK_4A_B, IS_NONE, NONE) // SVE_JK_4A_B  ...........mmmmm .h.gggnnnnnttttt  --
 IF_DEF(SVE_JK_4B,   IS_NONE, NONE) // SVE_JK_4B  ...........mmmmm ...gggnnnnnttttt  -- SVE 64-bit scatter store (scalar plus 64-bit unscaled offsets)
 IF_DEF(SVE_JL_3A,   IS_NONE, NONE) // SVE_JL_3A  ...........iiiii ...gggnnnnnttttt  -- SVE 64-bit scatter store (vector plus immediate)
 IF_DEF(SVE_JM_3A,   IS_NONE, NONE) // SVE_JM_3A  ............iiii ...gggnnnnnttttt  -- SVE contiguous non-temporal store (scalar plus immediate)
 IF_DEF(SVE_JN_3A,   IS_NONE, NONE) // SVE_JN_3A  .........xx.iiii ...gggnnnnnttttt  -- SVE contiguous store (scalar plus immediate)
 IF_DEF(SVE_JN_3B,   IS_NONE, NONE) // SVE_JN_3B  ..........x.iiii ...gggnnnnnttttt  -- SVE contiguous store (scalar plus immediate)
 IF_DEF(SVE_JN_3C,   IS_NONE, NONE) // SVE_JN_3C  ............iiii ...gggnnnnnttttt  -- SVE contiguous store (scalar plus immediate)
-IF_DEF(SVE_JN_3C_D, IS_NONE, NONE) // SVE_JN_3C_D  ............iiii ...gggnnnnnttttt  -- 
+IF_DEF(SVE_JN_3C_D, IS_NONE, NONE) // SVE_JN_3C_D  ............iiii ...gggnnnnnttttt  --
 IF_DEF(SVE_JO_3A,   IS_NONE, NONE) // SVE_JO_3A  ............iiii ...gggnnnnnttttt  -- SVE store multiple structures (scalar plus immediate)
 
 //////////////////////////////////////////////////////////////////////////////

@@ -18,7 +18,7 @@
 #include <palsuite.h>
 
 PALTEST(locale_info_CompareStringW_test1_paltest_comparestringw_test1, "locale_info/CompareStringW/test1/paltest_comparestringw_test1")
-{    
+{
     WCHAR str1[] = {'f','o','o',0};
     WCHAR str2[] = {'f','o','o','x',0};
     WCHAR str3[] = {'f','O','o',0};
@@ -79,7 +79,7 @@ PALTEST(locale_info_CompareStringW_test1_paltest_comparestringw_test1, "locale_i
             "CSTR_GREATER_THAN!\n", str1, 0, str3, -1);
     }
 
-    
+
     ret = CompareStringW(0x0409, flags, NULL, -1, str3, -1);
     if (ret != 0)
     {

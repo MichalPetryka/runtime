@@ -49,7 +49,7 @@ stack_walk_callback (
 
 	// Get the IP.
 	UINT_PTR control_pc = (UINT_PTR)frame->GetRegisterSet ()->ControlPC;
-	
+
 	if (!frame->IsFrameless() && frame->GetFrame()->GetFrameIdentifier() == FrameIdentifier::PrestubMethodFrame) {
 		// At the PrestubMethodFrame, the ControlPC is not valid. Since the eventpipe stackwalk is actually only based on the ip, skip this frame.
 		return SWA_CONTINUE;

@@ -2496,7 +2496,7 @@ ImportHelper::ImportTypeDef(
         IfFailGo(CreateModuleRefFromScope(pMiniMdEmit, pCommonImport, &tkOuterRes));
     }
     else if (MvidAssemImport != MvidAssemEmit)
-    {   
+    {
         // The TypeDef is from a different Assembly.
 
         // Import and Emit scopes can't be identical and be from different

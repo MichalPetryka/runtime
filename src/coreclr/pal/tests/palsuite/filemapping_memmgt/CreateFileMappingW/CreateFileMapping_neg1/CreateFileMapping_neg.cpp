@@ -46,7 +46,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_CreateFileMapping_neg1_paltest_cre
 
     //free this memory
     free(lpFileName);
-   
+
     if(INVALID_HANDLE_VALUE == FileHandle)
     {
         Fail("Failed to call CreateFile to create a file\n");
@@ -58,14 +58,14 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_CreateFileMapping_neg1_paltest_cre
     FileMappingHandle = CreateFileMapping(
         FileHandle,         //File Handle
         NULL,               //not inherited
-        PAGE_READONLY,      //access protection 
+        PAGE_READONLY,      //access protection
         0,                  //high-order of object size
         0,                  //low-orger of object size
         NULL);              //unnamed object
 
 
-    if(NULL != FileMappingHandle || ERROR_FILE_INVALID != GetLastError()) 
-    {//no error occurred 
+    if(NULL != FileMappingHandle || ERROR_FILE_INVALID != GetLastError())
+    {//no error occurred
         Trace("\nFailed to call CreateFileMapping API for a negative test!\n");
         err = CloseHandle(FileHandle);
         if(0 == err)
@@ -79,7 +79,7 @@ PALTEST(filemapping_memmgt_CreateFileMappingW_CreateFileMapping_neg1_paltest_cre
         }
         Fail("");
     }
-    
+
     //close the file handle
     err = CloseHandle(FileHandle);
     if(0 == err)

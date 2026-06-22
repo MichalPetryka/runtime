@@ -2399,7 +2399,7 @@ ExecuteCodes:
         }
 
         //
-        // pac (11111100): function has pointer authentication 
+        // pac (11111100): function has pointer authentication
         //
 
         else if (CurCode == 0xfc) {

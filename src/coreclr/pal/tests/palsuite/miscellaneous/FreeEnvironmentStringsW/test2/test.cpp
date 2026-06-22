@@ -19,7 +19,7 @@ PALTEST(miscellaneous_FreeEnvironmentStringsW_test2_paltest_freeenvironmentstrin
     WCHAR CapturedEnvironment[] = {'T','E','S','T','\0'};
     BOOL TheResult = 0;
     LPWSTR lpCapturedEnvironment = NULL;
-    
+
     /*
      * Initialize the PAL and return FAILURE if this fails
      */
@@ -29,39 +29,39 @@ PALTEST(miscellaneous_FreeEnvironmentStringsW_test2_paltest_freeenvironmentstrin
         return FAIL;
     }
 
-    lpCapturedEnvironment = (LPWSTR)malloc( sizeof(CapturedEnvironment) / 
+    lpCapturedEnvironment = (LPWSTR)malloc( sizeof(CapturedEnvironment) /
                                             sizeof(CapturedEnvironment[0]) );
 
     if ( lpCapturedEnvironment )
     {
-        memcpy( lpCapturedEnvironment, CapturedEnvironment, 
+        memcpy( lpCapturedEnvironment, CapturedEnvironment,
                 sizeof(CapturedEnvironment) / sizeof(CapturedEnvironment[0]) );
     }
     else
     {
         Fail( "malloc()  failed to allocate memory.\n" );
     }
-    /* Even if this is not a valid Environment block, the function will 
-       still return success 
+    /* Even if this is not a valid Environment block, the function will
+       still return success
     */
-  
+
     TheResult = FreeEnvironmentStrings( lpCapturedEnvironment );
-    if(TheResult == 0) 
+    if(TheResult == 0)
     {
         Fail("The function should still return a success value even if it is "
              "passed a LPWSTR which is not an environment block properly "
              "acquired from GetEnvironmentStrings\n");
     }
-  
+
     /* Even passing this function NULL, should still return a success value */
     TheResult = FreeEnvironmentStrings(NULL);
-    if(TheResult == 0) 
+    if(TheResult == 0)
     {
         Fail("The function should still return a success value even if pass "
-             "NULL.\n");    
+             "NULL.\n");
     }
- 
-    
+
+
     PAL_Terminate();
     return PASS;
 }

@@ -12,7 +12,7 @@
 **          CreateFile,
 **          CreateFileMapping,
 **          CloseHandle.
-**          
+**
 
 **
 **============================================================*/
@@ -41,7 +41,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test5_paltest_mapviewoffile_test5, "fil
     /* Attempt to create a MapViewOfFile with a NULL handle.
      */
     hFileMapping = NULL;
-    
+
     lpMapViewAddress = MapViewOfFile(
                             hFileMapping,
                             FILE_MAP_WRITE, /* access code */
@@ -49,7 +49,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test5_paltest_mapviewoffile_test5, "fil
                             0,              /* low order offset */
                             MAPPINGSIZE);   /* number of bytes for map */
 
-    if((NULL != lpMapViewAddress) && 
+    if((NULL != lpMapViewAddress) &&
        (GetLastError() != ERROR_INVALID_HANDLE))
     {
         Trace("ERROR:%u: Able to create a MapViewOfFile with "
@@ -62,7 +62,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test5_paltest_mapviewoffile_test5, "fil
     /* Attempt to create a MapViewOfFile with an invalid handle.
      */
     hFileMapping = INVALID_HANDLE_VALUE;
-    
+
     lpMapViewAddress = MapViewOfFile(
                             hFileMapping,
                             FILE_MAP_WRITE, /* access code */
@@ -70,7 +70,7 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test5_paltest_mapviewoffile_test5, "fil
                             0,              /* low order offset */
                             MAPPINGSIZE);   /* number of bytes for map */
 
-    if((NULL != lpMapViewAddress) && 
+    if((NULL != lpMapViewAddress) &&
        (GetLastError() != ERROR_INVALID_HANDLE))
     {
         Trace("ERROR:%u: Able to create a MapViewOfFile with "
@@ -86,4 +86,4 @@ PALTEST(filemapping_memmgt_MapViewOfFile_test5_paltest_mapviewoffile_test5, "fil
     return PASS;
 }
 
-  
+

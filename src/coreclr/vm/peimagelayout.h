@@ -326,7 +326,7 @@ public:
 class NativeImageLayout : public PEImageLayout
 {
     VPTR_VTABLE_CLASS(NativeImageLayout, PEImageLayout)
-    
+
     public:
 #ifndef DACCESS_COMPILE
     NativeImageLayout(LPCWSTR fullPath);

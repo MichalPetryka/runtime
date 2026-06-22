@@ -14,7 +14,7 @@
 #include <minipal/utf8.h>
 
 PALTEST(locale_info_MultiByteToWideChar_test4_paltest_multibytetowidechar_test4, "locale_info/MultiByteToWideChar/test4/paltest_multibytetowidechar_test4")
-{    
+{
     int ret;
     int ret2;
 
@@ -26,7 +26,7 @@ PALTEST(locale_info_MultiByteToWideChar_test4_paltest_multibytetowidechar_test4,
     const char * const utf8Strings[] =
     {
         // Correct strings
-        
+
         // Empty string
         "",
         // 1 byte encoded 1 character long string
@@ -59,7 +59,7 @@ PALTEST(locale_info_MultiByteToWideChar_test4_paltest_multibytetowidechar_test4,
         "\xC2\x80\xC3\xBF\x43\x44\xC7\x81\xDF\xBF",
         // surrogates
         "\xF0\x90\x80\x80\xF0\x90\x89\x80\xF3\x80\x8E\xB0\xF4\x8F\xBF\xBF",
-        
+
         // Strings with errors
         // Incomplete 2 byte encoded character 1 byte missing standalone
         "\xC2",
@@ -98,7 +98,7 @@ PALTEST(locale_info_MultiByteToWideChar_test4_paltest_multibytetowidechar_test4,
         // Incomplete 3 byte encoded character 2 bytes missing after 1 byte char
         "\x41\xE0",
         // Trailing byte with no lead byte after 1 byte char
-        "\x41\x80",        
+        "\x41\x80",
         // Incomplete 2 byte encoded character 1 byte missing between 2 byte chars
         "\xC2\x80\xC2\xC3\xBF",
         // Incomplete 3 byte encoded character 1 byte missing between 2 byte chars
@@ -215,12 +215,12 @@ PALTEST(locale_info_MultiByteToWideChar_test4_paltest_multibytetowidechar_test4,
             Fail("MultiByteToWideChar string %d: returned different string length for empty and real dest buffers!\n"
                 "Got %d for the empty one, %d for real one.\n", i, ret2, ret);
         }
-        
+
         if (wcscmp(wideBuffer, unicodeStrings[i]) != 0)
         {
             Fail("MultiByteToWideChar string %d: the resulting string doesn't match the expected one!\n", i);
         }
-        
+
         free(wideBuffer);
     }
 
@@ -258,7 +258,7 @@ PALTEST(locale_info_MultiByteToWideChar_test4_paltest_multibytetowidechar_test4,
         }
     }
 #endif
-   
+
     PAL_Terminate();
 
     return PASS;

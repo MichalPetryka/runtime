@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 /*=====================================================================
-** 
+**
 ** Source:  test7.c (DuplicateHandle)
 **
 ** Purpose: Tests the PAL implementation of the DuplicateHandle function,
@@ -20,8 +20,8 @@ DWORD PALAPI CreateTestThread_DuplicateHandle_test7(LPVOID lpParam);
 
 PALTEST(threading_DuplicateHandle_test7_paltest_duplicatehandle_test7, "threading/DuplicateHandle/test7/paltest_duplicatehandle_test7")
 {
-    HANDLE  hThread;  
-    HANDLE  hDupThread;  
+    HANDLE  hThread;
+    HANDLE  hDupThread;
     DWORD   dwThreadId = 0;
     LPTHREAD_START_ROUTINE lpStartAddress =  &CreateTestThread_DuplicateHandle_test7;
     HANDLE  hSyncEvent;
@@ -35,7 +35,7 @@ PALTEST(threading_DuplicateHandle_test7_paltest_duplicatehandle_test7, "threadin
     {
         return (FAIL);
     }
-    
+
     LPSECURITY_ATTRIBUTES lpEventAttributes = NULL;
     BOOL bManualReset = TRUE;
     BOOL bInitialState = FALSE;

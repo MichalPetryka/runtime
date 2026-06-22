@@ -22,7 +22,7 @@ PALTEST(c_runtime_wcslen_test1_paltest_wcslen_test1, "c_runtime/wcslen/test1/pal
     WCHAR str2[] = {0};
     int ret;
 
-    
+
     if (PAL_Initialize(argc, argv))
     {
         return FAIL;
@@ -34,7 +34,7 @@ PALTEST(c_runtime_wcslen_test1_paltest_wcslen_test1, "c_runtime/wcslen/test1/pal
     {
         Fail("ERROR: Expected wcslen of \"foo \" to be 4, got %d\n", ret);
     }
-        
+
     ret = wcslen(str2);
     if (ret != 0)
     {

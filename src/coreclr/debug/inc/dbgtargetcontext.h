@@ -33,7 +33,7 @@
 // ****       2) When the DAC calls the supplied data target's context APIs, the size of the context buffer must
 // ****          be the size of the DT_CONTEXT for compatiblity.
 // ****       3) DBI/DAC code can not cast and copy from a T_CONTEXT into a DT_CONTEXT buffer.
-// ****       
+// ****
 
 // This odd define pattern is needed because in DBI we set _TARGET_ to match the host and
 // DBG_TARGET to control our targeting. In x-plat DBI DBG_TARGET won't match _TARGET_ and

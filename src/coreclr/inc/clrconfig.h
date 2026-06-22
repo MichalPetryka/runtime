@@ -36,7 +36,7 @@ public:
         // The configuration should be parsed using a 10 radix as opposed to the
         // default of 16.
         ParseIntegerAsBase10 = 0x4,
-        
+
         // If set, prepend DOTNET_ or CORECLR_ prefix when doing environment variable lookup.
         CoreclrFallbackPrefix = 0x8,
     };

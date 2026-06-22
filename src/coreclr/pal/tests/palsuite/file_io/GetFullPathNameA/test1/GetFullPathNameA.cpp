@@ -37,9 +37,9 @@ PALTEST(file_io_GetFullPathNameA_test1_paltest_getfullpathnamea_test1, "file_io/
     }
 
     memset(szReturnedPath, 0, _MAX_DIR+1);
-    dwRc = GetFullPathNameA(szFileName, 
-        _MAX_DIR, 
-        szReturnedPath, 
+    dwRc = GetFullPathNameA(szFileName,
+        _MAX_DIR,
+        szReturnedPath,
         &pPathPtr);
 
     if (dwRc == 0)
@@ -49,7 +49,7 @@ PALTEST(file_io_GetFullPathNameA_test1_paltest_getfullpathnamea_test1, "file_io/
             "file \"%s\" with error code: %ld.\n", szFileName, GetLastError());
     }
 
-    // the returned value should be the current directory with the 
+    // the returned value should be the current directory with the
     // file name appended
     hFile = CreateFileA(szFileName,
         GENERIC_READ,
@@ -61,7 +61,7 @@ PALTEST(file_io_GetFullPathNameA_test1_paltest_getfullpathnamea_test1, "file_io/
     if (hFile == INVALID_HANDLE_VALUE)
     {
         Fail("GetFullPathNameA: ERROR -> CreateFileA failed to create "
-            "file \"%s\" with error code: %ld.\n", 
+            "file \"%s\" with error code: %ld.\n",
             szFileName,
             GetLastError());
     }
@@ -71,8 +71,8 @@ PALTEST(file_io_GetFullPathNameA_test1_paltest_getfullpathnamea_test1, "file_io/
             "code: %ld.\n", GetLastError());
     }
 
-    // now try to create the file based on the returned value with the 
-    // CREATE_NEW option which should fail since the file should 
+    // now try to create the file based on the returned value with the
+    // CREATE_NEW option which should fail since the file should
     // already exist
     hFile = CreateFileA(szReturnedPath,
         GENERIC_READ,
@@ -85,7 +85,7 @@ PALTEST(file_io_GetFullPathNameA_test1_paltest_getfullpathnamea_test1, "file_io/
     {
         Fail("GetFullPathNameA: ERROR -> CreateFileA was able to "
             "CREATE_NEW the returned file \"%s\". The returned file "
-            "name is therefore apparently wrong.\n", 
+            "name is therefore apparently wrong.\n",
             szReturnedPath);
         if (CloseHandle(hFile) != TRUE)
         {
@@ -96,7 +96,7 @@ PALTEST(file_io_GetFullPathNameA_test1_paltest_getfullpathnamea_test1, "file_io/
             (DeleteFileA(szFileName) != TRUE))
         {
             Fail("GetFullPathNameA: ERROR -> DeleteFileA failed to "
-                "delete the test files with error code: %ld.\n", 
+                "delete the test files with error code: %ld.\n",
                 GetLastError());
         }
     }

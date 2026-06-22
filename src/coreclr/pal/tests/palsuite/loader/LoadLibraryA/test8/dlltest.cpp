@@ -7,9 +7,9 @@
 **
 ** Purpose: Test to ensure DllMain() is called with DLL_THREAD_DETACH
 **          only the initial time that the library is loaded.
-** 
+**
 ** Depends: None
-** 
+**
 
 **
 **===========================================================================*/
@@ -31,17 +31,17 @@ BOOL PALAPI DllMain(HINSTANCE hinstDLL, DWORD reason, LPVOID lpvReserved)
             g_attachCount++;
             break;
         }
-    
+
         case DLL_PROCESS_DETACH:
         {
             break;
         }
-        
+
         case DLL_THREAD_ATTACH:
         {
             break;
         }
-    
+
         case DLL_THREAD_DETACH:
         {
             break;

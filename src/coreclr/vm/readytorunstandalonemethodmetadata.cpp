@@ -288,7 +288,7 @@ public:
                         IfFailThrow(pMDImport->GetParentOfMemberRef(inputToken, &memberRefParent));
 
                         SigParser memberRefSigParse(sig, cbSig);
-                        
+
                         StandaloneSigTranslator sigTranslator(&memberRefSigParse, &blob, this);
                         sigTranslator.ParseMemberRefSignature();
                         ULONG strLen = (ULONG)strlen(name); // Cast to ULONG is safe, as the data is held in a PE file
@@ -569,7 +569,7 @@ public:
             uint8_t sigHeader = ParseByte();
             if (sigHeader != IMAGE_CEE_CS_CALLCONV_LOCAL_SIG)
                 ThrowHR(COR_E_BADIMAGEFORMAT);
-            
+
             uint32_t localsCount = ParseCompressedInt();
             for (uint32_t i = 0; i < localsCount; i++)
             {

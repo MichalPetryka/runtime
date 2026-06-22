@@ -7,8 +7,8 @@
 **
 ** Purpose: Positive test the VirtualAlloc API.
 **          Call VirtualAlloc to reserve and commit
-**          simultaneously with MEM_COMMIT|MEM_RESERVE|MEM_TOP_DOWN 
-**          allocation type and PAGE_READONLY access 
+**          simultaneously with MEM_COMMIT|MEM_RESERVE|MEM_TOP_DOWN
+**          allocation type and PAGE_READONLY access
 **          protection
 **
 **
@@ -26,8 +26,8 @@ PALTEST(filemapping_memmgt_VirtualAlloc_test19_paltest_virtualalloc_test19, "fil
     {
         ExitProcess(FAIL);
     }
-    
-    //reserve and commit simultaneously by using MEM_COMMIT|MEM_RESERVE 
+
+    //reserve and commit simultaneously by using MEM_COMMIT|MEM_RESERVE
     lpVirtualAddress = VirtualAlloc(NULL,//system determine where to allocate the region
             1024,            //specify the size
             MEM_COMMIT|MEM_RESERVE|MEM_TOP_DOWN,      //allocation type

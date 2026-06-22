@@ -24,10 +24,10 @@ PALTEST(filemapping_memmgt_VirtualFree_test2_paltest_virtualfree_test2, "filemap
     {
         ExitProcess(FAIL);
     }
-    
-    //Allocate the physical storage in memory or in the paging file on disk 
+
+    //Allocate the physical storage in memory or in the paging file on disk
     lpVirtualAddress = VirtualAlloc(NULL,//system determine where to allocate the region
-            1024,            //specify the size 
+            1024,            //specify the size
             MEM_COMMIT,      //allocation type
             PAGE_READONLY);  //access protection
     if(NULL == lpVirtualAddress)

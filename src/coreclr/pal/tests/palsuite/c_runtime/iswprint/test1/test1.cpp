@@ -5,7 +5,7 @@
 **
 ** Source:  test1.c
 **
-** Purpose: Tests iswprint with all wide characters, ensuring they are 
+** Purpose: Tests iswprint with all wide characters, ensuring they are
 **          consistent with GetStringTypeExW.
 **
 **

@@ -8,7 +8,7 @@
 ** Purpose:  Test for to see if the process GetCurrentProcess
 ** returns a handle to the current process or not.
 **
-** Dependencies: TerminateProcess 
+** Dependencies: TerminateProcess
 **
 **
 **=========================================================*/
@@ -18,13 +18,13 @@
 PALTEST(threading_GetCurrentProcess_test1_paltest_getcurrentprocess_test1, "threading/GetCurrentProcess/test1/paltest_getcurrentprocess_test1")
 {
 
-    HANDLE hProcess; 
-    
+    HANDLE hProcess;
+
     if(0 != (PAL_Initialize(argc, argv)))
     {
         return ( FAIL );
     }
-    
+
     hProcess = GetCurrentProcess();
     Trace ("Testing the handle returned by GetCurrentProcess\n");
     if ( 0 == ( TerminateProcess ( hProcess, PASS ) ) )

@@ -53,7 +53,7 @@ namespace R2RTest
             {
                 throw new ArgumentException($"Error: Asp.NET Core path must contain Microsoft.AspNetCore.dll");
             }
-            
+
             SerpDir = _options.InputDirectory.FullName;
             BinDir = Path.Combine(SerpDir, "bin");
 
@@ -172,7 +172,7 @@ namespace R2RTest
             string compileOutRoot = Path.Combine(serpRoot, CompileFolder);
             if (Directory.Exists(compileOutRoot))
                 Directory.Delete(compileOutRoot, true);
-            
+
             List<ProcessInfo> fileCompilations = new List<ProcessInfo>();
 
             // Single composite image for all of Serp
@@ -189,7 +189,7 @@ namespace R2RTest
                 string compositeDllPath = Path.Combine(BinDir, SerpCompositeFilename);
                 if (File.Exists(compositeDllPath))
                     File.Delete(compositeDllPath);
-                
+
                 string compositeDllCompile = GetCompileFile(serpRoot, compositeDllPath);
                 Crossgen2RunnerOptions crossgen2Options = new Crossgen2RunnerOptions() { Composite = true, CompositeRoot = GetBackupFile(serpRoot, SerpDir), PartialComposite = true };
                 var runner = new Crossgen2Runner(_options, crossgen2Options, combinedCompileAssembliesBackup);
@@ -201,7 +201,7 @@ namespace R2RTest
                 // Framework assemblies
                 {
                     List<string> frameworkCompileAssembliesBackup = BackupAndUseOriginalAssemblies(serpRoot, _frameworkCompileAssemblies);
-                
+
                     Crossgen2RunnerOptions crossgen2Options = new Crossgen2RunnerOptions() { Composite = false };
                     var runner = new Crossgen2Runner(_options, crossgen2Options, new List<string>());
                     foreach (string assembly in frameworkCompileAssembliesBackup)
@@ -219,7 +219,7 @@ namespace R2RTest
                     aspCombinedReferences.AddRange(_frameworkCompileAssemblies);
                     List<string> aspCombinedReferencesBackup = BackupAndUseOriginalAssemblies(serpRoot, aspCombinedReferences);
                     List<string> aspCompileAssembliesBackup = BackupAndUseOriginalAssemblies(serpRoot, _aspCompileAssemblies);
-                    
+
                     Crossgen2RunnerOptions crossgen2Options = new Crossgen2RunnerOptions() { Composite = false };
                     var runner = new Crossgen2Runner(_options, crossgen2Options, aspCombinedReferencesBackup);
                     foreach (string assembly in aspCompileAssembliesBackup)
@@ -272,7 +272,7 @@ namespace R2RTest
             }
 
             ParallelRunner.Run(fileCompilations, _options.DegreeOfParallelism);
-            
+
             bool success = true;
             foreach (var compilationProcess in fileCompilations)
             {
@@ -305,7 +305,7 @@ namespace R2RTest
                     File.Move(componentAssembly, destinationFile, true);
                 }
             }
-            
+
             // Move everything we compiled to the main directory structure
             var compiledFiles = Directory.GetFiles(Path.Combine(serpRoot, CompileFolder), "*.dll", SearchOption.AllDirectories);
             foreach (var file in compiledFiles)
